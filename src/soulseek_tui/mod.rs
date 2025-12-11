@@ -6,12 +6,11 @@ pub mod widgets;
 
 use std::path::PathBuf;
 
-use crate::{config::Config, soulseek::SoulSeekClientContext};
+use crate::soulseek::SoulSeekClientContext;
 use anyhow::Result;
 
 /// Main entry point for the TUI
 pub async fn run(
-    config: &Config,
     soulseek_context: SoulSeekClientContext,
     download_output_directory: PathBuf,
 ) -> Result<()> {
@@ -31,7 +30,7 @@ pub async fn run(
     let mut terminal = Terminal::new(backend)?;
 
     // Create and run app
-    let mut app = app::App::new(config, soulseek_context, download_output_directory);
+    let mut app = app::App::new(soulseek_context, download_output_directory);
     let result = app.run(&mut terminal).await;
 
     // Restore terminal

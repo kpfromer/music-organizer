@@ -5,8 +5,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    /// The directory to store the music
     directory: String,
+    // TODO: rename to database_path
+    /// The directory to store the sqlite database
     library: String,
+    /// The SoulSeek configuration
     #[serde(default)]
     soulseek: Option<SoulSeekConfig>,
 }
@@ -19,6 +23,45 @@ pub struct SoulSeekConfig {
 }
 
 impl Config {
+    pub fn create_default() -> Result<Self> {
+        let path = Self::config_path().ok_or(anyhow::anyhow!("Config file not found"))?;
+
+        if path.exists() {
+            return Err(anyhow::anyhow!("Config file already exists"));
+        }
+
+        std::fs::create_dir_all(
+            path.parent()
+                .ok_or(anyhow::anyhow!("Config file not found"))?,
+        )?;
+        std::fs::write(
+            path,
+            toml::to_string(&Self {
+                directory: "~/Music".to_string(),
+                library: "~/Music/Library".to_string(),
+                soulseek: None,
+            })?,
+        )?;
+
+        Ok(Self {
+            directory: dirs::audio_dir()
+                .ok_or(anyhow::anyhow!("Music directory not found"))?
+                .join("music-organizer")
+                .as_os_str()
+                .to_str()
+                .ok_or(anyhow::anyhow!("Music directory not found"))?
+                .to_string(),
+            library: dirs::audio_dir()
+                .ok_or(anyhow::anyhow!("Music directory not found"))?
+                .join("music-organizer/library.db")
+                .as_os_str()
+                .to_str()
+                .ok_or(anyhow::anyhow!("Music directory not found"))?
+                .to_string(),
+            soulseek: None,
+        })
+    }
+
     /// Load config from a TOML file
     pub fn from_file(path: &PathBuf) -> Result<Self> {
         let contents = std::fs::read_to_string(path)
@@ -29,8 +72,8 @@ impl Config {
     }
 
     /// Get the config file path (similar to beets)
-    fn config_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|path| path.join("music-organizer").join("config.toml"))
+    pub fn config_path() -> Option<PathBuf> {
+        dirs::home_dir().map(|path| path.join(".config/music-organizer").join("config.toml"))
     }
 
     /// Load config with default fallback
