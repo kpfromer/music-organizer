@@ -1,0 +1,297 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use reqwest::Client;
+
+use crate::acoustid::{AcoustIdRecording, lookup_fingerprint};
+use crate::musicbrainz::{fetch_recording_with_details, fetch_release_with_details};
+use crate::{chromaprint, file_hash};
+
+use crate::{config::Config, database::Database};
+
+pub const SUPPORTED_FILE_TYPES: &[&str] = &["mp3", "flac", "m4a", "aac", "ogg", "wav"];
+
+#[derive(Debug)]
+struct TrackMetadata {
+    // File info
+    source_path: PathBuf,
+    sha256: String,
+
+    // Track info
+    track_title: String,
+    track_number: Option<i32>,
+    duration: Option<i32>,
+    track_musicbrainz_id: Option<String>,
+
+    // Album info
+    album_title: String,
+    album_musicbrainz_id: Option<String>,
+    album_year: Option<i32>,
+
+    // Artists (primary first) - (name, musicbrainz_id)
+    track_artists: Vec<(String, Option<String>)>,
+    album_artists: Vec<(String, Option<String>)>,
+}
+
+/// Gather all metadata needed for database insertion from a file
+async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackMetadata> {
+    let client = Client::new();
+
+    // Read file tags
+    let tag = audiotags::Tag::new().read_from_path(file_path)?;
+
+    // Compute SHA-256 hash
+    let sha256 = file_hash::compute_sha256(file_path)?;
+
+    // Get fingerprint for AcoustID lookup
+    let (fingerprint, duration) = chromaprint::chromaprint_from_file(file_path)?;
+
+    // Lookup via AcoustID
+    let resp = lookup_fingerprint(&client, api_key, &fingerprint, duration).await?;
+
+    let result = resp
+        .results
+        .into_iter()
+        .max_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .ok_or(anyhow::anyhow!("No AcoustID results found"))?;
+
+    let best_recording: AcoustIdRecording = result
+        .recordings
+        .into_iter()
+        .min_by(|a, b| {
+            (a.duration - duration as f64)
+                .abs()
+                .partial_cmp(&(b.duration - duration as f64).abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .ok_or(anyhow::anyhow!("No recordings found"))?;
+
+    // Fetch from MusicBrainz
+    let recording_from_musicbrainz = fetch_recording_with_details(&best_recording.id).await?;
+
+    let release = recording_from_musicbrainz
+        .releases
+        .as_ref()
+        .ok_or(anyhow::anyhow!("No releases found"))?
+        .first()
+        .ok_or(anyhow::anyhow!("No releases found"))?;
+
+    let release_from_musicbrainz = fetch_release_with_details(&release.id).await?;
+
+    // Extract track artists from MusicBrainz recording
+    let mut track_artists = Vec::new();
+    if let Some(artist_credit) = &recording_from_musicbrainz.artist_credit {
+        for credit in artist_credit {
+            track_artists.push((credit.name.clone(), Some(credit.artist.id.clone())));
+        }
+    }
+
+    // Extract album artists from MusicBrainz release group
+    let mut album_artists = Vec::new();
+    if let Some(release_group) = &release_from_musicbrainz.release_group {
+        if let Some(artist_credit) = &release_group.artist_credit {
+            for credit in artist_credit {
+                album_artists.push((credit.name.clone(), Some(credit.artist.id.clone())));
+            }
+        }
+    }
+
+    // Get album title from release group
+    let album_title = release_from_musicbrainz
+        .release_group
+        .as_ref()
+        .map(|rg| rg.title.clone())
+        .unwrap_or_else(|| release_from_musicbrainz.title.clone());
+
+    // Get album year from release date (parse from DateString format like "2018-11-16")
+    let album_year = release_from_musicbrainz.date.as_ref().and_then(|d| {
+        // DateString is a tuple struct with String field
+        // Format is typically "YYYY-MM-DD" or "YYYY"
+        d.0.split('-')
+            .next()
+            .and_then(|year_str| year_str.parse::<i32>().ok())
+    });
+
+    // Get track number from tags (convert u16 to i32)
+    let track_number = tag.track().0.map(|n| n as i32);
+
+    Ok(TrackMetadata {
+        source_path: file_path.to_path_buf(),
+        sha256,
+        track_title: recording_from_musicbrainz.title.clone(),
+        track_number,
+        duration: duration.try_into().ok(),
+        track_musicbrainz_id: Some(best_recording.id),
+        album_title,
+        album_musicbrainz_id: release_from_musicbrainz
+            .release_group
+            .as_ref()
+            .map(|rg| rg.id.clone()),
+        album_year,
+        track_artists,
+        album_artists,
+    })
+}
+
+/// Sanitize filename for filesystem (remove invalid characters)
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect()
+}
+
+/// Import a track: check for duplicates, move file, and update database
+pub async fn import_track(
+    file_path: &Path,
+    api_key: &str,
+    config: &Config,
+    database: &Database,
+) -> Result<()> {
+    if !SUPPORTED_FILE_TYPES.contains(&file_path.extension().and_then(|e| e.to_str()).unwrap_or(""))
+    {
+        return Err(anyhow::anyhow!(
+            "Unsupported file type: {}",
+            file_path.extension().and_then(|e| e.to_str()).unwrap_or("")
+        ));
+    }
+
+    // Gather all metadata
+    let metadata = gather_track_metadata(file_path, api_key).await?;
+
+    // Check for duplicate by MusicBrainz ID
+    if let Some(track_mbid) = &metadata.track_musicbrainz_id {
+        if database.is_duplicate_by_musicbrainz_id(track_mbid)? {
+            let existing = database.get_track_by_sha256(&metadata.sha256)?;
+            let existing_path = existing
+                .as_ref()
+                .map(|t| t.file_path.as_str())
+                .unwrap_or("unknown");
+
+            return Err(anyhow::anyhow!(
+                "Duplicate track detected! This track (MusicBrainz ID: {}) already exists in the database at: {}",
+                track_mbid,
+                existing_path
+            ));
+        }
+    }
+
+    // Get primary album artist for folder structure
+    let primary_album_artist = if let Some((artist, _)) = metadata.album_artists.first() {
+        artist.clone()
+    } else {
+        "Unknown Artist".to_string()
+    };
+
+    // Construct organized file path: DIRECTORY/ArtistName/AlbumName/TrackNumber - TrackName.ext
+    let extension = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("mp3");
+
+    let track_number_str = metadata
+        .track_number
+        .map(|n| format!("{:02} ", n))
+        .unwrap_or_default();
+
+    let sanitized_artist = sanitize_filename(&primary_album_artist);
+    let sanitized_album = sanitize_filename(&metadata.album_title);
+    let sanitized_track = sanitize_filename(&metadata.track_title);
+
+    let organized_path = config
+        .directory_path()
+        .join(&sanitized_artist)
+        .join(&sanitized_album)
+        .join(format!(
+            "{}{}.{}",
+            track_number_str, sanitized_track, extension
+        ));
+
+    // Create directories if needed
+    if let Some(parent) = organized_path.parent() {
+        std::fs::create_dir_all(parent)
+            .context(format!("Failed to create directory: {}", parent.display()))?;
+    }
+
+    // Move file
+    std::fs::rename(&metadata.source_path, &organized_path).context(format!(
+        "Failed to move file from {} to {}",
+        metadata.source_path.display(),
+        organized_path.display()
+    ))?;
+
+    // Now update database
+    // Upsert artists
+    let mut album_artist_ids = Vec::new();
+    for (idx, (name, mbid)) in metadata.album_artists.iter().enumerate() {
+        let artist_id = database.upsert_artist(name, mbid.as_deref())?;
+        album_artist_ids.push((artist_id, idx == 0)); // First is primary
+    }
+
+    let mut track_artist_ids = Vec::new();
+    for (idx, (name, mbid)) in metadata.track_artists.iter().enumerate() {
+        let artist_id = database.upsert_artist(name, mbid.as_deref())?;
+        track_artist_ids.push((artist_id, idx == 0)); // First is primary
+    }
+
+    // Upsert album
+    let album_id = database.upsert_album(
+        &metadata.album_title,
+        metadata.album_musicbrainz_id.as_deref(),
+        metadata.album_year,
+    )?;
+
+    // Link album artists
+    for (artist_id, is_primary) in album_artist_ids {
+        database.add_album_artist(album_id, artist_id, is_primary)?;
+    }
+
+    // Upsert track
+    let track_id = database.upsert_track(
+        album_id,
+        &metadata.track_title,
+        metadata.track_number,
+        metadata.duration,
+        metadata.track_musicbrainz_id.as_deref(),
+        &organized_path.to_string_lossy(),
+        &metadata.sha256,
+    )?;
+
+    // Link track artists
+    for (artist_id, is_primary) in track_artist_ids {
+        database.add_track_artist(track_id, artist_id, is_primary)?;
+    }
+
+    println!("Successfully imported: {}", organized_path.display());
+    Ok(())
+}
+
+pub async fn import_folder(
+    folder_path: &Path,
+    api_key: &str,
+    config: &Config,
+    database: &Database,
+) -> Result<()> {
+    for entry in walkdir::WalkDir::new(folder_path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| {
+            e.file_type().is_file()
+                && SUPPORTED_FILE_TYPES
+                    .contains(&e.path().extension().and_then(|e| e.to_str()).unwrap_or(""))
+        })
+    {
+        let path = entry.path();
+        let result = import_track(path, api_key, config, database).await;
+        if let Err(e) = result {
+            println!("Error importing track {}: {}", path.display(), e);
+        }
+    }
+    Ok(())
+}
