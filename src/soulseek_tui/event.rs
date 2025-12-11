@@ -3,7 +3,10 @@ use anyhow::Context;
 use ratatui::crossterm::event::{self, Event as CrosstermEvent};
 use std::{path::PathBuf, sync::mpsc, thread, time::Duration};
 
-use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
+use crate::{
+    soulseek::{SingleFileResult, SoulSeekClientContext, Track},
+    soulseek_tui::app::AppMode,
+};
 
 const TIMEOUT: Duration = Duration::from_millis(250);
 

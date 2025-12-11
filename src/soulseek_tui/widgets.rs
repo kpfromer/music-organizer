@@ -1,7 +1,7 @@
 use crate::soulseek::{FileAttribute, SingleFileResult};
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, ListItem, Paragraph},
+    widgets::{Block, Borders, Gauge, ListItem, Paragraph},
 };
 
 /// Format file size in human-readable format
@@ -116,4 +116,34 @@ pub fn render_result_item(result: &SingleFileResult, is_selected: bool) -> ListI
     lines.push(Line::from(user_info));
 
     ListItem::new(lines)
+}
+
+/// Render a progress bar for downloads
+pub fn render_progress_bar(
+    frame: &mut Frame,
+    area: Rect,
+    progress: &crate::soulseek_tui::app::DownloadProgress,
+) {
+    let percent = if progress.total_bytes > 0 {
+        (progress.bytes_downloaded as f64 / progress.total_bytes as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Download Progress");
+
+    let gauge = Gauge::default()
+        .block(block)
+        .gauge_style(Style::default().fg(Color::Green))
+        .percent(percent as u16)
+        .label(format!(
+            "{} / {} ({:.1}%)",
+            format_size(progress.bytes_downloaded),
+            format_size(progress.total_bytes),
+            percent
+        ));
+
+    frame.render_widget(gauge, area);
 }
