@@ -37,10 +37,10 @@ pub struct ResultItem {
 
 #[derive(Debug, Deserialize)]
 pub struct AcoustIdRecording {
-    pub artists: Vec<AcoustIdArtist>,
-    pub duration: f64,
+    pub artists: Option<Vec<AcoustIdArtist>>,
+    pub duration: Option<f64>,
     pub id: String,
-    pub title: String,
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

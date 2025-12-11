@@ -1,37 +1,47 @@
 // TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
+use backoff::ExponentialBackoff;
 use color_eyre::Result;
+use color_eyre::eyre::{Context, OptionExt};
 use musicbrainz_rs::Fetch;
 use musicbrainz_rs::entity::recording::Recording;
 use musicbrainz_rs::entity::release::Release;
 use musicbrainz_rs::entity::release_group::ReleaseGroupPrimaryType;
 
+/// Fetch a recording with details from MusicBrainz with exponential backoff
+/// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
+/// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recording> {
-    let recording = Recording::fetch()
-        .id(recording_id)
-        .with_artists()
-        .with_releases()
-        .with_release_group_relations()
-        .execute()
-        .await?;
-
-    Ok(recording)
+    backoff::future::retry(ExponentialBackoff::default(), || async {
+        let recording = Recording::fetch()
+            .id(recording_id)
+            .with_artists()
+            .with_releases()
+            .with_release_group_relations()
+            .execute()
+            .await
+            .wrap_err("Failed to fetch recording from MusicBrainz")?;
+        Ok(recording)
+    })
+    .await
 }
 
+/// Fetch a release with details from MusicBrainz with exponential backoff
+/// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
+/// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
-    // For rate limiting
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-    let release = Release::fetch()
-        .id(release_id)
-        .with_release_groups()
-        .with_artists()
-        .execute()
-        .await
-        .map_err(|_e| color_eyre::eyre::eyre!("Failed to fetch release from MusicBrainz"))?;
-
-    Ok(release)
+    backoff::future::retry(ExponentialBackoff::default(), || async {
+        let release = Release::fetch()
+            .id(release_id)
+            .with_release_groups()
+            .with_artists()
+            .execute()
+            .await
+            .wrap_err("Failed to fetch release from MusicBrainz")?;
+        Ok(release)
+    })
+    .await
 }
 
 pub struct TrackInfo {
@@ -46,9 +56,9 @@ pub fn extract_track_info(recording: &Recording, release: &Release) -> Result<Tr
     let artist = recording
         .artist_credit
         .as_ref()
-        .ok_or(color_eyre::eyre::eyre!("No artist found"))?
+        .ok_or_eyre("No artist found")?
         .first()
-        .ok_or(color_eyre::eyre::eyre!("No artist found"))?;
+        .ok_or_eyre("No artist found")?;
 
     let track_title = &recording.title;
 
@@ -57,13 +67,13 @@ pub fn extract_track_info(recording: &Recording, release: &Release) -> Result<Tr
     let release_group = release
         .release_group
         .as_ref()
-        .ok_or(color_eyre::eyre::eyre!("No release group found"))?;
+        .ok_or_eyre("No release group found")?;
 
     let release_group_title = &release_group.title;
     let release_group_type = release_group
         .primary_type
         .as_ref()
-        .ok_or(color_eyre::eyre::eyre!("No release group type found"))?;
+        .ok_or_eyre("No release group type found")?;
 
     let album_type = match release_group_type {
         ReleaseGroupPrimaryType::Album => "Album",

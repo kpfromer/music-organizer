@@ -65,11 +65,14 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     let best_recording: AcoustIdRecording = result
         .recordings
         .into_iter()
-        .min_by(|a, b| {
-            (a.duration - duration as f64)
+        .min_by(|a, b| match (a.duration, b.duration) {
+            (Some(a_duration), Some(b_duration)) => (a_duration - duration as f64)
                 .abs()
-                .partial_cmp(&(b.duration - duration as f64).abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .partial_cmp(&(b_duration - duration as f64).abs())
+                .unwrap_or(std::cmp::Ordering::Equal),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
         })
         .ok_or(color_eyre::eyre::eyre!("No recordings found"))?;
 
