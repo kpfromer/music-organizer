@@ -64,6 +64,16 @@ enum Commands {
         #[arg(short, long, value_parser = is_directory)]
         output_directory: PathBuf,
     },
+    #[command(subcommand)]
+    Config(ConfigCommands),
+}
+
+#[derive(Subcommand, Debug)]
+enum ConfigCommands {
+    /// Create a default config file, if it doesn't exist
+    CreateDefault,
+    /// Print the path to the config file
+    Path,
 }
 
 #[tokio::main]
@@ -77,7 +87,7 @@ async fn main() -> Result<()> {
         }
     }
     .with_context(|| "Failed to load music-manager config")?;
-    let database = Database::open(&config.library_path())?;
+    let database = Database::open(&config.database_path())?;
 
     match args.command {
         Commands::Import { input, api_key } => {
@@ -102,8 +112,17 @@ async fn main() -> Result<()> {
                 remove_special_chars: Some(true),
             })
             .await?;
-            crate::soulseek_tui::run(&config, soulseek_context, output_directory).await?;
+            crate::soulseek_tui::run(soulseek_context, output_directory).await?;
         }
+        Commands::Config(config_commands) => match config_commands {
+            ConfigCommands::CreateDefault => {
+                Config::create_default()?;
+            }
+            ConfigCommands::Path => match Config::config_path() {
+                Some(path) => println!("{}", path.display()),
+                None => println!("No default config path found"),
+            },
+        },
     }
 
     Ok(())

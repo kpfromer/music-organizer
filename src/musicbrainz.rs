@@ -1,3 +1,6 @@
+// TODO: Remove this once we have a proper API
+#![allow(dead_code)]
+
 use anyhow::Result;
 use musicbrainz_rs::Fetch;
 use musicbrainz_rs::entity::recording::Recording;

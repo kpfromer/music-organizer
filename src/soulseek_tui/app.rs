@@ -1,5 +1,4 @@
-use crate::config::Config;
-use crate::soulseek::{SearchConfig, SingleFileResult, SoulSeekClientContext, Track};
+use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
     AppEvent, BackgroundEvent, BackgroundRequest, DownloadEvent, Event, EventHandler,
     RequestDownload, SearchEvent, SearchRequest,
@@ -43,10 +42,8 @@ pub struct DownloadProgress {
 
 #[derive(Debug, Clone)]
 pub enum DownloadStatus {
-    Starting,
     InProgress,
-    Complete,
-    Failed(String),
+    Completed,
 }
 
 pub struct App {
@@ -56,13 +53,9 @@ pub struct App {
     pub selected_result: usize,
     pub results_scroll: usize,
     pub download_progress: Option<DownloadProgress>,
-    pub soulseek_context: Option<SoulSeekClientContext>,
-    pub search_config: SearchConfig,
     pub output_directory: PathBuf,
     pub error_message: Option<String>,
     pub status_message: Option<String>,
-    pub pending_search: bool,
-    pub pending_download: bool,
 
     /// Event handler.
     pub running: bool,
@@ -71,24 +64,9 @@ pub struct App {
 
 impl App {
     pub fn new(
-        config: &Config,
         soulseek_context: SoulSeekClientContext,
         download_output_directory: PathBuf,
     ) -> Self {
-        // TODO: take in from config
-        let search_config = SearchConfig {
-            // TODO: REMOVE
-            username: "".to_string(),
-            password: "".to_string(),
-            // username: soulseek_config.username,
-            // password: soulseek_config.password,
-            concurrency: Some(2),
-            searches_per_time: Some(34),
-            renew_time_secs: Some(220),
-            max_search_time_ms: Some(8000),
-            remove_special_chars: Some(true),
-        };
-
         Self {
             mode: AppMode::SearchForm,
             form: SearchForm {
@@ -102,13 +80,9 @@ impl App {
             selected_result: 0,
             results_scroll: 0,
             download_progress: None,
-            soulseek_context: None,
-            search_config,
             output_directory: download_output_directory,
             error_message: None,
             status_message: Some("Ready".to_string()),
-            pending_search: false,
-            pending_download: false,
             running: true,
             events: EventHandler::new(soulseek_context),
         }
@@ -196,6 +170,21 @@ impl App {
                         })
                     }
                     DownloadEvent::Completed => {
+                        match self.download_progress.take() {
+                            Some(download_progress) => {
+                                self.download_progress = Some(DownloadProgress {
+                                    filename: download_progress.filename,
+                                    bytes_downloaded: download_progress.bytes_downloaded,
+                                    total_bytes: download_progress.total_bytes,
+                                    status: DownloadStatus::Completed,
+                                });
+                            }
+                            None => {
+                                panic!(
+                                    "DownloadEvent::Completed received with no active download progress. This indicates a logic error."
+                                );
+                            }
+                        }
                         self.status_message = Some("Download completed".to_string())
                     }
                     DownloadEvent::Failed(error) => self.error_message = Some(error),
