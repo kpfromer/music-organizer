@@ -1,0 +1,41 @@
+# Build artifacts
+target/
+**/*.rs.bk
+
+# Git
+.git/
+.github/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+LICENSE*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# CI/CD
+deny.toml
+
+# Don't ignore Cargo.lock - we need it for reproducible builds

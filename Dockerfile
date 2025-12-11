@@ -1,5 +1,5 @@
-# Builder stage - use Alpine to avoid OpenSSL compatibility issues
-FROM alpine:latest AS builder
+# Chef stage - install cargo-chef
+FROM alpine:latest AS chef
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -11,29 +11,28 @@ RUN apk add --no-cache \
     curl
 
 # Install Rust via rustup
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install cargo-chef
+RUN cargo install cargo-chef --locked
 
 WORKDIR /app
 
-# Copy Cargo files for dependency caching
-COPY Cargo.toml Cargo.lock ./
-COPY migration/Cargo.toml ./migration/
+# Planner stage - generate recipe.json
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Create dummy source files for dependency caching
-RUN mkdir -p src migration/src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > migration/src/main.rs && \
-    echo "" > migration/src/lib.rs
+# Builder stage - build dependencies then application
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
 
-# Build dependencies (this layer will be cached if Cargo files don't change)
-RUN cargo build --release --locked || true
+# Build dependencies - this is the caching Docker layer!
+RUN cargo chef cook --release --recipe-path recipe.json
 
-# Copy actual source code
-COPY src ./src
-COPY migration/src ./migration/src
-
-# Build the application (Alpine uses musl by default)
+# Now copy source code and build the app
+COPY . .
 RUN cargo build --release --locked
 
 # Runtime stage
