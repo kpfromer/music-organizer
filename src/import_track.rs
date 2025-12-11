@@ -323,17 +323,6 @@ pub async fn watch_directory(
     let mut seen_files = HashSet::new();
     let mut interval = interval(Duration::from_secs(5));
 
-    // Initial scan to populate seen_files
-    for entry in walkdir::WalkDir::new(directory)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-    {
-        if let Ok(canonical) = entry.path().canonicalize() {
-            seen_files.insert(canonical);
-        }
-    }
-
     loop {
         interval.tick().await;
 

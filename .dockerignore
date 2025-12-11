@@ -38,4 +38,9 @@ Thumbs.db
 # CI/CD
 deny.toml
 
+downloads/
+.jj
+.github
+music/
+
 # Don't ignore Cargo.lock - we need it for reproducible builds
