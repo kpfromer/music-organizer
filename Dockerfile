@@ -16,16 +16,22 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
-WORKDIR /app
-
 # Copy Cargo files for dependency caching
 COPY Cargo.toml Cargo.lock ./
+COPY migration/Cargo.toml ./migration/
+
+# Create dummy source files for dependency caching
+RUN mkdir -p src migration/src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "fn main() {}" > migration/src/main.rs && \
+    echo "" > migration/src/lib.rs
 
 # Build dependencies (this layer will be cached if Cargo files don't change)
 RUN cargo build --release --locked || true
 
-# Copy source code
+# Copy actual source code
 COPY src ./src
+COPY migration/src ./migration/src
 
 # Build the application (Alpine uses musl by default)
 RUN cargo build --release --locked
