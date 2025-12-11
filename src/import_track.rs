@@ -225,12 +225,27 @@ pub async fn import_track(
             .context(format!("Failed to create directory: {}", parent.display()))?;
     }
 
-    // Move file
-    std::fs::rename(&metadata.source_path, &organized_path).context(format!(
-        "Failed to move file from {} to {}",
-        metadata.source_path.display(),
-        organized_path.display()
-    ))?;
+    // Try rename first (fast for same filesystem)
+    if std::fs::rename(&metadata.source_path, &organized_path)
+        .context(format!(
+            "Failed to move file from {} to {}",
+            metadata.source_path.display(),
+            organized_path.display()
+        ))
+        .is_err()
+    {
+        // If rename fails, assume it's a cross-filesystem move
+        std::fs::copy(&metadata.source_path, &organized_path).context(format!(
+            "Failed to copy file from {} to {}",
+            metadata.source_path.display(),
+            organized_path.display()
+        ))?;
+
+        std::fs::remove_file(&metadata.source_path).context(format!(
+            "Failed to remove original file: {}",
+            metadata.source_path.display()
+        ))?;
+    };
 
     // Now update database
     // Upsert artists
