@@ -16,7 +16,7 @@ use color_eyre::{Result, eyre::Context};
 use crate::{
     config::Config,
     database::Database,
-    import_track::{import_folder, import_track},
+    import_track::{import_folder, import_track, watch_directory},
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -63,6 +63,15 @@ enum Commands {
         /// The directory to download to
         #[arg(short, long, value_parser = is_directory)]
         output_directory: PathBuf,
+    },
+    Watch {
+        /// The directory to watch for new music files
+        #[arg(short, long, value_parser = is_directory)]
+        directory: PathBuf,
+
+        /// AcoustID API key for lookups
+        #[arg(short = 'k', long = "api-key", env = "ACOUSTID_API_KEY")]
+        api_key: String,
     },
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -114,6 +123,9 @@ async fn main() -> Result<()> {
             })
             .await?;
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
+        }
+        Commands::Watch { directory, api_key } => {
+            watch_directory(&directory, &api_key, &config, &database).await?;
         }
         Commands::Config(config_commands) => match config_commands {
             ConfigCommands::CreateDefault => {
