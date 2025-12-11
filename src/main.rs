@@ -5,6 +5,7 @@ mod database;
 mod entities;
 mod file_hash;
 mod import_track;
+mod logging;
 mod musicbrainz;
 mod soulseek;
 mod soulseek_tui;
@@ -18,6 +19,7 @@ use crate::{
     config::Config,
     database::Database,
     import_track::{import_folder, import_track, watch_directory},
+    logging::setup_logging,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -89,6 +91,8 @@ enum ConfigCommands {
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
+    setup_logging()?;
+
     let args = Args::parse();
     let config = {
         if let Some(config) = args.config {
