@@ -941,8 +941,6 @@ mod tests {
     use super::*;
     use mockall::mock;
     use mockall::predicate::*;
-    use std::io::Cursor;
-    use tokio::io::AsyncReadExt;
 
     // Create a mock for SoulSeekClientTrait
     mock! {
@@ -952,12 +950,6 @@ mod tests {
         impl SoulSeekClientTrait for SoulSeekClient {
             async fn login(&mut self, username: &str, password: &str) -> Result<()>;
             async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>>;
-            async fn download(
-                &self,
-                username: &str,
-                filename: &str,
-            ) -> Result<Box<dyn tokio::io::AsyncRead + Send + Unpin>>;
-            fn destroy(&mut self);
         }
     }
 
@@ -1121,7 +1113,7 @@ mod tests {
 
     #[test]
     fn test_infer_track_from_filename_with_track_number() {
-        let (artist, title) = infer_track_from_filename("01 - Artist - Title.mp3");
+        let (_artist, title) = infer_track_from_filename("01 - Artist - Title.mp3");
         // Track number should be removed
         assert!(!title.is_empty());
     }
@@ -1444,73 +1436,5 @@ mod tests {
 
         // Should deduplicate
         assert_eq!(results.len(), 1);
-    }
-
-    // ========================================================================
-    // Download Tests
-    // ========================================================================
-
-    #[tokio::test]
-    async fn test_download_file() {
-        let result = SingleFileResult {
-            username: "user1".to_string(),
-            token: "token1".to_string(),
-            filename: "song.mp3".to_string(),
-            size: 5000000,
-            slots_free: true,
-            avg_speed: 1000.0,
-            queue_length: 0,
-            attrs: HashMap::new(),
-        };
-
-        let mut mock_client = MockSoulSeekClient::new();
-        mock_client
-            .expect_download()
-            .times(1)
-            .with(eq("user1"), eq("song.mp3"))
-            .returning(|_, _| {
-                let data = b"fake audio data";
-                Ok(Box::new(Cursor::new(data.to_vec()))
-                    as Box<dyn tokio::io::AsyncRead + Send + Unpin>)
-            });
-
-        let config = SearchConfig {
-            username: "testuser".to_string(),
-            password: "testpass".to_string(),
-            concurrency: None,
-            searches_per_time: None,
-            renew_time_secs: None,
-            max_search_time_ms: None,
-            remove_special_chars: None,
-        };
-
-        let rate_limiter = Arc::new(tokio::sync::Mutex::new(SearchRateLimiter::new(10, 1)));
-        let context = SoulSeekClientContext {
-            client: Box::new(mock_client),
-            rate_limiter,
-            config,
-            soulseek_client: None,
-        };
-
-        let temp_dir = std::env::temp_dir();
-        let download_path = temp_dir.join("test_download.mp3");
-
-        // Clean up if exists
-        let _ = tokio::fs::remove_file(&download_path).await;
-
-        let result_path = download_file(&result, &download_path, &context)
-            .await
-            .unwrap();
-
-        assert_eq!(result_path, download_path);
-
-        // Verify file was created and has content
-        let mut file = tokio::fs::File::open(&download_path).await.unwrap();
-        let mut contents = Vec::new();
-        file.read_to_end(&mut contents).await.unwrap();
-        assert_eq!(contents, b"fake audio data");
-
-        // Clean up
-        let _ = tokio::fs::remove_file(&download_path).await;
     }
 }
