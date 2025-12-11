@@ -1,0 +1,31 @@
+# Cargo Deny Configuration
+# See https://github.com/embarkstudios/cargo-deny for more information
+
+[licenses]
+# Allow all licenses by default, but you can restrict specific ones
+allow = []
+deny = []
+# Uncomment to use a specific license list
+# copyleft = "deny"
+
+[advisories]
+# Check for security advisories
+vulnerability = "deny"
+unmaintained = "warn"
+unsound = "deny"
+notice = "warn"
+yanked = "warn"
+
+[bans]
+# Check for duplicate dependencies
+duplicates = "deny"
+# Check for multiple versions of the same crate
+multiple-versions = "warn"
+
+[sources]
+# Allow all sources by default
+unknown-registry = "warn"
+unknown-git = "warn"
+path = "allow"
+registry = "allow"
+git = "allow"
