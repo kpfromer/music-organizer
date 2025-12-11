@@ -24,7 +24,7 @@ use crate::{
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The config file to use
-    #[arg(short, long)]
+    #[arg(short, long, env = "MUSIC_MANAGER_CONFIG")]
     config: Option<PathBuf>,
 
     #[command(subcommand)]
