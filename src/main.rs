@@ -2,6 +2,7 @@ mod acoustid;
 mod chromaprint;
 mod config;
 mod database;
+mod entities;
 mod file_hash;
 mod import_track;
 mod musicbrainz;
@@ -97,7 +98,7 @@ async fn main() -> Result<()> {
         }
     }
     .with_context(|| "Failed to load music-manager config")?;
-    let database = Database::open(&config.database_path())?;
+    let database = Database::open(&config.database_path()).await?;
 
     match args.command {
         Commands::Import { input, api_key } => {

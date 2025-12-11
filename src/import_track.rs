@@ -173,9 +173,9 @@ pub async fn import_track(
 
     // Check for duplicate by MusicBrainz ID
     if let Some(track_mbid) = &metadata.track_musicbrainz_id
-        && database.is_duplicate_by_musicbrainz_id(track_mbid)?
+        && database.is_duplicate_by_musicbrainz_id(track_mbid).await?
     {
-        let existing = database.get_track_by_sha256(&metadata.sha256)?;
+        let existing = database.get_track_by_sha256(&metadata.sha256).await?;
         let existing_path = existing
             .as_ref()
             .map(|t| t.file_path.as_str())
@@ -236,42 +236,50 @@ pub async fn import_track(
     // Upsert artists
     let mut album_artist_ids = Vec::new();
     for (idx, (name, mbid)) in metadata.album_artists.iter().enumerate() {
-        let artist_id = database.upsert_artist(name, mbid.as_deref())?;
+        let artist_id = database.upsert_artist(name, mbid.as_deref()).await?;
         album_artist_ids.push((artist_id, idx == 0)); // First is primary
     }
 
     let mut track_artist_ids = Vec::new();
     for (idx, (name, mbid)) in metadata.track_artists.iter().enumerate() {
-        let artist_id = database.upsert_artist(name, mbid.as_deref())?;
+        let artist_id = database.upsert_artist(name, mbid.as_deref()).await?;
         track_artist_ids.push((artist_id, idx == 0)); // First is primary
     }
 
     // Upsert album
-    let album_id = database.upsert_album(
-        &metadata.album_title,
-        metadata.album_musicbrainz_id.as_deref(),
-        metadata.album_year,
-    )?;
+    let album_id = database
+        .upsert_album(
+            &metadata.album_title,
+            metadata.album_musicbrainz_id.as_deref(),
+            metadata.album_year,
+        )
+        .await?;
 
     // Link album artists
     for (artist_id, is_primary) in album_artist_ids {
-        database.add_album_artist(album_id, artist_id, is_primary)?;
+        database
+            .add_album_artist(album_id, artist_id, is_primary)
+            .await?;
     }
 
     // Upsert track
-    let track_id = database.upsert_track(
-        album_id,
-        &metadata.track_title,
-        metadata.track_number,
-        metadata.duration,
-        metadata.track_musicbrainz_id.as_deref(),
-        &organized_path.to_string_lossy(),
-        &metadata.sha256,
-    )?;
+    let track_id = database
+        .upsert_track(
+            album_id,
+            &metadata.track_title,
+            metadata.track_number,
+            metadata.duration,
+            metadata.track_musicbrainz_id.as_deref(),
+            &organized_path.to_string_lossy(),
+            &metadata.sha256,
+        )
+        .await?;
 
     // Link track artists
     for (artist_id, is_primary) in track_artist_ids {
-        database.add_track_artist(track_id, artist_id, is_primary)?;
+        database
+            .add_track_artist(track_id, artist_id, is_primary)
+            .await?;
     }
 
     println!("Successfully imported: {}", organized_path.display());
