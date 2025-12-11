@@ -10,8 +10,8 @@ mod soulseek_tui;
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use color_eyre::{Result, eyre::Context};
 
 use crate::{
     config::Config,
@@ -78,6 +78,7 @@ enum ConfigCommands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     let args = Args::parse();
     let config = {
         if let Some(config) = args.config {

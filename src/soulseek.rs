@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use color_eyre::{Result, eyre::Context};
 use futures::future::join_all;
 use regex::Regex;
 use soulseek_rs::client::Client as SoulseekClient;
@@ -123,7 +123,7 @@ impl SoulSeekClientTrait for SoulSeekClientWrapper {
         let client = self
             .client
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Client not initialized"))?
+            .ok_or_else(|| color_eyre::eyre::eyre!("Client not initialized"))?
             .clone();
         let query = query.to_string();
 
@@ -864,7 +864,7 @@ pub async fn search_for_track(
                     flattened.extend(flatten_search_response(&r));
                 }
 
-                Result::<Vec<SingleFileResult>, anyhow::Error>::Ok(flattened)
+                Result::<Vec<SingleFileResult>, color_eyre::Report>::Ok(flattened)
             }
         })
         .collect();
@@ -915,7 +915,7 @@ pub async fn download_file(
     let client = context
         .soulseek_client
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("SoulSeek client not available for download"))?
+        .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?
         .clone();
 
     let filename = result.filename.clone();

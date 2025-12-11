@@ -7,7 +7,7 @@ pub mod widgets;
 use std::path::PathBuf;
 
 use crate::soulseek::SoulSeekClientContext;
-use anyhow::Result;
+use color_eyre::Result;
 
 /// Main entry point for the TUI
 pub async fn run(

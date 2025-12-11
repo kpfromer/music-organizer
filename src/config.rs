@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,32 +13,32 @@ pub struct Config {
 
 impl Config {
     pub fn create_default() -> Result<Self> {
-        let path = Self::config_path().ok_or(anyhow::anyhow!("Config file not found"))?;
+        let path = Self::config_path().ok_or(color_eyre::eyre::eyre!("Config file not found"))?;
 
         if path.exists() {
-            return Err(anyhow::anyhow!("Config file already exists"));
+            return Err(color_eyre::eyre::eyre!("Config file already exists"));
         }
 
         std::fs::create_dir_all(
             path.parent()
-                .ok_or(anyhow::anyhow!("Config file not found"))?,
+                .ok_or(color_eyre::eyre::eyre!("Config file not found"))?,
         )?;
         std::fs::write(
             path,
             toml::to_string(&Self {
                 directory: dirs::audio_dir()
-                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .ok_or(color_eyre::eyre::eyre!("Music directory not found"))?
                     .join("music-organizer")
                     .as_os_str()
                     .to_str()
-                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .ok_or(color_eyre::eyre::eyre!("Music directory not found"))?
                     .to_string(),
                 database_path: dirs::audio_dir()
-                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .ok_or(color_eyre::eyre::eyre!("Music directory not found"))?
                     .join("music-organizer/library.db")
                     .as_os_str()
                     .to_str()
-                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .ok_or(color_eyre::eyre::eyre!("Music directory not found"))?
                     .to_string(),
             })?,
         )?;
@@ -62,7 +62,8 @@ impl Config {
 
     /// Load config with default fallback
     pub fn load() -> Result<Self> {
-        let config_path = Self::config_path().ok_or(anyhow::anyhow!("Config file not found"))?;
+        let config_path =
+            Self::config_path().ok_or(color_eyre::eyre::eyre!("Config file not found"))?;
 
         Self::from_file(&config_path)
     }

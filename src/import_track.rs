@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use color_eyre::{Result, eyre::Context};
 use reqwest::Client;
 
 use crate::acoustid::{AcoustIdRecording, lookup_fingerprint};
@@ -57,7 +57,7 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
                 .partial_cmp(&b.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
-        .ok_or(anyhow::anyhow!("No AcoustID results found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No AcoustID results found"))?;
 
     let best_recording: AcoustIdRecording = result
         .recordings
@@ -68,7 +68,7 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
                 .partial_cmp(&(b.duration - duration as f64).abs())
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
-        .ok_or(anyhow::anyhow!("No recordings found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No recordings found"))?;
 
     // Fetch from MusicBrainz
     let recording_from_musicbrainz = fetch_recording_with_details(&best_recording.id).await?;
@@ -76,9 +76,9 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     let release = recording_from_musicbrainz
         .releases
         .as_ref()
-        .ok_or(anyhow::anyhow!("No releases found"))?
+        .ok_or(color_eyre::eyre::eyre!("No releases found"))?
         .first()
-        .ok_or(anyhow::anyhow!("No releases found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No releases found"))?;
 
     let release_from_musicbrainz = fetch_release_with_details(&release.id).await?;
 
@@ -156,7 +156,7 @@ pub async fn import_track(
 ) -> Result<()> {
     if !SUPPORTED_FILE_TYPES.contains(&file_path.extension().and_then(|e| e.to_str()).unwrap_or(""))
     {
-        return Err(anyhow::anyhow!(
+        return Err(color_eyre::eyre::eyre!(
             "Unsupported file type: {}",
             file_path.extension().and_then(|e| e.to_str()).unwrap_or("")
         ));
@@ -175,7 +175,7 @@ pub async fn import_track(
             .map(|t| t.file_path.as_str())
             .unwrap_or("unknown");
 
-        return Err(anyhow::anyhow!(
+        return Err(color_eyre::eyre::eyre!(
             "Duplicate track detected! This track (MusicBrainz ID: {}) already exists in the database at: {}",
             track_mbid,
             existing_path

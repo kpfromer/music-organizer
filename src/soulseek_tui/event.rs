@@ -1,4 +1,4 @@
-use anyhow::Context;
+use color_eyre::eyre::Context;
 /// This file is based on https://github.com/ratatui/templates/blob/main/event-driven/template/src/event.rs
 use ratatui::crossterm::event::{self, Event as CrosstermEvent};
 use std::{
@@ -145,7 +145,7 @@ impl EventHandler {
     /// This function returns an error if the sender channel is disconnected. This can happen if an
     /// error occurs in the event thread. In practice, this should not happen unless there is a
     /// problem with the underlying terminal.
-    pub fn next(&self) -> anyhow::Result<Event> {
+    pub fn next(&self) -> color_eyre::Result<Event> {
         self.receiver.recv().context("failed to receive event")
     }
 
@@ -180,7 +180,7 @@ impl CrosstermEventThread {
     /// Runs the event thread.
     ///
     /// This function emits tick events at a fixed rate and polls for crossterm events in between.
-    fn run(self) -> anyhow::Result<()> {
+    fn run(self) -> color_eyre::Result<()> {
         loop {
             if event::poll(TIMEOUT).context("failed to poll for crossterm events")? {
                 let event = event::read().context("failed to read crossterm event")?;
@@ -221,7 +221,7 @@ impl BackgroundThread {
     }
 
     /// Runs the background thread.
-    async fn run(mut self) -> anyhow::Result<()> {
+    async fn run(mut self) -> color_eyre::Result<()> {
         loop {
             match self.background_request_receiver.recv() {
                 Ok(BackgroundRequest::Search(_request)) => self.handle_search(_request).await,
@@ -260,7 +260,7 @@ impl BackgroundThread {
         &mut self,
         result: &SingleFileResult,
         download_folder: &Path,
-    ) -> anyhow::Result<()> {
+    ) -> color_eyre::Result<()> {
         let receiver =
             crate::soulseek::download_file(result, download_folder, &self.soulseek_context).await?;
 

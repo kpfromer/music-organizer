@@ -1,10 +1,10 @@
-use anyhow::Result;
+use color_eyre::Result;
 use std::path::Path;
 use std::process::Command;
 
 pub fn chromaprint_from_file(path: &Path) -> Result<(String, u32)> {
     if which::which("fpcalc").is_err() {
-        return Err(anyhow::anyhow!(
+        return Err(color_eyre::eyre::eyre!(
             "fpcalc not found in PATH. Please install Chromaprint (fpcalc) and ensure it's available."
         ));
     }
