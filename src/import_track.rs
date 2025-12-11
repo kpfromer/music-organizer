@@ -1,7 +1,10 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use color_eyre::{Result, eyre::Context};
 use reqwest::Client;
+use tokio::time::interval;
 
 use crate::acoustid::{AcoustIdRecording, lookup_fingerprint};
 use crate::musicbrainz::{fetch_recording_with_details, fetch_release_with_details};
@@ -294,4 +297,56 @@ pub async fn import_folder(
         }
     }
     Ok(())
+}
+
+/// Watch a directory for new music files and import them automatically
+pub async fn watch_directory(
+    directory: &Path,
+    api_key: &str,
+    config: &Config,
+    database: &Database,
+) -> Result<()> {
+    println!("Watching directory: {}", directory.display());
+    println!("Press Ctrl+C to stop watching...");
+
+    let mut seen_files = HashSet::new();
+    let mut interval = interval(Duration::from_secs(5));
+
+    // Initial scan to populate seen_files
+    for entry in walkdir::WalkDir::new(directory)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+    {
+        if let Ok(canonical) = entry.path().canonicalize() {
+            seen_files.insert(canonical);
+        }
+    }
+
+    loop {
+        interval.tick().await;
+
+        // Scan for new files
+        for entry in walkdir::WalkDir::new(directory)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_type().is_file()
+                    && SUPPORTED_FILE_TYPES
+                        .contains(&e.path().extension().and_then(|e| e.to_str()).unwrap_or(""))
+            })
+        {
+            let path = entry.path();
+            if let Ok(canonical) = path.canonicalize()
+                && !seen_files.contains(&canonical)
+            {
+                seen_files.insert(canonical.clone());
+                println!("New file detected: {}", path.display());
+                let result = import_track(path, api_key, config, database).await;
+                if let Err(e) = result {
+                    println!("Error importing track {}: {}", path.display(), e);
+                }
+            }
+        }
+    }
 }
