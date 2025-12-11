@@ -7,19 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     /// The directory to store the music
     directory: String,
-    // TODO: rename to database_path
-    /// The directory to store the sqlite database
-    library: String,
-    /// The SoulSeek configuration
-    #[serde(default)]
-    soulseek: Option<SoulSeekConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SoulSeekConfig {
-    pub username: String,
-    pub password: String,
-    pub output_directory: String,
+    /// The path to store the sqlite database
+    database_path: String,
 }
 
 impl Config {
@@ -37,29 +26,24 @@ impl Config {
         std::fs::write(
             path,
             toml::to_string(&Self {
-                directory: "~/Music".to_string(),
-                library: "~/Music/Library".to_string(),
-                soulseek: None,
+                directory: dirs::audio_dir()
+                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .join("music-organizer")
+                    .as_os_str()
+                    .to_str()
+                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .to_string(),
+                database_path: dirs::audio_dir()
+                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .join("music-organizer/library.db")
+                    .as_os_str()
+                    .to_str()
+                    .ok_or(anyhow::anyhow!("Music directory not found"))?
+                    .to_string(),
             })?,
         )?;
 
-        Ok(Self {
-            directory: dirs::audio_dir()
-                .ok_or(anyhow::anyhow!("Music directory not found"))?
-                .join("music-organizer")
-                .as_os_str()
-                .to_str()
-                .ok_or(anyhow::anyhow!("Music directory not found"))?
-                .to_string(),
-            library: dirs::audio_dir()
-                .ok_or(anyhow::anyhow!("Music directory not found"))?
-                .join("music-organizer/library.db")
-                .as_os_str()
-                .to_str()
-                .ok_or(anyhow::anyhow!("Music directory not found"))?
-                .to_string(),
-            soulseek: None,
-        })
+        Ok(Self::load()?)
     }
 
     /// Load config from a TOML file
@@ -98,35 +82,8 @@ impl Config {
         self.expand_path(&self.directory)
     }
 
-    /// Get expanded library path
-    pub fn library_path(&self) -> PathBuf {
-        self.expand_path(&self.library)
-    }
-
-    /// Get SoulSeek config or return defaults
-    pub fn soulseek_config(&self) -> SoulSeekConfig {
-        if let Some(ref ss_config) = self.soulseek {
-            ss_config.clone()
-        } else {
-            // Try environment variables as fallback
-            let username = std::env::var("SOULSEEK_USERNAME").unwrap_or_else(|_| "".to_string());
-            let password = std::env::var("SOULSEEK_PASSWORD").unwrap_or_else(|_| "".to_string());
-            let output_directory = self.directory_path().to_string_lossy().to_string();
-
-            SoulSeekConfig {
-                username,
-                password,
-                output_directory,
-            }
-        }
-    }
-
-    /// Get output directory for downloads
-    pub fn download_output_directory(&self) -> PathBuf {
-        if let Some(ref ss_config) = self.soulseek {
-            self.expand_path(&ss_config.output_directory)
-        } else {
-            self.directory_path()
-        }
+    /// Get expanded database path
+    pub fn database_path(&self) -> PathBuf {
+        self.expand_path(&self.database_path)
     }
 }

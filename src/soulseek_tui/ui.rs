@@ -1,3 +1,4 @@
+use crate::soulseek_tui::app::DownloadStatus;
 use crate::soulseek_tui::widgets;
 use crate::soulseek_tui::{app::App, widgets::format_size};
 use ratatui::{
@@ -15,7 +16,7 @@ pub fn render(frame: &mut Frame, app: &App) {
 }
 
 fn render_search_form(frame: &mut Frame, app: &App) {
-    let area = frame.size();
+    let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -104,7 +105,7 @@ fn render_search_form(frame: &mut Frame, app: &App) {
 }
 
 fn render_results(frame: &mut Frame, app: &App) {
-    let area = frame.size();
+    let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -163,7 +164,7 @@ fn render_results(frame: &mut Frame, app: &App) {
 }
 
 fn render_download_progress(frame: &mut Frame, app: &App) {
-    let area = frame.size();
+    let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -198,7 +199,12 @@ fn render_download_progress(frame: &mut Frame, app: &App) {
 
         let progress_gauge = Gauge::default()
             .label(label)
-            .block(Block::bordered().title("Progress"))
+            .block(Block::bordered().title(match progress.status {
+                DownloadStatus::InProgress => format!("Progress for '{}'", progress.filename),
+                DownloadStatus::Completed => {
+                    format!("Finished downloading '{}'", progress.filename)
+                }
+            }))
             .ratio(progress.bytes_downloaded as f64 / progress.total_bytes as f64);
         frame.render_widget(progress_gauge, chunks[1]);
     }
@@ -209,7 +215,7 @@ fn render_download_progress(frame: &mut Frame, app: &App) {
 }
 
 fn render_error(frame: &mut Frame, app: &App) {
-    let area = frame.size();
+    let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

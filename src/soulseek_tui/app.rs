@@ -1,5 +1,4 @@
-use crate::config::Config;
-use crate::soulseek::{SearchConfig, SingleFileResult, SoulSeekClientContext, Track};
+use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
     AppEvent, BackgroundEvent, BackgroundRequest, DownloadEvent, Event, EventHandler,
     RequestDownload, SearchEvent, SearchRequest,
@@ -43,10 +42,8 @@ pub struct DownloadProgress {
 
 #[derive(Debug, Clone)]
 pub enum DownloadStatus {
-    Starting,
     InProgress,
-    Complete,
-    Failed(String),
+    Completed,
 }
 
 pub struct App {
@@ -173,6 +170,21 @@ impl App {
                         })
                     }
                     DownloadEvent::Completed => {
+                        match self.download_progress.take() {
+                            Some(download_progress) => {
+                                self.download_progress = Some(DownloadProgress {
+                                    filename: download_progress.filename,
+                                    bytes_downloaded: download_progress.bytes_downloaded,
+                                    total_bytes: download_progress.total_bytes,
+                                    status: DownloadStatus::Completed,
+                                });
+                            }
+                            None => {
+                                panic!(
+                                    "DownloadEvent::Completed received with no active download progress. This indicates a logic error."
+                                );
+                            }
+                        }
                         self.status_message = Some("Download completed".to_string())
                     }
                     DownloadEvent::Failed(error) => self.error_message = Some(error),

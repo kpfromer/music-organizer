@@ -1,3 +1,6 @@
+// TODO: Remove this once we have a proper API
+#![allow(dead_code)]
+
 use anyhow::Result;
 use governor::{
     Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::direct::NotKeyed,

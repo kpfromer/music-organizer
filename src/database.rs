@@ -1,3 +1,6 @@
+// TODO: Remove this once we have a proper API
+#![allow(dead_code)]
+
 use anyhow::{Context, Result};
 use rusqlite::{Connection, Error as RusqliteError, params};
 use rusqlite_migration::{M, Migrations};

@@ -1,3 +1,6 @@
+// TODO: Remove this once we have a proper API
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, mpsc};
@@ -82,12 +85,6 @@ enum TrackType {
 pub trait SoulSeekClientTrait: Send + Sync {
     async fn login(&mut self, username: &str, password: &str) -> Result<()>;
     async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>>;
-    async fn download(
-        &self,
-        username: &str,
-        filename: &str,
-    ) -> Result<Box<dyn tokio::io::AsyncRead + Send + Unpin>>;
-    fn destroy(&mut self);
 }
 
 // Wrapper for real soulseek-rs-lib client
@@ -167,22 +164,6 @@ impl SoulSeekClientTrait for SoulSeekClientWrapper {
         }
 
         Ok(responses)
-    }
-
-    async fn download(
-        &self,
-        _username: &str,
-        _filename: &str,
-    ) -> Result<Box<dyn tokio::io::AsyncRead + Send + Unpin>> {
-        // This method is not used directly - download_file handles downloads
-        // But we need to implement it for the trait
-        Err(anyhow::anyhow!(
-            "Direct download not supported - use download_file instead"
-        ))
-    }
-
-    fn destroy(&mut self) {
-        self.client = None;
     }
 }
 
@@ -292,10 +273,6 @@ impl SoulSeekClientContext {
             config,
             soulseek_client,
         })
-    }
-
-    pub async fn destroy(mut self) {
-        self.client.destroy();
     }
 }
 
