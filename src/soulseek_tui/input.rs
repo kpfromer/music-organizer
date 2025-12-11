@@ -2,7 +2,7 @@ use crate::soulseek_tui::{
     app::{App, AppMode, FormField},
     event::AppEvent,
 };
-use anyhow::Result;
+use color_eyre::Result;
 use crossterm::event::KeyEvent;
 
 pub fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) -> Result<()> {

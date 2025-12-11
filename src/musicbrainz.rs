@@ -1,7 +1,7 @@
 // TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
-use anyhow::Result;
+use color_eyre::Result;
 use musicbrainz_rs::Fetch;
 use musicbrainz_rs::entity::recording::Recording;
 use musicbrainz_rs::entity::release::Release;
@@ -29,7 +29,7 @@ pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
         .with_artists()
         .execute()
         .await
-        .map_err(|_e| anyhow::anyhow!("Failed to fetch release from MusicBrainz"))?;
+        .map_err(|_e| color_eyre::eyre::eyre!("Failed to fetch release from MusicBrainz"))?;
 
     Ok(release)
 }
@@ -46,9 +46,9 @@ pub fn extract_track_info(recording: &Recording, release: &Release) -> Result<Tr
     let artist = recording
         .artist_credit
         .as_ref()
-        .ok_or(anyhow::anyhow!("No artist found"))?
+        .ok_or(color_eyre::eyre::eyre!("No artist found"))?
         .first()
-        .ok_or(anyhow::anyhow!("No artist found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No artist found"))?;
 
     let track_title = &recording.title;
 
@@ -57,13 +57,13 @@ pub fn extract_track_info(recording: &Recording, release: &Release) -> Result<Tr
     let release_group = release
         .release_group
         .as_ref()
-        .ok_or(anyhow::anyhow!("No release group found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No release group found"))?;
 
     let release_group_title = &release_group.title;
     let release_group_type = release_group
         .primary_type
         .as_ref()
-        .ok_or(anyhow::anyhow!("No release group type found"))?;
+        .ok_or(color_eyre::eyre::eyre!("No release group type found"))?;
 
     let album_type = match release_group_type {
         ReleaseGroupPrimaryType::Album => "Album",

@@ -4,7 +4,7 @@ use crate::soulseek_tui::event::{
     RequestDownload, SearchEvent, SearchRequest,
 };
 use crate::soulseek_tui::input::handle_key_event;
-use anyhow::Result;
+use color_eyre::Result;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,7 +174,7 @@ impl App {
                             Some(download_progress) => {
                                 self.download_progress = Some(DownloadProgress {
                                     filename: download_progress.filename,
-                                    bytes_downloaded: download_progress.bytes_downloaded,
+                                    bytes_downloaded: download_progress.total_bytes,
                                     total_bytes: download_progress.total_bytes,
                                     status: DownloadStatus::Completed,
                                 });

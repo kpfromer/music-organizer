@@ -1,7 +1,7 @@
 // TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
-use anyhow::Result;
+use color_eyre::Result;
 use governor::{
     Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::direct::NotKeyed,
 };
