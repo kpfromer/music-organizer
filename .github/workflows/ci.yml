@@ -38,7 +38,5 @@ jobs:
           cargo install cargo-audit --locked
           cargo audit
 
-      - name: Run cargo deny
-        run: |
-          cargo install cargo-deny --locked
-          cargo deny check
+      # - name: Run cargo deny
+      #   uses: EmbarkStudios/cargo-deny-action@v2

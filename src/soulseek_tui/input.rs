@@ -9,8 +9,14 @@ pub fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) -> Resul
     use crossterm::event::{KeyCode, KeyModifiers};
 
     match key.code {
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Ok(app.quit()),
-        KeyCode::Char('q') => Ok(app.quit()),
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.quit();
+            Ok(())
+        }
+        KeyCode::Char('q') => {
+            app.quit();
+            Ok(())
+        }
         _ => match app.mode {
             AppMode::SearchForm => handle_search_form_input(app, key),
             AppMode::Results => handle_results_input(app, key),
@@ -119,11 +125,8 @@ fn handle_results_input(app: &mut App, key: KeyEvent) -> Result<()> {
 fn handle_downloading_input(app: &mut App, key: KeyEvent) -> Result<()> {
     use crossterm::event::KeyCode;
 
-    match key.code {
-        KeyCode::Esc => {
-            app.mode = AppMode::Results;
-        }
-        _ => {}
+    if key.code == KeyCode::Esc {
+        app.mode = AppMode::Results;
     }
     Ok(())
 }
