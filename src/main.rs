@@ -66,7 +66,7 @@ enum Commands {
     },
     Watch {
         /// The directory to watch for new music files
-        #[arg(short, long, value_parser = is_directory)]
+        #[arg(short, long, value_parser = is_directory, env = "MUSIC_MANAGER_WATCH_DIRECTORY")]
         directory: PathBuf,
 
         /// AcoustID API key for lookups
