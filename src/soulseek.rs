@@ -368,14 +368,14 @@ pub fn build_search_queries(track: &Track, remove_special: bool) -> Vec<String> 
 // ============================================================================
 
 fn get_file_name_without_ext_slsk(path_str: &str) -> String {
-    let clean = path_str.trim_end_matches(|c| c == '/' || c == '\\');
-    let parts: Vec<&str> = clean.split(|c| c == '/' || c == '\\').collect();
+    let clean = path_str.trim_end_matches(['/', '\\']);
+    let parts: Vec<&str> = clean.split(['/', '\\']).collect();
     let filename = parts.last().unwrap_or(&"");
 
-    if let Some(dot_pos) = filename.rfind('.') {
-        if dot_pos > 0 {
-            return filename[..dot_pos].to_string();
-        }
+    if let Some(dot_pos) = filename.rfind('.')
+        && dot_pos > 0
+    {
+        return filename[..dot_pos].to_string();
     }
     filename.to_string()
 }
@@ -481,20 +481,20 @@ fn infer_track_full(
             None
         };
 
-        if let Some(reg) = reg {
-            if !reg.is_match(&track_to_string_no_info(default_track)) {
-                // Replace the pattern with a marker
-                if reg.as_str().contains(" - ") {
-                    filename = reg.replace(&filename, " - <<tracknum>> ").to_string();
-                } else {
-                    filename = reg.replace(&filename, " <<tracknum>> ").to_string();
-                }
-                filename = Regex::new(r"-\s*<<tracknum>>\s*-")
-                    .unwrap()
-                    .replace_all(&filename, "-")
-                    .to_string();
-                filename = filename.replace("<<tracknum>>", "").trim().to_string();
+        if let Some(reg) = reg
+            && !reg.is_match(&track_to_string_no_info(default_track))
+        {
+            // Replace the pattern with a marker
+            if reg.as_str().contains(" - ") {
+                filename = reg.replace(&filename, " - <<tracknum>> ").to_string();
+            } else {
+                filename = reg.replace(&filename, " <<tracknum>> ").to_string();
             }
+            filename = Regex::new(r"-\s*<<tracknum>>\s*-")
+                .unwrap()
+                .replace_all(&filename, "-")
+                .to_string();
+            filename = filename.replace("<<tracknum>>", "").trim().to_string();
         }
     }
 
@@ -654,7 +654,7 @@ fn infer_track_full(
         && !contains_ignore_case(&t.title, &default_track.title)
         && !contains_ignore_case(&t.artist, &default_track.artist)
     {
-        let x = vec![t.artist.clone(), t.album.clone(), t.title.clone()];
+        let x = [t.artist.clone(), t.album.clone(), t.title.clone()];
         let mut perm = vec![0, 1, 2];
         let permutations = vec![
             vec![0, 2, 1],

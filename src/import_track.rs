@@ -92,11 +92,11 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
 
     // Extract album artists from MusicBrainz release group
     let mut album_artists = Vec::new();
-    if let Some(release_group) = &release_from_musicbrainz.release_group {
-        if let Some(artist_credit) = &release_group.artist_credit {
-            for credit in artist_credit {
-                album_artists.push((credit.name.clone(), Some(credit.artist.id.clone())));
-            }
+    if let Some(release_group) = &release_from_musicbrainz.release_group
+        && let Some(artist_credit) = &release_group.artist_credit
+    {
+        for credit in artist_credit {
+            album_artists.push((credit.name.clone(), Some(credit.artist.id.clone())));
         }
     }
 
@@ -166,20 +166,20 @@ pub async fn import_track(
     let metadata = gather_track_metadata(file_path, api_key).await?;
 
     // Check for duplicate by MusicBrainz ID
-    if let Some(track_mbid) = &metadata.track_musicbrainz_id {
-        if database.is_duplicate_by_musicbrainz_id(track_mbid)? {
-            let existing = database.get_track_by_sha256(&metadata.sha256)?;
-            let existing_path = existing
-                .as_ref()
-                .map(|t| t.file_path.as_str())
-                .unwrap_or("unknown");
+    if let Some(track_mbid) = &metadata.track_musicbrainz_id
+        && database.is_duplicate_by_musicbrainz_id(track_mbid)?
+    {
+        let existing = database.get_track_by_sha256(&metadata.sha256)?;
+        let existing_path = existing
+            .as_ref()
+            .map(|t| t.file_path.as_str())
+            .unwrap_or("unknown");
 
-            return Err(anyhow::anyhow!(
-                "Duplicate track detected! This track (MusicBrainz ID: {}) already exists in the database at: {}",
-                track_mbid,
-                existing_path
-            ));
-        }
+        return Err(anyhow::anyhow!(
+            "Duplicate track detected! This track (MusicBrainz ID: {}) already exists in the database at: {}",
+            track_mbid,
+            existing_path
+        ));
     }
 
     // Get primary album artist for folder structure

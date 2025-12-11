@@ -323,6 +323,7 @@ impl Database {
     // ========== Track Methods ==========
 
     /// Create or update a track
+    #[allow(clippy::too_many_arguments)]
     pub fn upsert_track(
         &self,
         album_id: i64,
@@ -360,30 +361,30 @@ impl Database {
         }
 
         // Check if track exists by MusicBrainz ID
-        if let Some(mbid) = musicbrainz_id {
-            if let Ok(Some(existing_id)) = self.get_track_id_by_musicbrainz_id(mbid) {
-                // Update track metadata
-                self.conn
-                    .execute(
-                        r#"
+        if let Some(mbid) = musicbrainz_id
+            && let Ok(Some(existing_id)) = self.get_track_id_by_musicbrainz_id(mbid)
+        {
+            // Update track metadata
+            self.conn
+                .execute(
+                    r#"
                         UPDATE tracks 
                         SET album_id = ?1, title = ?2, track_number = ?3, duration = ?4, 
                             file_path = ?5, sha256 = ?6, updated_at = strftime('%s', 'now')
                         WHERE id = ?7
                         "#,
-                        params![
-                            album_id,
-                            title,
-                            track_number,
-                            duration,
-                            file_path,
-                            sha256,
-                            existing_id
-                        ],
-                    )
-                    .context("Failed to update track")?;
-                return Ok(existing_id);
-            }
+                    params![
+                        album_id,
+                        title,
+                        track_number,
+                        duration,
+                        file_path,
+                        sha256,
+                        existing_id
+                    ],
+                )
+                .context("Failed to update track")?;
+            return Ok(existing_id);
         }
 
         // Create new track

@@ -43,7 +43,7 @@ impl Config {
             })?,
         )?;
 
-        Ok(Self::load()?)
+        Self::load()
     }
 
     /// Load config from a TOML file
@@ -69,10 +69,10 @@ impl Config {
 
     /// Expand ~ to home directory
     fn expand_path(&self, path: &str) -> PathBuf {
-        if path.starts_with("~/") {
-            if let Some(home) = dirs::home_dir() {
-                return home.join(&path[2..]);
-            }
+        if path.starts_with("~/")
+            && let Some(home) = dirs::home_dir()
+        {
+            return home.join(&path[2..]);
         }
         PathBuf::from(path)
     }

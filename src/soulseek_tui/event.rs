@@ -1,7 +1,12 @@
 use anyhow::Context;
 /// This file is based on https://github.com/ratatui/templates/blob/main/event-driven/template/src/event.rs
 use ratatui::crossterm::event::{self, Event as CrosstermEvent};
-use std::{path::PathBuf, sync::mpsc, thread, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc,
+    thread,
+    time::Duration,
+};
 
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 
@@ -254,11 +259,10 @@ impl BackgroundThread {
     async fn download_file(
         &mut self,
         result: &SingleFileResult,
-        download_folder: &PathBuf,
+        download_folder: &Path,
     ) -> anyhow::Result<()> {
         let receiver =
-            crate::soulseek::download_file(&result, download_folder, &mut self.soulseek_context)
-                .await?;
+            crate::soulseek::download_file(result, download_folder, &self.soulseek_context).await?;
 
         for status in receiver {
             match status {
