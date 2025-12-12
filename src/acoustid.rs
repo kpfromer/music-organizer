@@ -32,6 +32,7 @@ pub struct AcoustIdResponse {
 #[derive(Debug, Deserialize)]
 pub struct ResultItem {
     pub id: String,
+    #[serde(default)]
     pub recordings: Vec<AcoustIdRecording>,
     pub score: f64,
 }
