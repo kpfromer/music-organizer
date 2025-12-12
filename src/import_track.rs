@@ -56,7 +56,9 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
 
     // Lookup via AcoustID
     log::debug!("Initiating AcoustID lookup (duration: {}s)", duration);
-    let resp = lookup_fingerprint(&client, api_key, &fingerprint, duration).await?;
+    let resp = lookup_fingerprint(&client, api_key, &fingerprint, duration)
+        .await
+        .wrap_err("Failed to lookup fingerprint")?;
 
     let result = resp
         .results
