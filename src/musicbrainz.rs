@@ -13,7 +13,9 @@ use musicbrainz_rs::entity::release_group::ReleaseGroupPrimaryType;
 /// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
 /// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recording> {
-    backoff::future::retry(ExponentialBackoff::default(), || async {
+    log::debug!("Fetching recording from MusicBrainz: {}", recording_id);
+
+    let result = backoff::future::retry(ExponentialBackoff::default(), || async {
         let recording = Recording::fetch()
             .id(recording_id)
             .with_artists()
@@ -24,14 +26,34 @@ pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recordin
             .wrap_err("Failed to fetch recording from MusicBrainz")?;
         Ok(recording)
     })
-    .await
+    .await;
+
+    match &result {
+        Ok(recording) => {
+            log::info!(
+                "Recording fetched successfully from MusicBrainz: '{}'",
+                recording.title
+            );
+        }
+        Err(e) => {
+            log::error!(
+                "Failed to fetch recording {} from MusicBrainz after retries: {}",
+                recording_id,
+                e
+            );
+        }
+    }
+
+    result
 }
 
 /// Fetch a release with details from MusicBrainz with exponential backoff
 /// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
 /// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
-    backoff::future::retry(ExponentialBackoff::default(), || async {
+    log::debug!("Fetching release from MusicBrainz: {}", release_id);
+
+    let result = backoff::future::retry(ExponentialBackoff::default(), || async {
         let release = Release::fetch()
             .id(release_id)
             .with_release_groups()
@@ -41,7 +63,25 @@ pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
             .wrap_err("Failed to fetch release from MusicBrainz")?;
         Ok(release)
     })
-    .await
+    .await;
+
+    match &result {
+        Ok(release) => {
+            log::info!(
+                "Release fetched successfully from MusicBrainz: '{}'",
+                release.title
+            );
+        }
+        Err(e) => {
+            log::error!(
+                "Failed to fetch release {} from MusicBrainz after retries: {}",
+                release_id,
+                e
+            );
+        }
+    }
+
+    result
 }
 
 pub struct TrackInfo {

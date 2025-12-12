@@ -101,6 +101,8 @@ impl SoulSeekClientWrapper {
 #[async_trait::async_trait]
 impl SoulSeekClientTrait for SoulSeekClientWrapper {
     async fn login(&mut self, username: &str, password: &str) -> Result<()> {
+        log::debug!("Logging in to SoulSeek as user: {}", username);
+
         // Run the synchronous operations in a blocking task
         let username = username.to_string();
         let password = password.to_string();
@@ -116,6 +118,7 @@ impl SoulSeekClientTrait for SoulSeekClientWrapper {
         .await??;
 
         self.client = Some(client);
+        log::info!("Successfully logged in to SoulSeek");
         Ok(())
     }
 
@@ -216,6 +219,12 @@ impl SearchRateLimiter {
             self.used_in_window = 0;
         }
 
+        log::debug!(
+            "Rate limiter check: {}/{} searches used in current window",
+            self.used_in_window,
+            self.searches_per_time
+        );
+
         if self.used_in_window < self.searches_per_time {
             // proceed immediately
             self.used_in_window += 1;
@@ -224,6 +233,12 @@ impl SearchRateLimiter {
 
         // Must wait for window to reset
         let wait_ms = self.renew_time_ms - elapsed;
+        log::info!(
+            "Rate limit reached ({}/{}). Waiting {}s...",
+            self.used_in_window,
+            self.searches_per_time,
+            wait_ms / 1000
+        );
         println!(
             "Rate limit reached ({}/{}). Waiting {}s...",
             self.used_in_window,
@@ -253,6 +268,8 @@ pub struct SoulSeekClientContext {
 
 impl SoulSeekClientContext {
     pub async fn new(config: SearchConfig) -> Result<Self> {
+        log::debug!("Creating SoulSeek client context");
+
         let mut wrapper = SoulSeekClientWrapper::new();
         wrapper.login(&config.username, &config.password).await?;
 
@@ -262,11 +279,19 @@ impl SoulSeekClientContext {
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
+
+        log::debug!(
+            "Rate limiter configured: {} searches per {}s",
+            searches_per_time,
+            renew_time_secs
+        );
+
         let rate_limiter = Arc::new(tokio::sync::Mutex::new(SearchRateLimiter::new(
             searches_per_time,
             renew_time_secs,
         )));
 
+        log::info!("SoulSeek client context created successfully");
         Ok(Self {
             client,
             rate_limiter,
@@ -832,8 +857,15 @@ pub async fn search_for_track(
     track: &Track,
     context: &mut SoulSeekClientContext,
 ) -> Result<Vec<SingleFileResult>> {
+    log::debug!(
+        "Starting search for track: '{}' by '{}'",
+        track.title,
+        track.artists.join(", ")
+    );
+
     // 1) Build queries
     let queries = build_search_queries(track, context.config.remove_special_chars.unwrap_or(false));
+    log::debug!("Built {} search queries", queries.len());
 
     // 2a) Concurrency limit
     let concurrency = context.config.concurrency.unwrap_or(2);
@@ -850,14 +882,22 @@ pub async fn search_for_track(
             let sem = semaphore.clone();
             let rate_limiter = context.rate_limiter.clone();
             let client_ref: &dyn SoulSeekClientTrait = &*context.client;
+            let query = q.clone();
             async move {
                 let _permit = sem.acquire().await.unwrap();
 
                 // Acquire from rate limiter
                 rate_limiter.lock().await.acquire().await;
 
+                log::debug!("Executing search query: '{}'", query);
                 let timeout = Duration::from_millis(max_search_time);
-                let responses = client_ref.search(&q, timeout).await?;
+                let responses = client_ref.search(&query, timeout).await?;
+
+                log::debug!(
+                    "Search query '{}' returned {} responses",
+                    query,
+                    responses.len()
+                );
 
                 let mut flattened = vec![];
                 for r in responses {
@@ -874,10 +914,15 @@ pub async fn search_for_track(
         all_flattened.extend(result?);
     }
 
+    log::debug!("Total results before filtering: {}", all_flattened.len());
+
     // 3) Filter out non-audio file types
+    log::debug!("Filtering audio files");
     all_flattened.retain(|f| is_audio_file(&f.filename));
+    log::debug!("Results after audio filter: {}", all_flattened.len());
 
     // 4) Deduplicate (by username + filename)
+    log::debug!("Deduplicating results");
     let mut unique_map: HashMap<String, SingleFileResult> = HashMap::new();
     for item in all_flattened {
         let key = format!("{}::{}", item.username, item.filename);
@@ -892,9 +937,18 @@ pub async fn search_for_track(
     }
 
     let mut unique_results: Vec<SingleFileResult> = unique_map.into_values().collect();
+    log::debug!("Results after deduplication: {}", unique_results.len());
 
     // 5) Rank
+    log::debug!("Ranking results");
     rank_results(track, &mut unique_results);
+
+    log::info!(
+        "Search complete for '{}' by '{}': {} results found",
+        track.title,
+        track.artists.join(", "),
+        unique_results.len()
+    );
 
     Ok(unique_results)
 }
@@ -908,6 +962,13 @@ pub async fn download_file(
     download_folder: &Path,
     context: &SoulSeekClientContext,
 ) -> Result<mpsc::Receiver<soulseek_rs::DownloadStatus>> {
+    log::debug!(
+        "Starting download: '{}' from user '{}' ({} bytes)",
+        result.filename,
+        result.username,
+        result.size
+    );
+
     // Ensure download directory exists
     tokio::fs::create_dir_all(download_folder).await?;
 
@@ -922,14 +983,17 @@ pub async fn download_file(
     let username = result.username.clone();
     let size = result.size;
 
-    client
+    let receiver = client
         .download(
-            filename,
-            username,
+            filename.clone(),
+            username.clone(),
             size,
             download_folder.as_os_str().to_str().unwrap().to_string(),
         )
-        .context("Failed to download file")
+        .context("Failed to download file")?;
+
+    log::info!("Download initiated: '{}' from '{}'", filename, username);
+    Ok(receiver)
 }
 
 // ============================================================================
