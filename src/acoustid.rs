@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use color_eyre::Result;
+use color_eyre::eyre::Context;
 use governor::{
     Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::direct::NotKeyed,
 };
@@ -62,13 +63,25 @@ pub async fn lookup_fingerprint(
     log::debug!("Waiting for AcoustID rate limiter");
     get_rate_limiter().until_ready().await;
 
-    log::debug!("Making AcoustID API request (duration: {}s)", duration);
     let url = format!(
         "https://api.acoustid.org/v2/lookup?client={}&meta=recordings&duration={}&fingerprint={}",
         api_key, duration, fingerprint
     );
 
-    let resp: AcoustIdResponse = client.get(&url).send().await?.json().await?;
+    log::debug!(
+        "Making AcoustID API request (duration: {}s)\n\tURL:{}",
+        duration,
+        url
+    );
+
+    let resp: AcoustIdResponse = client
+        .get(&url)
+        .send()
+        .await
+        .wrap_err_with(|| format!("Failed to send AcoustID API request to {}", url))?
+        .json()
+        .await
+        .wrap_err_with(|| format!("Failed to parse AcoustID API response from {}", url))?;
 
     log::debug!(
         "AcoustID response received: status={}, {} results",
