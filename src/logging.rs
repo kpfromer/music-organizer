@@ -27,8 +27,7 @@ pub fn setup_logging(
     let colors_level = colors_line.info(Color::Green);
 
     // Create base dispatch with no filtering (filtering happens in the chains)
-    let mut base_dispatch = fern::Dispatch::new()
-        .level(log::LevelFilter::Trace);
+    let mut base_dispatch = fern::Dispatch::new().level(log::LevelFilter::Trace);
 
     // Console output dispatch with colored formatting
     let console_dispatch = fern::Dispatch::new()
@@ -68,8 +67,6 @@ pub fn setup_logging(
         base_dispatch = base_dispatch.chain(file_dispatch);
     }
 
-    base_dispatch
-        .apply()
-        .wrap_err("Failed to setup logging")?;
+    base_dispatch.apply().wrap_err("Failed to setup logging")?;
     Ok(())
 }

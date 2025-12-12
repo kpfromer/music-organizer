@@ -106,6 +106,10 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
     setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
+
+    log::debug!("Music manager starting");
+    log::debug!("Loading configuration");
+
     let config = {
         if let Some(config) = args.config {
             Config::from_file(&config)
@@ -114,21 +118,26 @@ async fn main() -> Result<()> {
         }
     }
     .with_context(|| "Failed to load music-manager config")?;
+
+    log::debug!("Opening database at: {}", config.database_path().display());
     let database = Database::open(&config.database_path()).await?;
 
     match args.command {
         Commands::Import { input, api_key } => {
+            log::debug!("Starting import command for: {}", input.display());
             if input.is_file() {
                 import_track(&input, &api_key, &config, &database).await?;
             } else {
                 import_folder(&input, &api_key, &config, &database).await?;
             }
+            log::info!("Import command completed successfully");
         }
         Commands::Download {
             username,
             password,
             output_directory,
         } => {
+            log::debug!("Starting download command with username: {}", username);
             let soulseek_context = SoulSeekClientContext::new(SearchConfig {
                 username,
                 password,
@@ -140,13 +149,20 @@ async fn main() -> Result<()> {
             })
             .await?;
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
+            log::info!("Download command completed successfully");
         }
         Commands::Watch { directory, api_key } => {
+            log::debug!(
+                "Starting watch command for directory: {}",
+                directory.display()
+            );
             watch_directory(&directory, &api_key, &config, &database).await?;
         }
         Commands::Config(config_commands) => match config_commands {
             ConfigCommands::CreateDefault => {
+                log::debug!("Creating default config");
                 Config::create_default()?;
+                log::info!("Default config created successfully");
             }
             ConfigCommands::Path => match Config::config_path() {
                 Some(path) => println!("{}", path.display()),

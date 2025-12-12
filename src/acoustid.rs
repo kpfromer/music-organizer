@@ -59,14 +59,27 @@ pub async fn lookup_fingerprint(
     duration: u32,
 ) -> Result<AcoustIdResponse> {
     // Wait for rate limit before making request
+    log::debug!("Waiting for AcoustID rate limiter");
     get_rate_limiter().until_ready().await;
 
+    log::debug!("Making AcoustID API request (duration: {}s)", duration);
     let url = format!(
         "https://api.acoustid.org/v2/lookup?client={}&meta=recordings&duration={}&fingerprint={}",
         api_key, duration, fingerprint
     );
 
     let resp: AcoustIdResponse = client.get(&url).send().await?.json().await?;
+
+    log::debug!(
+        "AcoustID response received: status={}, {} results",
+        resp.status,
+        resp.results.len()
+    );
+
+    log::info!(
+        "AcoustID lookup complete: {} results found",
+        resp.results.len()
+    );
 
     Ok(resp)
 }

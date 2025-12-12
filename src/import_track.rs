@@ -38,18 +38,24 @@ struct TrackMetadata {
 
 /// Gather all metadata needed for database insertion from a file
 async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackMetadata> {
+    log::debug!("Gathering metadata for file: {}", file_path.display());
+
     let client = Client::new();
 
     // Read file tags
+    log::debug!("Reading audio tags from file");
     let tag = audiotags::Tag::new().read_from_path(file_path)?;
 
     // Compute SHA-256 hash
+    log::debug!("Computing SHA-256 hash");
     let sha256 = file_hash::compute_sha256(file_path)?;
 
     // Get fingerprint for AcoustID lookup
+    log::debug!("Getting fingerprint from chromaprint");
     let (fingerprint, duration) = chromaprint::chromaprint_from_file(file_path)?;
 
     // Lookup via AcoustID
+    log::debug!("Initiating AcoustID lookup (duration: {}s)", duration);
     let resp = lookup_fingerprint(&client, api_key, &fingerprint, duration).await?;
 
     let result = resp
@@ -61,6 +67,11 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
         .ok_or(color_eyre::eyre::eyre!("No AcoustID results found"))?;
+
+    log::debug!(
+        "Best AcoustID result selected with score: {:.2}",
+        result.score
+    );
 
     let best_recording: AcoustIdRecording = result
         .recordings
@@ -77,6 +88,10 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
         .ok_or(color_eyre::eyre::eyre!("No recordings found"))?;
 
     // Fetch from MusicBrainz
+    log::debug!(
+        "Fetching recording details from MusicBrainz (ID: {})",
+        best_recording.id
+    );
     let recording_from_musicbrainz = fetch_recording_with_details(&best_recording.id).await?;
 
     let release = recording_from_musicbrainz
@@ -86,6 +101,10 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
         .first()
         .ok_or(color_eyre::eyre::eyre!("No releases found"))?;
 
+    log::debug!(
+        "Fetching release details from MusicBrainz (ID: {})",
+        release.id
+    );
     let release_from_musicbrainz = fetch_release_with_details(&release.id).await?;
 
     // Extract track artists from MusicBrainz recording
@@ -125,6 +144,16 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     // Get track number from tags (convert u16 to i32)
     let track_number = tag.track().0.map(|n| n as i32);
 
+    log::info!(
+        "Metadata gathered successfully: '{}' by '{}' from album '{}'",
+        recording_from_musicbrainz.title,
+        track_artists
+            .first()
+            .map(|(name, _)| name.as_str())
+            .unwrap_or("Unknown"),
+        album_title
+    );
+
     Ok(TrackMetadata {
         source_path: file_path.to_path_buf(),
         sha256,
@@ -160,6 +189,8 @@ pub async fn import_track(
     config: &Config,
     database: &Database,
 ) -> Result<()> {
+    log::debug!("Starting import for file: {}", file_path.display());
+
     if !SUPPORTED_FILE_TYPES.contains(&file_path.extension().and_then(|e| e.to_str()).unwrap_or(""))
     {
         return Err(color_eyre::eyre::eyre!(
@@ -172,6 +203,7 @@ pub async fn import_track(
     let metadata = gather_track_metadata(file_path, api_key).await?;
 
     // Check for duplicate by MusicBrainz ID
+    log::debug!("Checking for duplicate by MusicBrainz ID");
     if let Some(track_mbid) = &metadata.track_musicbrainz_id
         && database.is_duplicate_by_musicbrainz_id(track_mbid).await?
     {
@@ -180,6 +212,13 @@ pub async fn import_track(
             .as_ref()
             .map(|t| t.file_path.as_str())
             .unwrap_or("unknown");
+
+        log::warn!(
+            "Duplicate track detected: '{}' (MusicBrainz ID: {}) already exists at: {}",
+            metadata.track_title,
+            track_mbid,
+            existing_path
+        );
 
         return Err(color_eyre::eyre::eyre!(
             "Duplicate track detected! This track (MusicBrainz ID: {}) already exists in the database at: {}",
@@ -219,13 +258,21 @@ pub async fn import_track(
             track_number_str, sanitized_track, extension
         ));
 
+    log::debug!("Organized path: {}", organized_path.display());
+
     // Create directories if needed
     if let Some(parent) = organized_path.parent() {
+        log::debug!("Creating directory structure: {}", parent.display());
         std::fs::create_dir_all(parent)
             .context(format!("Failed to create directory: {}", parent.display()))?;
     }
 
     // Try rename first (fast for same filesystem)
+    log::debug!(
+        "Moving file from {} to {}",
+        metadata.source_path.display(),
+        organized_path.display()
+    );
     if std::fs::rename(&metadata.source_path, &organized_path)
         .context(format!(
             "Failed to move file from {} to {}",
@@ -235,12 +282,14 @@ pub async fn import_track(
         .is_err()
     {
         // If rename fails, assume it's a cross-filesystem move
+        log::debug!("Rename failed, copying file across filesystems");
         std::fs::copy(&metadata.source_path, &organized_path).context(format!(
             "Failed to copy file from {} to {}",
             metadata.source_path.display(),
             organized_path.display()
         ))?;
 
+        log::debug!("Removing original file: {}", metadata.source_path.display());
         std::fs::remove_file(&metadata.source_path).context(format!(
             "Failed to remove original file: {}",
             metadata.source_path.display()
@@ -248,6 +297,8 @@ pub async fn import_track(
     };
 
     // Now update database
+    log::debug!("Updating database with track information");
+
     // Upsert artists
     let mut album_artist_ids = Vec::new();
     for (idx, (name, mbid)) in metadata.album_artists.iter().enumerate() {
@@ -297,6 +348,17 @@ pub async fn import_track(
             .await?;
     }
 
+    log::info!(
+        "Track imported successfully: '{}' by '{}' -> {}",
+        metadata.track_title,
+        metadata
+            .track_artists
+            .first()
+            .map(|(name, _)| name.as_str())
+            .unwrap_or("Unknown"),
+        organized_path.display()
+    );
+
     println!("Successfully imported: {}", organized_path.display());
     Ok(())
 }
@@ -307,6 +369,12 @@ pub async fn import_folder(
     config: &Config,
     database: &Database,
 ) -> Result<()> {
+    log::debug!("Starting folder import from: {}", folder_path.display());
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut total_count = 0;
+
     for entry in walkdir::WalkDir::new(folder_path)
         .into_iter()
         .filter_map(Result::ok)
@@ -317,11 +385,26 @@ pub async fn import_folder(
         })
     {
         let path = entry.path();
+        total_count += 1;
+        log::info!("Processing file ({}/...): {}", total_count, path.display());
+
         let result = import_track(path, api_key, config, database).await;
         if let Err(e) = result {
+            error_count += 1;
+            log::warn!("Error importing track {}: {}", path.display(), e);
             println!("Error importing track {}: {}", path.display(), e);
+        } else {
+            success_count += 1;
         }
     }
+
+    log::info!(
+        "Folder import complete: {} successful, {} errors, {} total",
+        success_count,
+        error_count,
+        total_count
+    );
+
     Ok(())
 }
 
@@ -332,6 +415,7 @@ pub async fn watch_directory(
     config: &Config,
     database: &Database,
 ) -> Result<()> {
+    log::info!("Starting watch mode for directory: {}", directory.display());
     println!("Watching directory: {}", directory.display());
     println!("Press Ctrl+C to stop watching...");
 
@@ -340,6 +424,7 @@ pub async fn watch_directory(
 
     loop {
         interval.tick().await;
+        log::debug!("Scanning directory for new files");
 
         // Scan for new files
         for entry in walkdir::WalkDir::new(directory)
@@ -356,9 +441,11 @@ pub async fn watch_directory(
                 && !seen_files.contains(&canonical)
             {
                 seen_files.insert(canonical.clone());
+                log::info!("New file detected: {}", path.display());
                 println!("New file detected: {}", path.display());
                 let result = import_track(path, api_key, config, database).await;
                 if let Err(e) = result {
+                    log::warn!("Error importing track {}: {}", path.display(), e);
                     println!("Error importing track {}: {}", path.display(), e);
                 }
             }
