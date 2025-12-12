@@ -30,6 +30,18 @@ struct Args {
     #[arg(short, long, env = "MUSIC_MANAGER_CONFIG")]
     config: Option<PathBuf>,
 
+    /// Console log level (default: off)
+    #[arg(long, default_value = "off", global = true)]
+    log_level: log::LevelFilter,
+
+    /// File log level (default: debug)
+    #[arg(long, default_value = "debug", global = true)]
+    log_file_level: log::LevelFilter,
+
+    /// Path to log file
+    #[arg(long, env = "MUSIC_MANAGER_LOG_FILE", global = true)]
+    log_file: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -91,9 +103,9 @@ enum ConfigCommands {
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    setup_logging()?;
 
     let args = Args::parse();
+    setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
     let config = {
         if let Some(config) = args.config {
             Config::from_file(&config)

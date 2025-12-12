@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 use color_eyre::Result;
@@ -5,7 +6,11 @@ use color_eyre::eyre::Context;
 use fern::colors::Color;
 use fern::colors::ColoredLevelConfig;
 
-pub fn setup_logging() -> Result<()> {
+pub fn setup_logging(
+    console_level: log::LevelFilter,
+    log_file: Option<PathBuf>,
+    file_level: log::LevelFilter,
+) -> Result<()> {
     // configure colors for the whole line
     let colors_line = ColoredLevelConfig::new()
         .error(Color::Red)
@@ -20,11 +25,16 @@ pub fn setup_logging() -> Result<()> {
     // since almost all of them are the same as the color for the whole line, we
     // just clone `colors_line` and overwrite our changes
     let colors_level = colors_line.info(Color::Green);
-    // here we set up our fern Dispatch
-    fern::Dispatch::new()
+
+    // Create base dispatch with no filtering (filtering happens in the chains)
+    let mut base_dispatch = fern::Dispatch::new()
+        .level(log::LevelFilter::Trace);
+
+    // Console output dispatch with colored formatting
+    let console_dispatch = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
-                "{color_line}[{date} {level} {target} {color_line}] {message}\x1B[0m",
+                "{color_line}[{date} {level} {target}] {message}\x1B[0m",
                 color_line = format_args!(
                     "\x1B[{}m",
                     colors_line.get_color(&record.level()).to_fg_str()
@@ -35,16 +45,30 @@ pub fn setup_logging() -> Result<()> {
                 message = message,
             ));
         })
-        // set the default log level. to filter out verbose log messages from dependencies, set
-        // this to Warn and overwrite the log level for your crate.
-        .level(log::LevelFilter::Warn)
-        // change log levels for individual modules. Note: This looks for the record's target
-        // field which defaults to the module path but can be overwritten with the `target`
-        // parameter:
-        // `info!(target="special_target", "This log message is about special_target");`
-        .level_for("pretty_colored", log::LevelFilter::Trace)
-        // output to stdout
-        .chain(std::io::stdout())
+        .level(console_level)
+        .chain(std::io::stdout());
+
+    base_dispatch = base_dispatch.chain(console_dispatch);
+
+    // File output dispatch with plain text formatting (if log file is specified)
+    if let Some(log_file_path) = log_file {
+        let file_dispatch = fern::Dispatch::new()
+            .format(|out, message, record| {
+                out.finish(format_args!(
+                    "[{date} {level} {target}] {message}",
+                    date = humantime::format_rfc3339_seconds(SystemTime::now()),
+                    target = record.target(),
+                    level = record.level(),
+                    message = message,
+                ));
+            })
+            .level(file_level)
+            .chain(fern::log_file(log_file_path)?);
+
+        base_dispatch = base_dispatch.chain(file_dispatch);
+    }
+
+    base_dispatch
         .apply()
         .wrap_err("Failed to setup logging")?;
     Ok(())
