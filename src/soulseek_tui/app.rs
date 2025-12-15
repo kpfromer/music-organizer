@@ -149,6 +149,7 @@ impl App {
                         self.status_message = Some(format!("Found {} results", self.results.len()));
                     }
                     SearchEvent::Failed(error) => {
+                        log::error!("Search failed: {}", error);
                         self.error_message = Some(error);
                         self.mode = AppMode::Error;
                     }
@@ -187,7 +188,11 @@ impl App {
                         }
                         self.status_message = Some("Download completed".to_string())
                     }
-                    DownloadEvent::Failed(error) => self.error_message = Some(error),
+                    DownloadEvent::Failed(error) => {
+                        log::error!("Download failed: {}", error);
+                        self.error_message = Some(error);
+                        self.mode = AppMode::Error;
+                    }
                 },
             },
         }

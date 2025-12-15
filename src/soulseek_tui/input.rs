@@ -135,7 +135,11 @@ fn handle_error_input(app: &mut App, key: KeyEvent) -> Result<()> {
 
     match key.code {
         KeyCode::Enter | KeyCode::Esc => {
-            app.mode = AppMode::SearchForm;
+            if app.results.is_empty() {
+                app.mode = AppMode::SearchForm;
+            } else {
+                app.mode = AppMode::Results;
+            }
         }
         _ => {}
     }
