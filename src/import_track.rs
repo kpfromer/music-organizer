@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use reqwest::Client;
 use tokio::time::interval;
@@ -22,7 +23,7 @@ struct TrackMetadata {
 
     // Track info
     track_title: String,
-    track_number: Option<i32>,
+    track_number: i32,
     duration: Option<i32>,
     track_musicbrainz_id: Option<String>,
 
@@ -41,10 +42,6 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     log::debug!("Gathering metadata for file: {}", file_path.display());
 
     let client = Client::new();
-
-    // Read file tags
-    log::debug!("Reading audio tags from file");
-    let tag = audiotags::Tag::new().read_from_path(file_path)?;
 
     // Compute SHA-256 hash
     log::debug!("Computing SHA-256 hash");
@@ -143,8 +140,28 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
             .and_then(|year_str| year_str.parse::<i32>().ok())
     });
 
-    // Get track number from tags (convert u16 to i32)
-    let track_number = tag.track().0.map(|n| n as i32);
+    let track_number = {
+        // Find the track number in the media tracks
+        release_from_musicbrainz
+            .media
+            .as_ref()
+            .map(|media| {
+                media
+                    .iter()
+                    .flat_map(|medium| medium.tracks.as_deref().unwrap_or(&[]))
+                    .filter(|t| {
+                        t.recording
+                            .as_ref()
+                            .is_some_and(|r| r.id == best_recording.id)
+                    })
+                    .map(|t| t.position)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+            .first()
+            .map(|i| *i as i32)
+    }
+    .ok_or_eyre("No track number found")?;
 
     log::info!(
         "Metadata gathered successfully: '{}' by '{}' from album '{}'",
@@ -242,10 +259,7 @@ pub async fn import_track(
         .and_then(|e| e.to_str())
         .unwrap_or("mp3");
 
-    let track_number_str = metadata
-        .track_number
-        .map(|n| format!("{:02} ", n))
-        .unwrap_or_default();
+    let track_number_str = format!("{:02} ", metadata.track_number);
 
     let sanitized_artist = sanitize_filename(&primary_album_artist);
     let sanitized_album = sanitize_filename(&metadata.album_title);
@@ -335,7 +349,7 @@ pub async fn import_track(
         .upsert_track(
             album_id,
             &metadata.track_title,
-            metadata.track_number,
+            Some(metadata.track_number),
             metadata.duration,
             metadata.track_musicbrainz_id.as_deref(),
             &organized_path.to_string_lossy(),
