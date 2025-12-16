@@ -161,6 +161,7 @@ impl EventHandler {
 
     /// Queue a download request to be sent to the download thread.
     pub fn send_background_request(&mut self, request: BackgroundRequest) {
+        log::debug!("Sending background request: {:?}", request);
         let _ = self.background_sender.send(request);
     }
 }
@@ -226,9 +227,14 @@ impl BackgroundThread {
             match self.background_request_receiver.recv() {
                 Ok(BackgroundRequest::Search(_request)) => self.handle_search(_request).await,
                 Ok(BackgroundRequest::Download(_request)) => self.handle_download(_request).await,
-                Err(_) => {}
+                Err(_) => {
+                    log::error!("Background request receiver disconnected");
+                    break;
+                }
             }
         }
+
+        Err(color_eyre::eyre::eyre!("Disconnected"))
     }
 
     async fn handle_search(&mut self, request: SearchRequest) {
@@ -291,16 +297,25 @@ impl BackgroundThread {
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Completed,
                         )))?;
+                    break;
                 }
                 soulseek_rs::DownloadStatus::Failed => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download failed".to_string()),
                         )))?;
+                    break;
                 }
-                soulseek_rs::DownloadStatus::TimedOut => {}
+                soulseek_rs::DownloadStatus::TimedOut => {
+                    self.sender
+                        .send(Event::Background(BackgroundEvent::DownloadEvent(
+                            DownloadEvent::Failed("Download timed out".to_string()),
+                        )))?;
+                    break;
+                }
             }
         }
+        log::debug!("Download file thread finished");
         Ok(())
     }
 

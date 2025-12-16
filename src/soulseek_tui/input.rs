@@ -13,10 +13,6 @@ pub fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) -> Resul
             app.quit();
             Ok(())
         }
-        KeyCode::Char('q') => {
-            app.quit();
-            Ok(())
-        }
         _ => match app.mode {
             AppMode::SearchForm => handle_search_form_input(app, key),
             AppMode::Results => handle_results_input(app, key),
@@ -30,6 +26,9 @@ fn handle_search_form_input(app: &mut App, key: KeyEvent) -> Result<()> {
     use crossterm::event::KeyCode;
 
     match key.code {
+        KeyCode::Esc => {
+            app.quit();
+        }
         KeyCode::Tab | KeyCode::Down => {
             app.form.focused_field = match app.form.focused_field {
                 FormField::Title => FormField::Artist,
@@ -136,7 +135,11 @@ fn handle_error_input(app: &mut App, key: KeyEvent) -> Result<()> {
 
     match key.code {
         KeyCode::Enter | KeyCode::Esc => {
-            app.mode = AppMode::SearchForm;
+            if app.results.is_empty() {
+                app.mode = AppMode::SearchForm;
+            } else {
+                app.mode = AppMode::Results;
+            }
         }
         _ => {}
     }
