@@ -229,9 +229,12 @@ impl BackgroundThread {
                 Ok(BackgroundRequest::Download(_request)) => self.handle_download(_request).await,
                 Err(_) => {
                     log::error!("Background request receiver disconnected");
+                    break;
                 }
             }
         }
+
+        Err(color_eyre::eyre::eyre!("Disconnected"))
     }
 
     async fn handle_search(&mut self, request: SearchRequest) {

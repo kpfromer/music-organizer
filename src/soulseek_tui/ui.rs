@@ -151,7 +151,7 @@ fn render_results(frame: &mut Frame, app: &App) {
     }
 
     // Help text
-    let help = Paragraph::new("[Enter: Download] [Esc: Back] [↑↓: Navigate] [ESC: Quit]")
+    let help = Paragraph::new("[Enter: Download] [Esc: Back] [↑↓: Navigate]")
         .style(Style::default().fg(Color::DarkGray))
         .block(Block::bordered().title("Help"));
     frame.render_widget(help, chunks[2]);
