@@ -141,25 +141,28 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     });
 
     let track_number = {
-        // Find the track number in the media tracks
-        release_from_musicbrainz
-            .media
-            .as_ref()
-            .map(|media| {
-                media
-                    .iter()
-                    .flat_map(|medium| medium.tracks.as_deref().unwrap_or(&[]))
-                    .filter(|t| {
-                        t.recording
-                            .as_ref()
-                            .is_some_and(|r| r.id == best_recording.id)
-                    })
-                    .map(|t| t.position)
-                    .collect::<Vec<_>>()
+        // Find the track number using global ordering across all discs
+        // If a track is on disc 2 position 3, and disc 1 has 10 tracks, result is 13
+        release_from_musicbrainz.media.as_ref().and_then(|media| {
+            let mut offset = 0;
+            media.iter().find_map(|medium| {
+                let tracks = medium.tracks.as_deref().unwrap_or(&[]);
+
+                // Check if our recording is in this medium
+                if let Some(track) = tracks.iter().find(|t| {
+                    t.recording
+                        .as_ref()
+                        .is_some_and(|r| r.id == best_recording.id)
+                }) {
+                    // Found it! Return the global position
+                    Some((offset + track.position) as i32)
+                } else {
+                    // Not in this medium, add its track count to offset
+                    offset += tracks.len() as u32;
+                    None
+                }
             })
-            .unwrap_or_default()
-            .first()
-            .map(|i| *i as i32)
+        })
     }
     .ok_or_eyre("No track number found")?;
 
