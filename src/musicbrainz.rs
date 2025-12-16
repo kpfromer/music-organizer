@@ -58,6 +58,9 @@ pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
             .id(release_id)
             .with_release_groups()
             .with_artists()
+            // Recordings are needed to get the track number with media
+            .with_recordings()
+            .with_media()
             .execute()
             .await
             .wrap_err("Failed to fetch release from MusicBrainz")?;

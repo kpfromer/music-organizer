@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use reqwest::Client;
 use tokio::time::interval;
@@ -22,7 +23,7 @@ struct TrackMetadata {
 
     // Track info
     track_title: String,
-    track_number: Option<i32>,
+    track_number: i32,
     duration: Option<i32>,
     track_musicbrainz_id: Option<String>,
 
@@ -41,10 +42,6 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
     log::debug!("Gathering metadata for file: {}", file_path.display());
 
     let client = Client::new();
-
-    // Read file tags
-    log::debug!("Reading audio tags from file");
-    let tag = audiotags::Tag::new().read_from_path(file_path)?;
 
     // Compute SHA-256 hash
     log::debug!("Computing SHA-256 hash");
@@ -143,8 +140,31 @@ async fn gather_track_metadata(file_path: &Path, api_key: &str) -> Result<TrackM
             .and_then(|year_str| year_str.parse::<i32>().ok())
     });
 
-    // Get track number from tags (convert u16 to i32)
-    let track_number = tag.track().0.map(|n| n as i32);
+    let track_number = {
+        // Find the track number using global ordering across all discs
+        // If a track is on disc 2 position 3, and disc 1 has 10 tracks, result is 13
+        release_from_musicbrainz.media.as_ref().and_then(|media| {
+            let mut offset = 0;
+            media.iter().find_map(|medium| {
+                let tracks = medium.tracks.as_deref().unwrap_or(&[]);
+
+                // Check if our recording is in this medium
+                if let Some(track) = tracks.iter().find(|t| {
+                    t.recording
+                        .as_ref()
+                        .is_some_and(|r| r.id == best_recording.id)
+                }) {
+                    // Found it! Return the global position
+                    Some((offset + track.position) as i32)
+                } else {
+                    // Not in this medium, add its track count to offset
+                    offset += tracks.len() as u32;
+                    None
+                }
+            })
+        })
+    }
+    .ok_or_eyre("No track number found")?;
 
     log::info!(
         "Metadata gathered successfully: '{}' by '{}' from album '{}'",
@@ -242,10 +262,7 @@ pub async fn import_track(
         .and_then(|e| e.to_str())
         .unwrap_or("mp3");
 
-    let track_number_str = metadata
-        .track_number
-        .map(|n| format!("{:02} ", n))
-        .unwrap_or_default();
+    let track_number_str = format!("{:02} ", metadata.track_number);
 
     let sanitized_artist = sanitize_filename(&primary_album_artist);
     let sanitized_album = sanitize_filename(&metadata.album_title);
@@ -335,7 +352,7 @@ pub async fn import_track(
         .upsert_track(
             album_id,
             &metadata.track_title,
-            metadata.track_number,
+            Some(metadata.track_number),
             metadata.duration,
             metadata.track_musicbrainz_id.as_deref(),
             &organized_path.to_string_lossy(),
