@@ -99,7 +99,7 @@ fn render_search_form(frame: &mut Frame, app: &App) {
     frame.render_widget(status_para, chunks[2]);
 
     // Help text
-    let help = Paragraph::new("[Enter: Search] [Tab: Next Field] [ESC: Quit]")
+    let help = Paragraph::new("[Enter: Search] [Tab: Next Field] [Esc: Quit]")
         .style(Style::default().fg(Color::DarkGray));
     frame.render_widget(help, chunks[3]);
 }
