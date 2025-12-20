@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
 use async_graphql::http::GraphiQLSource;
-use async_graphql::{Context, EmptyMutation, EmptySubscription, Object, Schema};
+use async_graphql::{EmptyMutation, EmptySubscription, Object, Schema};
 use axum::response::{Html, IntoResponse};
-use color_eyre::eyre::{Result, WrapErr};
-use sea_orm::EntityTrait;
 
-use crate::entities;
 use crate::http_server::state::AppState;
+use color_eyre::Result;
 
 pub struct Query;
 
@@ -17,22 +15,10 @@ impl Query {
         "partner"
     }
 
-    async fn unimportable_files(
-        &self,
-        ctx: &Context<'_>,
-    ) -> Result<Vec<entities::unimportable_file::Model>> {
-        let app_state = ctx.data::<Arc<AppState>>().unwrap();
-        let db = &app_state.db;
-
-        let r = entities::unimportable_file::Entity::find()
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to get unimportable files");
-
-        // TODO: remove this once we have a proper error handling
-        log::error!("Failed to get unimportable files");
-        log::error!("{r:?}");
-        r
+    async fn error_example(&self) -> Result<&'static str> {
+        Err(color_eyre::eyre::eyre!(
+            "This is a test error from the graphql schema"
+        ))
     }
 }
 

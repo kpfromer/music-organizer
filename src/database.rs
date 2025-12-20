@@ -13,7 +13,7 @@ use std::time::Duration;
 use crate::entities;
 
 pub struct Database {
-    conn: DatabaseConnection,
+    pub conn: DatabaseConnection,
 }
 
 #[derive(Debug, Clone)]

@@ -1,86 +1,22 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use async_graphql_axum::GraphQL;
-use axum::{
-    Json, Router,
-    body::Body,
-    extract::State,
-    handler::Handler,
-    http::{Response, StatusCode},
-    response::IntoResponse,
-    routing::{get, post},
-};
-use axum_macros::debug_handler;
+use axum::{Router, routing::get};
 use color_eyre::eyre::{Context, eyre};
-use log::log;
-use serde::{Deserialize, Serialize};
 use tower::ServiceBuilder;
-#[cfg(debug_assertions)]
+#[cfg(not(debug_assertions))]
 use tower_http::cors::AllowMethods;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 use crate::{
     config::Config,
-    database::{Database, Track},
+    database::Database,
     http_server::{graphql, state::AppState},
     import_track::watch_directory,
 };
 
-pub type Result<T, E = Report> = color_eyre::Result<T, E>;
-// A generic error report
-// Produced via `Err(some_err).wrap_err("Some context")`
-// or `Err(color_eyre::eyre::Report::new(SomeError))`
-pub struct Report(color_eyre::Report);
-
-impl std::fmt::Debug for Report {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<E> From<E> for Report
-where
-    E: Into<color_eyre::Report>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
-// Tell axum how to convert `Report` into a response.
-impl IntoResponse for Report {
-    fn into_response(self) -> Response<Body> {
-        let err = self.0;
-        let err_string = format!("{err:?}");
-
-        log::error!("{err_string}");
-
-        // if let Some(err) = err.downcast_ref::<DemoError>() {
-        //     return err.response();
-        // }
-
-        // Fallback
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Something went wrong".to_string(),
-        )
-            .into_response()
-    }
-}
-// TODO: extract above to a module
-
-// TODO: move
-// basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
-}
-
-#[debug_handler]
-async fn tracks(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Track>>> {
-    Ok(Json(state.db.get_tracks().await?))
 }
 
 pub async fn start(
@@ -104,7 +40,6 @@ pub async fn start(
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/tracks", get(tracks))
         .route(
             "/graphql",
             get(graphql::graphql).post_service(GraphQL::new(schema)),
@@ -117,11 +52,11 @@ pub async fn start(
         log::info!("Watching directory in background");
         let watch_directory_path = watch_directory_path.clone();
         let acoustid_api_key = acoustid_api_key.to_string();
-        let r = tokio::spawn(async move {
+        let _r = tokio::spawn(async move {
             // TODO: handle errors hear
             // maybe restart 5 times with a delay between each restart
             // if it fails after 5 restarts, log an error and exit?
-            watch_directory(
+            let _ = watch_directory(
                 &watch_directory_path,
                 &acoustid_api_key,
                 &config,
