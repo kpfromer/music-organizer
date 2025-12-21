@@ -1,35 +1,15 @@
 set dotenv-load := true
 
+import 'backend.just'
+import 'frontend.just'
+
 # Watch the backend server, frontend dev, and codegen concurrently
 [parallel]
-watch: watch-backend dev-frontend
+watch: backend-watch frontend-dev
 
-# Watch only the backend server
-watch-backend:
-    cargo watch -x 'run -- serve --log-level info --directory downloads'
-
-# Watch/develop the frontend
-[working-directory: 'frontend']
-dev-frontend: 
-    bun run dev
-
-# Run GraphQL codegen for the frontend
-[working-directory: 'frontend']
-codegen-frontend: 
-    bun run codegen
-
-# Lint Rust code with clippy
-lint:
-    cargo clippy --all-targets --all-features -- -D warnings
-
-build: build-frontend build-backend
-
-build-backend:
-    cargo build --release --locked
-
-[working-directory: 'frontend']
-build-frontend:
-    bun run build
+# Build both frontend and backend
+[parallel]
+build: frontend-build backend-build-release
 
 docker-build:
     docker build -t music-manager:latest .
@@ -50,28 +30,26 @@ docker-run:
 
 alias c := check
 
+# Run all checks (frontend and backend)
 [parallel]
-check: check-frontend check-backend
+check: frontend-check backend-check
 
-check-backend:
-    cargo clippy
-
+# Lint both frontend and backend
 [parallel]
-check-frontend: check-frontend-biome check-frontend-typescript
+lint: frontend-check backend-lint
 
-[working-directory: 'frontend']
-check-frontend-biome:
-    bun run check
+# Format both frontend and backend
+[parallel]
+format: frontend-format backend-fmt
 
-[working-directory: 'frontend']
-check-frontend-typescript:
-    bun run check:typescript
+# Run tests for backend
+test: backend-test
 
+# Fix frontend biome issues
+fix-frontend:
+    frontend-format
+    frontend-check --write
 
-[working-directory: 'frontend']
-fix-frontend-biome:
-    bun run format
-    bun run biome check --write ./
 
 
 just: watch
