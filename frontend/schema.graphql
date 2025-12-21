@@ -3,5 +3,6 @@ schema {
 }
 
 type Query {
+  errorExample: String!
   howdy: String!
 }
