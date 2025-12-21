@@ -19,6 +19,14 @@ RUN cargo install cargo-chef --locked
 
 WORKDIR /app
 
+# Frontend builder stage - use Bun image
+FROM oven/bun:latest AS frontend-builder
+WORKDIR /app
+COPY frontend/package.json frontend/bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY frontend/ ./
+RUN bun run build
+
 # Planner stage - generate recipe.json
 FROM chef AS planner
 COPY . .
@@ -31,8 +39,13 @@ COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
 RUN cargo chef cook --release --recipe-path recipe.json
 
-# Now copy source code and build the app
+# Copy source code
 COPY . .
+
+# Copy frontend dist from frontend-builder stage
+COPY --from=frontend-builder /app/dist /app/frontend/dist
+
+# Build Rust application (release mode requires frontend/dist to exist)
 RUN cargo build --release --locked
 
 # Runtime stage
@@ -46,6 +59,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 COPY --from=builder /app/target/release/music-manager /usr/local/bin/music-manager
+COPY --from=builder /app/frontend/dist /app/frontend/dist
 
 ENTRYPOINT ["music-manager"]
 CMD ["watch"]
