@@ -8,21 +8,24 @@ RUN apk add --no-cache \
     openssl-libs-static \
     pkgconfig \
     build-base \
-    curl \
-    unzip
+    curl
 
 # Install Rust via rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install Bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-
 # Install cargo-chef
 RUN cargo install cargo-chef --locked
 
 WORKDIR /app
+
+# Frontend builder stage - use Bun image
+FROM oven/bun:latest AS frontend-builder
+WORKDIR /app
+COPY frontend/package.json frontend/bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY frontend/ ./
+RUN bun run build
 
 # Planner stage - generate recipe.json
 FROM chef AS planner
@@ -39,13 +42,10 @@ RUN cargo chef cook --release --recipe-path recipe.json
 # Copy source code
 COPY . .
 
-# Build frontend before Rust build (needed for release mode)
-WORKDIR /app/frontend
-RUN bun install --frozen-lockfile
-RUN bun run build
+# Copy frontend dist from frontend-builder stage
+COPY --from=frontend-builder /app/dist /app/frontend/dist
 
 # Build Rust application (release mode requires frontend/dist to exist)
-WORKDIR /app
 RUN cargo build --release --locked
 
 # Runtime stage
