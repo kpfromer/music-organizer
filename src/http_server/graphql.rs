@@ -4,8 +4,8 @@ use async_graphql::http::GraphiQLSource;
 use async_graphql::{EmptyMutation, EmptySubscription, Object, Schema};
 use axum::response::{Html, IntoResponse};
 
+use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
-use color_eyre::Result;
 
 pub struct Query;
 
@@ -15,10 +15,8 @@ impl Query {
         "partner"
     }
 
-    async fn error_example(&self) -> Result<&'static str> {
-        Err(color_eyre::eyre::eyre!(
-            "This is a test error from the graphql schema"
-        ))
+    async fn error_example(&self) -> GraphqlResult<&'static str> {
+        Err(color_eyre::eyre::eyre!("This is a test error from the graphql schema").into())
     }
 }
 

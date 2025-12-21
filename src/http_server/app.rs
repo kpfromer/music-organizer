@@ -4,8 +4,6 @@ use async_graphql_axum::GraphQL;
 use axum::{Router, routing::get};
 use color_eyre::eyre::{Context, eyre};
 use tower::ServiceBuilder;
-#[cfg(not(debug_assertions))]
-use tower_http::cors::AllowMethods;
 use tower_http::cors::CorsLayer;
 
 use crate::{
@@ -30,13 +28,7 @@ pub async fn start(
 
     let schema = graphql::create_schema(app_state.clone());
 
-    #[cfg(debug_assertions)]
     let cors_layer = CorsLayer::permissive();
-
-    #[cfg(not(debug_assertions))]
-    let cors_layer = CorsLayer::new()
-        .allow_origin(Origin::exact("https://your-production-domain.com")) // TODO: use env variable
-        .allow_methods(AllowMethods::any());
 
     let app = Router::new()
         .route("/", get(root))
@@ -56,13 +48,19 @@ pub async fn start(
             // TODO: handle errors hear
             // maybe restart 5 times with a delay between each restart
             // if it fails after 5 restarts, log an error and exit?
-            let _ = watch_directory(
+            match watch_directory(
                 &watch_directory_path,
                 &acoustid_api_key,
                 &config,
                 &app_state.db,
             )
-            .await;
+            .await
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("Error watching directory: {}", e);
+                }
+            }
         });
     };
 
