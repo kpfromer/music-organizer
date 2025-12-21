@@ -8,11 +8,16 @@ RUN apk add --no-cache \
     openssl-libs-static \
     pkgconfig \
     build-base \
-    curl
+    curl \
+    unzip
 
 # Install Rust via rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Install cargo-chef
 RUN cargo install cargo-chef --locked
@@ -31,8 +36,16 @@ COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
 RUN cargo chef cook --release --recipe-path recipe.json
 
-# Now copy source code and build the app
+# Copy source code
 COPY . .
+
+# Build frontend before Rust build (needed for release mode)
+WORKDIR /app/frontend
+RUN bun install --frozen-lockfile
+RUN bun run build
+
+# Build Rust application (release mode requires frontend/dist to exist)
+WORKDIR /app
 RUN cargo build --release --locked
 
 # Runtime stage
@@ -46,6 +59,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 COPY --from=builder /app/target/release/music-manager /usr/local/bin/music-manager
+COPY --from=builder /app/frontend/dist /app/frontend/dist
 
 ENTRYPOINT ["music-manager"]
 CMD ["watch"]

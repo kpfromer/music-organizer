@@ -1,10 +1,15 @@
 use std::{path::PathBuf, sync::Arc};
 
 use async_graphql_axum::GraphQL;
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
+    routing::get,
+};
 use color_eyre::eyre::{Context, eyre};
 use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
     config::Config,
@@ -13,8 +18,13 @@ use crate::{
     import_track::watch_directory,
 };
 
-async fn root() -> &'static str {
-    "Hello, World!"
+// Handler to serve index.html for SPA routing
+async fn serve_index(frontend_dist: PathBuf) -> Response {
+    let index_path = frontend_dist.join("index.html");
+    match tokio::fs::read_to_string(&index_path).await {
+        Ok(content) => Html(content).into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "index.html not found").into_response(),
+    }
 }
 
 pub async fn start(
@@ -30,12 +40,72 @@ pub async fn start(
 
     let cors_layer = CorsLayer::permissive();
 
-    let app = Router::new()
-        .route("/", get(root))
-        .route(
-            "/graphql",
-            get(graphql::graphql).post_service(GraphQL::new(schema)),
-        )
+    // Check if we're in release mode (production)
+    let is_release = cfg!(not(debug_assertions));
+
+    // Validate frontend files in release mode
+    if is_release {
+        let frontend_dist = PathBuf::from("frontend/dist");
+        let index_html_path = frontend_dist.join("index.html");
+
+        // Validate that frontend files exist
+        if !index_html_path.exists() {
+            return Err(eyre!(
+                "Release mode requires frontend/dist/index.html but it was not found at: {}",
+                index_html_path.display()
+            ));
+        }
+
+        // Check that dist directory exists and has some files
+        if !frontend_dist.exists() {
+            return Err(eyre!(
+                "Release mode requires frontend/dist directory but it was not found at: {}",
+                frontend_dist.display()
+            ));
+        }
+
+        // Check for JS or CSS files in dist (Bun outputs these directly in dist)
+        let dist_entries = std::fs::read_dir(&frontend_dist)
+            .map_err(|e| eyre!("Failed to read frontend/dist directory: {}", e))?;
+        let has_assets = dist_entries.filter_map(|entry| entry.ok()).any(|entry| {
+            let path = entry.path();
+            let file_name = path.file_name().and_then(|n| n.to_str());
+            file_name
+                .map(|n| n.ends_with(".js") || n.ends_with(".css"))
+                .unwrap_or(false)
+        });
+
+        if !has_assets {
+            return Err(eyre!(
+                "Release mode requires frontend/dist to contain JS or CSS files, but none were found at: {}",
+                frontend_dist.display()
+            ));
+        }
+
+        log::info!(
+            "Release mode: Serving static files from: {}",
+            frontend_dist.display()
+        );
+    }
+
+    // Build router with API routes first
+    let mut app = Router::new().route(
+        "/graphql",
+        get(graphql::graphql).post_service(GraphQL::new(schema)),
+    );
+
+    // In release mode, serve static files and index.html via fallback
+    // ServeDir handles static files, and falls back to index.html for SPA routing
+    if is_release {
+        let frontend_dist = PathBuf::from("frontend/dist");
+        let dist_clone = frontend_dist.clone();
+        app = app.fallback_service(ServeDir::new(&frontend_dist).fallback(get(move || {
+            let dist = dist_clone.clone();
+            async move { serve_index(dist).await }
+        })));
+    }
+
+    let app = app
         .layer(ServiceBuilder::new().layer(cors_layer))
         .with_state(app_state.clone());
 

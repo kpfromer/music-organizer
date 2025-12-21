@@ -6,11 +6,6 @@ watch: watch-backend dev-frontend
 watch-backend:
     cargo watch -x 'run -- serve --log-level info --directory downloads'
 
-# Build the frontend
-[working-directory: 'frontend']
-build-frontend: 
-    bun run build
-
 # Watch/develop the frontend
 [working-directory: 'frontend']
 dev-frontend: 
@@ -29,5 +24,14 @@ check-frontend:
 # Lint Rust code with clippy
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
+
+build: build-frontend build-backend
+
+build-backend:
+    cargo build --release --locked
+
+[working-directory: 'frontend']
+build-frontend:
+    bun run build
 
 just: watch
