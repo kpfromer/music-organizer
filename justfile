@@ -18,11 +18,6 @@ dev-frontend:
 codegen-frontend: 
     bun run codegen
 
-# Check frontend code with Biome
-[working-directory: 'frontend']
-check-frontend: 
-    bun run check
-
 # Lint Rust code with clippy
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
@@ -52,6 +47,32 @@ docker-run:
         serve \
         --port 3000 \
         --directory /app/music
+
+alias c := check
+
+[parallel]
+check: check-frontend check-backend
+
+check-backend:
+    cargo clippy
+
+[parallel]
+check-frontend: check-frontend-biome check-frontend-typescript
+
+[working-directory: 'frontend']
+check-frontend-biome:
+    bun run check
+
+[working-directory: 'frontend']
+check-frontend-typescript:
+    bun run check:typescript
+
+
+[working-directory: 'frontend']
+fix-frontend-biome:
+    bun run format
+    bun run biome check --write ./
+
 
 just: watch
 
