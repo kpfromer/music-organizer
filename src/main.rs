@@ -10,7 +10,6 @@ mod logging;
 mod musicbrainz;
 mod soulseek;
 mod soulseek_tui;
-mod spotify;
 
 use std::path::PathBuf;
 

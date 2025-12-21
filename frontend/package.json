@@ -11,7 +11,8 @@
     "build": "rspack build --mode production",
     "codegen": "graphql-codegen --config codegen.ts",
     "format": "biome format --write ./",
-    "check": "biome check ./"
+    "check": "biome check ./",
+    "check:typescript": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-label": "2.1.7",

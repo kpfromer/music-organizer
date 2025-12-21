@@ -1,14 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
-import { APITester } from "../APITester";
 
 const TestQuery = graphql(`
   query Test {
@@ -37,9 +35,6 @@ export function Home() {
             and save to test HMR
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <APITester />
-        </CardContent>
       </Card>
     </div>
   );
