@@ -4,6 +4,7 @@ mod config;
 mod database;
 mod entities;
 mod file_hash;
+mod http_server;
 mod import_track;
 mod logging;
 mod musicbrainz;
@@ -57,6 +58,7 @@ fn is_directory(s: &str) -> Result<PathBuf, String> {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Import folder/file into the music database
     Import {
         /// The folder/file to import
         #[arg(short, long)]
@@ -66,6 +68,7 @@ enum Commands {
         #[arg(short = 'k', long = "api-key", env = "ACOUSTID_API_KEY")]
         api_key: String,
     },
+    /// Download music from SoulSeek
     Download {
         /// The soulseek username to use for downloads
         #[arg(short, long)]
@@ -79,7 +82,22 @@ enum Commands {
         #[arg(short, long, value_parser = is_directory)]
         output_directory: PathBuf,
     },
+    /// Watch a directory for new music files
     Watch {
+        /// The directory to watch for new music files
+        #[arg(short, long, value_parser = is_directory, env = "MUSIC_MANAGER_WATCH_DIRECTORY")]
+        directory: PathBuf,
+
+        /// AcoustID API key for lookups
+        #[arg(short = 'k', long = "api-key", env = "ACOUSTID_API_KEY")]
+        api_key: String,
+    },
+    /// Serve the HTTP server
+    Serve {
+        /// The port to run the server on
+        #[arg(short, long, default_value = "3000", env = "MUSIC_MANAGER_HTTP_PORT")]
+        port: u16,
+
         /// The directory to watch for new music files
         #[arg(short, long, value_parser = is_directory, env = "MUSIC_MANAGER_WATCH_DIRECTORY")]
         directory: PathBuf,
@@ -169,6 +187,14 @@ async fn main() -> Result<()> {
                 None => println!("No default config path found"),
             },
         },
+        Commands::Serve {
+            port,
+            directory,
+            api_key,
+        } => {
+            log::info!("Starting HTTP server on port: {}", port);
+            http_server::app::start(port, database, config, &api_key, directory).await?;
+        }
     }
 
     Ok(())
