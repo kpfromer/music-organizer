@@ -36,19 +36,17 @@ check: frontend-check backend-check
 
 # Lint both frontend and backend
 [parallel]
-lint: frontend-check backend-lint
+lint: frontend-lint backend-lint
 
 # Format both frontend and backend
 [parallel]
-format: frontend-format backend-fmt
+format: frontend-format backend-format
 
 # Run tests for backend
 test: backend-test
 
 # Fix frontend biome issues
-fix-frontend:
-    frontend-format
-    frontend-check --write
+fix-frontend: frontend-fix
 
 
 

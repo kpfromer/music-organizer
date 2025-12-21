@@ -36,13 +36,23 @@ frontend-codegen:
 frontend-format:
     bun run biome format --write ./
 
-# Check code with biome
+# Lint code with biome
 [working-directory: 'frontend']
-frontend-check:
+frontend-lint:
     bun run biome check ./
 
 # Type check TypeScript
 [working-directory: 'frontend']
 frontend-check-typescript:
     bun run tsc --noEmit
+
+# Run all frontend checks (lint + typescript)
+[parallel]
+frontend-check: frontend-lint frontend-check-typescript
+
+# Fix biome issues (format + check with write)
+[working-directory: 'frontend']
+frontend-fix:
+    bun run biome format --write ./
+    bun run biome check --write ./
 

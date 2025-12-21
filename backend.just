@@ -1,17 +1,13 @@
 # Format Rust code
-backend-fmt:
+backend-format:
     cargo fmt
 
 # Check Rust formatting
-backend-fmt-check:
+backend-format-check:
     cargo fmt --check
 
-# Run clippy linter
-backend-clippy:
-    cargo clippy
-
-# Run clippy with strict warnings
-backend-clippy-strict:
+# Run clippy linter with strict warnings
+backend-lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
 # Run tests
@@ -35,10 +31,7 @@ backend-audit:
 backend-watch:
     cargo watch -x 'run -- serve --log-level info --directory downloads'
 
-# Lint (alias for clippy-strict)
-backend-lint: backend-clippy-strict
-
-# Check (alias for fmt-check + clippy-strict + test)
+# Check (format-check + lint + test)
 [parallel]
-backend-check: backend-fmt-check backend-clippy-strict backend-test
+backend-check: backend-format-check backend-lint backend-test
 
