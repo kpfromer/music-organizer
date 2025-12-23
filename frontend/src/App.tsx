@@ -2,7 +2,8 @@ import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Layout } from "./components/page";
+import { getAllPages } from "./AppConfig";
+import { Page } from "./components/page";
 import { Home } from "./pages/home";
 
 const queryClient = new QueryClient();
@@ -18,8 +19,13 @@ export function App() {
 		<BrowserRouter>
 			<Providers>
 				<Routes>
-					<Route path="/" element={<Home />} />
-					<Route path="/albums" element={<Layout>test</Layout>} />
+					{getAllPages().map((page) => (
+						<Route
+							key={page.id}
+							path={page.path}
+							element={<page.component />}
+						/>
+					))}
 				</Routes>
 			</Providers>
 		</BrowserRouter>

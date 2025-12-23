@@ -2,7 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const SIDEBAR_STATE_KEY = "sidebar_state";
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Page({ children }: { children: React.ReactNode }) {
 	const defaultOpen =
 		(localStorage.getItem(SIDEBAR_STATE_KEY) ?? "true") === "true";
 
