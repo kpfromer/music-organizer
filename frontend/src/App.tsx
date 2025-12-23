@@ -2,7 +2,6 @@ import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { getAllPages } from "./AppConfig";
 import { Page } from "./components/page";
 import { Home } from "./pages/home";
 
@@ -19,13 +18,10 @@ export function App() {
 		<BrowserRouter>
 			<Providers>
 				<Routes>
-					{getAllPages().map((page) => (
-						<Route
-							key={page.id}
-							path={page.path}
-							element={<page.component />}
-						/>
-					))}
+					<Route element={<Page />}>
+						<Route path="/" element={<Home />} />
+						<Route path="/albums" element={<>Albums</>} />
+					</Route>
 				</Routes>
 			</Providers>
 		</BrowserRouter>
