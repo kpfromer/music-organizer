@@ -2,26 +2,28 @@ import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Layout } from "./components/page";
 import { Home } from "./pages/home";
 
 const queryClient = new QueryClient();
 
 function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+	return (
+		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+	);
 }
 
 export function App() {
-  return (
-    <BrowserRouter>
-      <Providers>
-        <Routes>
-          <Route path="/" element={<Home />} />
-        </Routes>
-      </Providers>
-    </BrowserRouter>
-  );
+	return (
+		<BrowserRouter>
+			<Providers>
+				<Routes>
+					<Route path="/" element={<Home />} />
+					<Route path="/albums" element={<Layout>test</Layout>} />
+				</Routes>
+			</Providers>
+		</BrowserRouter>
+	);
 }
 
 export default App;
