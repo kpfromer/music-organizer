@@ -44,7 +44,7 @@ frontend-lint:
 # Type check TypeScript
 [working-directory: 'frontend']
 frontend-check-typescript:
-    bun run tsc --noEmit
+    bun run tsc --noEmit --project tsconfig.check.json
 
 # Run all frontend checks (lint + typescript)
 [parallel]
