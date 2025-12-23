@@ -1,6 +1,7 @@
 import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Home } from "./pages/home";
 
 const queryClient = new QueryClient();
@@ -13,9 +14,13 @@ function Providers({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <Providers>
-      <Home />
-    </Providers>
+    <BrowserRouter>
+      <Providers>
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </Providers>
+    </BrowserRouter>
   );
 }
 
