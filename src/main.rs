@@ -106,6 +106,18 @@ enum Commands {
         /// AcoustID API key for lookups
         #[arg(short = 'k', long = "api-key", env = "ACOUSTID_API_KEY")]
         api_key: String,
+
+        /// SoulSeek username for searching and downloading
+        #[arg(long, env = "SOULSEEK_USERNAME")]
+        soulseek_username: String,
+
+        /// SoulSeek password for searching and downloading
+        #[arg(long, env = "SOULSEEK_PASSWORD")]
+        soulseek_password: String,
+
+        /// Directory to download SoulSeek files to
+        #[arg(long, value_parser = is_directory, env = "SOULSEEK_DOWNLOAD_DIRECTORY")]
+        download_directory: PathBuf,
     },
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -194,9 +206,22 @@ async fn main() -> Result<()> {
             port,
             directory,
             api_key,
+            soulseek_username,
+            soulseek_password,
+            download_directory,
         } => {
             log::info!("Starting HTTP server on port: {}", port);
-            http_server::app::start(port, database, config, &api_key, directory).await?;
+            http_server::app::start(
+                port,
+                database,
+                config,
+                &api_key,
+                directory,
+                &soulseek_username,
+                &soulseek_password,
+                download_directory,
+            )
+            .await?;
         }
     }
 

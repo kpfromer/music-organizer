@@ -1,4 +1,5 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use async_graphql_axum::GraphQL;
 use axum::{
@@ -8,6 +9,7 @@ use axum::{
     routing::get,
 };
 use color_eyre::eyre::{Context, eyre};
+use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -16,6 +18,7 @@ use crate::{
     database::Database,
     http_server::{graphql, state::AppState},
     import_track::watch_directory,
+    soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
 // Handler to serve index.html for SPA routing
@@ -33,8 +36,28 @@ pub async fn start(
     config: Config,
     acoustid_api_key: &str,
     watch_directory_path: PathBuf,
+    soulseek_username: &str,
+    soulseek_password: &str,
+    download_directory: PathBuf,
 ) -> color_eyre::Result<()> {
-    let app_state = Arc::new(AppState { db: database });
+    log::info!("Initializing SoulSeek client context");
+    let soulseek_context = SoulSeekClientContext::new(SearchConfig {
+        username: soulseek_username.to_string(),
+        password: soulseek_password.to_string(),
+        concurrency: Some(2),
+        searches_per_time: Some(34),
+        renew_time_secs: Some(220),
+        max_search_time_ms: Some(8000),
+        remove_special_chars: Some(true),
+    })
+    .await
+    .wrap_err("Failed to initialize SoulSeek client context")?;
+
+    let app_state = Arc::new(AppState {
+        db: database,
+        soulseek_context: Arc::new(Mutex::new(soulseek_context)),
+        download_directory,
+    });
 
     let schema = graphql::create_schema(app_state.clone());
 
