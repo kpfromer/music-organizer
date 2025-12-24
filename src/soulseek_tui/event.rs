@@ -246,7 +246,7 @@ impl BackgroundThread {
                 SearchEvent::Started,
             )));
 
-        match crate::soulseek::search_for_track(&request.track, &mut self.soulseek_context).await {
+        match crate::soulseek::search_for_track(&request.track, &self.soulseek_context).await {
             Ok(results) => {
                 let _ = self
                     .sender
