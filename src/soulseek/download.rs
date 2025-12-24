@@ -29,22 +29,21 @@ pub async fn download_file(
     tokio::fs::create_dir_all(download_folder).await?;
 
     // Get the soulseek client for direct download access
-    let client = context
-        .soulseek_client
-        .as_ref()
-        .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?
-        .clone();
+    let client_guard = context
+        .get_soulseek_client()
+        .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?;
 
     let filename = result.filename.clone();
     let username = result.username.clone();
     let size = result.size;
+    let download_path = download_folder.as_os_str().to_str().unwrap().to_string();
 
-    let receiver = client
+    let receiver = client_guard
         .download(
             filename.clone(),
             username.clone(),
             size,
-            download_folder.as_os_str().to_str().unwrap().to_string(),
+            download_path,
         )
         .context("Failed to download file")?;
 

@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use color_eyre::Result;
@@ -26,12 +26,18 @@ pub trait SoulSeekClientTrait: Send + Sync {
 
 // Wrapper for real soulseek-rs-lib client
 pub struct SoulSeekClientWrapper {
-    client: Option<Arc<SoulseekClient>>,
+    client: Option<Arc<Mutex<SoulseekClient>>>,
 }
 
 impl SoulSeekClientWrapper {
     pub fn new() -> Self {
         Self { client: None }
+    }
+
+    /// Get access to the inner client for direct access (e.g., downloads)
+    /// Returns a guard that can be used to call methods on the client
+    pub fn get_client(&self) -> Option<std::sync::MutexGuard<'_, SoulseekClient>> {
+        self.client.as_ref().and_then(|m| m.lock().ok())
     }
 }
 
@@ -46,21 +52,21 @@ impl SoulSeekClientTrait for SoulSeekClientWrapper {
 
         soulseek_rs::utils::logger::enable_buffering();
 
-        let client = tokio::task::spawn_blocking(move || -> Result<Arc<SoulseekClient>> {
+        let client = tokio::task::spawn_blocking(move || -> Result<SoulseekClient> {
             let mut client = SoulseekClient::new(&username, &password);
             client.connect();
             client.login()?;
-            Ok(Arc::new(client))
+            Ok(client)
         })
         .await??;
 
-        self.client = Some(client);
+        self.client = Some(Arc::new(Mutex::new(client)));
         log::info!("Successfully logged in to SoulSeek");
         Ok(())
     }
 
     async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>> {
-        let client = self
+        let client_mutex = self
             .client
             .as_ref()
             .ok_or_else(|| color_eyre::eyre::eyre!("Client not initialized"))?
@@ -68,8 +74,11 @@ impl SoulSeekClientTrait for SoulSeekClientWrapper {
         let query = query.to_string();
 
         // Run the synchronous search in a blocking task
-        let search_results =
-            tokio::task::spawn_blocking(move || client.search(&query, timeout)).await??;
+        let search_results = tokio::task::spawn_blocking(move || {
+            let client = client_mutex.lock().unwrap();
+            client.search(&query, timeout)
+        })
+        .await??;
 
         // Convert SearchResult to FileSearchResponse
         let mut responses = Vec::new();
@@ -135,8 +144,8 @@ pub struct SoulSeekClientContext {
     pub client: Arc<dyn SoulSeekClientTrait>,
     pub rate_limiter: Arc<DirectRateLimiter>,
     pub config: SearchConfig,
-    // Store the actual soulseek client for downloads (since the API requires direct access)
-    pub soulseek_client: Option<Arc<SoulseekClient>>,
+    // Store the wrapper to access the inner client for downloads
+    wrapper: Arc<SoulSeekClientWrapper>,
 }
 
 impl SoulSeekClientContext {
@@ -146,9 +155,9 @@ impl SoulSeekClientContext {
         let mut wrapper = SoulSeekClientWrapper::new();
         wrapper.login(&config.username, &config.password).await?;
 
-        // Get the client from the wrapper for direct access
-        let soulseek_client = wrapper.client.clone();
-        let client: Arc<dyn SoulSeekClientTrait> = Arc::new(wrapper);
+        // Wrap the wrapper in Arc for sharing
+        let wrapper = Arc::new(wrapper);
+        let client: Arc<dyn SoulSeekClientTrait> = wrapper.clone();
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
@@ -160,12 +169,10 @@ impl SoulSeekClientContext {
         );
 
         // Create governor rate limiter
-        let quota = Quota::with_period(
-            std::time::Duration::from_secs(renew_time_secs as u64)
-        )
-        .ok_or_else(|| color_eyre::eyre::eyre!("Invalid rate limit period"))?
-        .allow_burst(NonZeroU32::new(searches_per_time).unwrap());
-        
+        let quota = Quota::with_period(std::time::Duration::from_secs(renew_time_secs as u64))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Invalid rate limit period"))?
+            .allow_burst(NonZeroU32::new(searches_per_time).unwrap());
+
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
 
         log::info!("SoulSeek client context created successfully");
@@ -173,8 +180,12 @@ impl SoulSeekClientContext {
             client,
             rate_limiter,
             config,
-            soulseek_client,
+            wrapper,
         })
     }
-}
 
+    /// Get access to the inner soulseek client for downloads
+    pub fn get_soulseek_client(&self) -> Option<std::sync::MutexGuard<'_, SoulseekClient>> {
+        self.wrapper.get_client()
+    }
+}
