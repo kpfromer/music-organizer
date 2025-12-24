@@ -141,11 +141,9 @@ pub struct FileInfo {
 type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 pub struct SoulSeekClientContext {
-    pub client: Arc<dyn SoulSeekClientTrait>,
+    pub wrapper: Arc<SoulSeekClientWrapper>,
     pub rate_limiter: Arc<DirectRateLimiter>,
     pub config: SearchConfig,
-    // Store the wrapper to access the inner client for downloads
-    wrapper: Arc<SoulSeekClientWrapper>,
 }
 
 impl SoulSeekClientContext {
@@ -157,7 +155,6 @@ impl SoulSeekClientContext {
 
         // Wrap the wrapper in Arc for sharing
         let wrapper = Arc::new(wrapper);
-        let client: Arc<dyn SoulSeekClientTrait> = wrapper.clone();
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
@@ -177,10 +174,9 @@ impl SoulSeekClientContext {
 
         log::info!("SoulSeek client context created successfully");
         Ok(Self {
-            client,
+            wrapper,
             rate_limiter,
             config,
-            wrapper,
         })
     }
 

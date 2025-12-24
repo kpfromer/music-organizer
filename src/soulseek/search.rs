@@ -11,7 +11,7 @@ use regex::Regex;
 use tokio::sync::Semaphore;
 use unaccent::unaccent;
 
-use crate::soulseek::client::{FileSearchResponse, SoulSeekClientContext};
+use crate::soulseek::client::{FileSearchResponse, SoulSeekClientContext, SoulSeekClientTrait};
 use crate::soulseek::types::{FileAttribute, SingleFileResult, Track};
 
 // ============================================================================
@@ -614,7 +614,7 @@ pub async fn search_for_track(
     let tasks: Vec<_> = queries
         .into_iter()
         .map(|q| {
-            let client = context.client.clone();
+            let client = context.wrapper.clone();
             let sem = semaphore.clone();
             let rate_limiter = context.rate_limiter.clone();
             async move {
@@ -625,7 +625,7 @@ pub async fn search_for_track(
 
                 log::debug!("Executing search query: '{}'", q);
                 let timeout = Duration::from_millis(max_search_time);
-                let responses = client.search(&q, timeout).await?;
+                let responses = SoulSeekClientTrait::search(client.as_ref(), &q, timeout).await?;
 
                 log::debug!(
                     "Search query '{}' returned {} responses",
@@ -686,4 +686,3 @@ pub async fn search_for_track(
 
     Ok(unique_results)
 }
-
