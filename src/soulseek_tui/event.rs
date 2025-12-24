@@ -126,7 +126,9 @@ impl EventHandler {
             BackgroundThread::new(background_receiver, sender.clone(), soulseek_context);
         thread::spawn(|| {
             let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(download_actor.run()).unwrap();
+            if let Err(e) = rt.block_on(download_actor.run()) {
+                log::error!("Background thread error: {}", e);
+            }
         });
 
         Self {
@@ -228,13 +230,13 @@ impl BackgroundThread {
                 Ok(BackgroundRequest::Search(_request)) => self.handle_search(_request).await,
                 Ok(BackgroundRequest::Download(_request)) => self.handle_download(_request).await,
                 Err(_) => {
-                    log::error!("Background request receiver disconnected");
-                    break;
+                    log::debug!(
+                        "Background request receiver disconnected, shutting down background thread"
+                    );
+                    return Ok(());
                 }
             }
         }
-
-        Err(color_eyre::eyre::eyre!("Disconnected"))
     }
 
     async fn handle_search(&mut self, request: SearchRequest) {
