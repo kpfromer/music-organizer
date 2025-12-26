@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use std::sync::{Arc, Mutex};
+
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 
 const TIMEOUT: Duration = Duration::from_millis(250);
@@ -115,7 +117,7 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
-    pub fn new(soulseek_context: SoulSeekClientContext) -> Self {
+    pub fn new(soulseek_context: Arc<Mutex<SoulSeekClientContext>>) -> Self {
         let (sender, receiver) = mpsc::channel();
 
         let cross_term_actor = CrosstermEventThread::new(sender.clone());
@@ -206,7 +208,7 @@ struct BackgroundThread {
     /// Event sender channel.
     sender: mpsc::Sender<Event>,
     /// Soulseek context.
-    soulseek_context: SoulSeekClientContext,
+    soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
 }
 
 impl BackgroundThread {
@@ -214,7 +216,7 @@ impl BackgroundThread {
     fn new(
         background_request_receiver: mpsc::Receiver<BackgroundRequest>,
         sender: mpsc::Sender<Event>,
-        soulseek_context: SoulSeekClientContext,
+        soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
     ) -> Self {
         Self {
             background_request_receiver,

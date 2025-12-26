@@ -141,8 +141,8 @@ pub struct FileInfo {
 type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 pub struct SoulSeekClientContext {
-    pub wrapper: Arc<SoulSeekClientWrapper>,
-    pub rate_limiter: Arc<DirectRateLimiter>,
+    pub wrapper: SoulSeekClientWrapper,
+    pub rate_limiter: DirectRateLimiter,
     pub config: SearchConfig,
 }
 
@@ -152,9 +152,6 @@ impl SoulSeekClientContext {
 
         let mut wrapper = SoulSeekClientWrapper::new();
         wrapper.login(&config.username, &config.password).await?;
-
-        // Wrap the wrapper in Arc for sharing
-        let wrapper = Arc::new(wrapper);
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
@@ -170,7 +167,7 @@ impl SoulSeekClientContext {
             .ok_or_else(|| color_eyre::eyre::eyre!("Invalid rate limit period"))?
             .allow_burst(NonZeroU32::new(searches_per_time).unwrap());
 
-        let rate_limiter = Arc::new(RateLimiter::direct(quota));
+        let rate_limiter = RateLimiter::direct(quota);
 
         log::info!("SoulSeek client context created successfully");
         Ok(Self {
@@ -183,5 +180,10 @@ impl SoulSeekClientContext {
     /// Get access to the inner soulseek client for downloads
     pub fn get_soulseek_client(&self) -> Option<std::sync::MutexGuard<'_, SoulseekClient>> {
         self.wrapper.get_client()
+    }
+
+    /// Convert the context into a shared `Arc<Mutex<Self>>` for concurrent access
+    pub fn into_shared(self) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(self))
     }
 }

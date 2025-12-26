@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use std::path::Path;
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 
 use color_eyre::{Result, eyre::Context};
 
@@ -16,7 +16,7 @@ use crate::soulseek::types::SingleFileResult;
 pub async fn download_file(
     result: &SingleFileResult,
     download_folder: &Path,
-    context: &SoulSeekClientContext,
+    context: &Arc<Mutex<SoulSeekClientContext>>,
 ) -> Result<mpsc::Receiver<soulseek_rs::DownloadStatus>> {
     log::debug!(
         "Starting download: '{}' from user '{}' ({} bytes)",
@@ -28,25 +28,28 @@ pub async fn download_file(
     // Ensure download directory exists
     tokio::fs::create_dir_all(download_folder).await?;
 
-    // Get the soulseek client for direct download access
-    let client_guard = context
-        .get_soulseek_client()
-        .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?;
-
+    // Lock context to get the soulseek client for direct download access
     let filename = result.filename.clone();
     let username = result.username.clone();
     let size = result.size;
     let download_path = download_folder.as_os_str().to_str().unwrap().to_string();
 
-    let receiver = client_guard
-        .download(
-            filename.clone(),
-            username.clone(),
-            size,
-            download_path,
-        )
-        .context("Failed to download file")?;
+    let receiver = {
+        let ctx = context.lock().unwrap();
+        let client_guard = ctx
+            .get_soulseek_client()
+            .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?;
 
+        client_guard
+            .download(
+                filename.clone(),
+                username.clone(),
+                size,
+                download_path,
+            )
+            .context("Failed to download file")?
+        // ctx and client_guard are dropped here when the block ends
+    };
     log::info!("Download initiated: '{}' from '{}'", filename, username);
     Ok(receiver)
 }

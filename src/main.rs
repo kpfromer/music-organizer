@@ -165,7 +165,8 @@ async fn main() -> Result<()> {
                 max_search_time_ms: Some(8000),
                 remove_special_chars: Some(true),
             })
-            .await?;
+            .await?
+            .into_shared();
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
             log::info!("Download command completed successfully");
         }

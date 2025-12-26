@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use color_eyre::Result;
@@ -590,7 +590,7 @@ pub fn rank_results(track: &Track, results: &mut [SingleFileResult]) {
 
 pub async fn search_for_track(
     track: &Track,
-    context: &SoulSeekClientContext,
+    context: &Arc<Mutex<SoulSeekClientContext>>,
 ) -> Result<Vec<SingleFileResult>> {
     log::debug!(
         "Starting search for track: '{}' by '{}'",
@@ -598,34 +598,41 @@ pub async fn search_for_track(
         track.artists.join(", ")
     );
 
+    // Lock context to read config
+    let ctx = context.lock().unwrap();
+    let remove_special = ctx.config.remove_special_chars.unwrap_or(false);
+    let concurrency = ctx.config.concurrency.unwrap_or(2);
+    let max_search_time = ctx.config.max_search_time_ms.unwrap_or(8000);
+    drop(ctx); // Release lock before async operations
+
     // 1) Build queries
-    let queries = build_search_queries(track, context.config.remove_special_chars.unwrap_or(false));
+    let queries = build_search_queries(track, remove_special);
     log::debug!("Built {} search queries", queries.len());
 
     // 2a) Concurrency limit
-    let concurrency = context.config.concurrency.unwrap_or(2);
     let semaphore = Arc::new(Semaphore::new(concurrency));
 
     // We'll collect all results in a vector
     let mut all_flattened: Vec<SingleFileResult> = vec![];
 
     // For each query, do a concurrency-limited, rate-limited search
-    let max_search_time = context.config.max_search_time_ms.unwrap_or(8000);
     let tasks: Vec<_> = queries
         .into_iter()
         .map(|q| {
-            let client = context.wrapper.clone();
+            let context = context.clone();
             let sem = semaphore.clone();
-            let rate_limiter = context.rate_limiter.clone();
             async move {
                 let _permit = sem.acquire().await.unwrap();
 
+                // Lock context to access rate_limiter and wrapper
+                let ctx = context.lock().unwrap();
+
                 // Acquire from rate limiter
-                rate_limiter.until_ready().await;
+                ctx.rate_limiter.until_ready().await;
 
                 log::debug!("Executing search query: '{}'", q);
                 let timeout = Duration::from_millis(max_search_time);
-                let responses = SoulSeekClientTrait::search(client.as_ref(), &q, timeout).await?;
+                let responses = SoulSeekClientTrait::search(&ctx.wrapper, &q, timeout).await?;
 
                 log::debug!(
                     "Search query '{}' returned {} responses",
@@ -638,6 +645,8 @@ pub async fn search_for_track(
                     flattened.extend(flatten_search_response(&r));
                 }
 
+                // Release lock before returning
+                drop(ctx);
                 Result::<Vec<SingleFileResult>, color_eyre::Report>::Ok(flattened)
             }
         })

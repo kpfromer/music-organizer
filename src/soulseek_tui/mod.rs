@@ -5,13 +5,14 @@ pub mod ui;
 pub mod widgets;
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use crate::soulseek::SoulSeekClientContext;
 use color_eyre::Result;
 
 /// Main entry point for the TUI
 pub async fn run(
-    soulseek_context: SoulSeekClientContext,
+    soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
     download_output_directory: PathBuf,
 ) -> Result<()> {
     use crossterm::{
