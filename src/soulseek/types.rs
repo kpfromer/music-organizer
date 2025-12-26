@@ -43,5 +43,3 @@ pub struct SingleFileResult {
     pub queue_length: u32,
     pub attrs: HashMap<FileAttribute, u32>,
 }
-
-

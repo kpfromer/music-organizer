@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
@@ -66,7 +66,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
+        soulseek_context: Arc<SoulSeekClientContext>,
         download_output_directory: PathBuf,
     ) -> Self {
         Self {

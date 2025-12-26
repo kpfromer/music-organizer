@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 
@@ -117,7 +117,7 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
-    pub fn new(soulseek_context: Arc<Mutex<SoulSeekClientContext>>) -> Self {
+    pub fn new(soulseek_context: Arc<SoulSeekClientContext>) -> Self {
         let (sender, receiver) = mpsc::channel();
 
         let cross_term_actor = CrosstermEventThread::new(sender.clone());
@@ -208,7 +208,7 @@ struct BackgroundThread {
     /// Event sender channel.
     sender: mpsc::Sender<Event>,
     /// Soulseek context.
-    soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
+    soulseek_context: Arc<SoulSeekClientContext>,
 }
 
 impl BackgroundThread {
@@ -216,7 +216,7 @@ impl BackgroundThread {
     fn new(
         background_request_receiver: mpsc::Receiver<BackgroundRequest>,
         sender: mpsc::Sender<Event>,
-        soulseek_context: Arc<Mutex<SoulSeekClientContext>>,
+        soulseek_context: Arc<SoulSeekClientContext>,
     ) -> Self {
         Self {
             background_request_receiver,
@@ -248,7 +248,7 @@ impl BackgroundThread {
                 SearchEvent::Started,
             )));
 
-        match crate::soulseek::search_for_track(&request.track, &self.soulseek_context).await {
+        match self.soulseek_context.search_for_track(&request.track).await {
             Ok(results) => {
                 let _ = self
                     .sender
@@ -271,8 +271,10 @@ impl BackgroundThread {
         result: &SingleFileResult,
         download_folder: &Path,
     ) -> color_eyre::Result<()> {
-        let receiver =
-            crate::soulseek::download_file(result, download_folder, &self.soulseek_context).await?;
+        let receiver = self
+            .soulseek_context
+            .download_file(result, download_folder)
+            .await?;
 
         for status in receiver {
             match status {
