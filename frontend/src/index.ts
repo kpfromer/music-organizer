@@ -1,5 +1,4 @@
 import { serve } from "bun";
-import { env } from "./env";
 import index from "./index.html";
 
 const server = serve({
@@ -23,14 +22,15 @@ const server = serve({
     },
   },
 
-  development: env.NODE_ENV !== "production" && {
+  development: process.env.NODE_ENV !== "production" && {
     // Enable browser hot reloading in development
     hmr: true,
 
     // Echo console logs from the browser to the server
     console: true,
   },
-  port: env.PORT,
+  // Default to port 3001 for development
+  port: 3001,
 });
 
 console.log(`🚀 Server running at ${server.url}`);
