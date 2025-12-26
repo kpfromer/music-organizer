@@ -152,13 +152,50 @@ impl Mutation {
         // Initiate download
         match crate::soulseek::download_file(&result, &app_state.download_directory, &context).await
         {
-            Ok(_receiver) => {
-                // Download initiated successfully
-                // Note: The receiver can be used to track progress, but for now we just return success
-                Ok(DownloadStatus {
-                    success: true,
-                    message: format!("Download initiated for {}", result.filename),
-                })
+            Ok(receiver) => {
+                for status in receiver {
+                    match status {
+                        soulseek_rs::DownloadStatus::Queued => {
+                            log::info!("Download queued: {}", result.filename);
+                        }
+                        soulseek_rs::DownloadStatus::InProgress {
+                            bytes_downloaded,
+                            total_bytes,
+                            speed_bytes_per_sec: _,
+                        } => {
+                            log::info!(
+                                "Download in progress: {} ({} bytes downloaded, {} bytes total)",
+                                result.filename,
+                                bytes_downloaded,
+                                total_bytes
+                            );
+                        }
+                        soulseek_rs::DownloadStatus::Completed => {
+                            log::info!("Download completed: {}", result.filename);
+                            return Ok(DownloadStatus {
+                                success: true,
+                                message: format!("Download completed: {}", result.filename),
+                            });
+                        }
+                        soulseek_rs::DownloadStatus::Failed => {
+                            log::error!("Download failed: {}", result.filename);
+                            return Err(color_eyre::eyre::eyre!(
+                                "Download failed: {}",
+                                result.filename
+                            )
+                            .into());
+                        }
+                        soulseek_rs::DownloadStatus::TimedOut => {
+                            log::error!("Download timed out: {}", result.filename);
+                            return Err(color_eyre::eyre::eyre!(
+                                "Download timed out: {}",
+                                result.filename
+                            )
+                            .into());
+                        }
+                    }
+                }
+                Err(color_eyre::eyre::eyre!("Download failed: {}", result.filename).into())
             }
             Err(e) => {
                 log::error!("SoulSeek download error: {}", e);
