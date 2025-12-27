@@ -32,6 +32,11 @@ impl Query {
     }
 
     async fn tracks(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<Track>> {
+        // TODO: Performance issue
+        // N+1 query problem: Fetch all track artists in a single query.
+        // The current implementation fetches artists individually for each track, resulting in N+1 database queries when there are N tracks.
+        // This can severely impact performance with many tracks.
+
         let app_state = ctx
             .data::<Arc<AppState>>()
             .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;

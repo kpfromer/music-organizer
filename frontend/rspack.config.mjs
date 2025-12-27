@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  // mode: "production",
+  mode: process.env.NODE_ENV === "production" ? "production" : "development",
 
   entry: {
     main: "./src/frontend.tsx",
