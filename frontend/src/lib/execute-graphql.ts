@@ -46,7 +46,7 @@ export async function execute<TResult, TVariables>(
 	}
 
 	const res = await response.json();
-	return res.data;
+	// return res.data;
 
 	const errorResponse = GraphQLErrorSchema.safeParse(res);
 	if (errorResponse.success) {

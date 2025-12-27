@@ -5,6 +5,8 @@ use async_graphql::{EmptySubscription, Object, Schema};
 use axum::response::{Html, IntoResponse};
 
 use async_graphql::Context;
+use chrono::{DateTime, Utc};
+use color_eyre::eyre::OptionExt;
 use sea_orm::{EntityTrait, QueryOrder};
 
 use crate::entities;
@@ -69,7 +71,8 @@ impl Query {
                 title: track_model.title,
                 track_number: track_model.track_number,
                 duration: track_model.duration,
-                created_at: track_model.created_at,
+                created_at: DateTime::<Utc>::from_timestamp_millis(track_model.created_at)
+                    .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?,
                 album: Album {
                     id: album_model.id,
                     title: album_model.title,

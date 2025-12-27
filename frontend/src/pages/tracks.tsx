@@ -97,7 +97,13 @@ export function Tracks() {
 
 	const { data, isLoading } = useQuery({
 		queryKey: ["tracks"],
-		queryFn: () => execute(TracksQuery),
+		queryFn: async () => {
+			const data = await execute(TracksQuery);
+			return data.tracks.map((track) => ({
+				...track,
+				createdAt: new Date(track.createdAt),
+			}));
+		},
 	});
 
 	const columns: ColumnDef<Track>[] = [

@@ -37,7 +37,8 @@ fern = { version = "0.7.1", features = ["colored"] }
 humantime = "2.3.0"
 axum = "0.8.7"
 axum-macros = "0.5.0"
-async-graphql = "7.0.17"
+chrono = "0.4.42"
+async-graphql = { version = "7.0.17", features = ["chrono"] }
 async-graphql-axum = "7.0.17"
 tower-http = {version = "0.6.8", features = ["cors", "fs"] }
 tower = "0.5.2"

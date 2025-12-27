@@ -14,6 +14,12 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
+  /**
+   * Implement the DateTime<Utc> scalar
+   *
+   * The input/output is a string in RFC3339 format.
+   */
+  DateTime: { input: any; output: any; }
 };
 
 export type Album = {
@@ -96,7 +102,7 @@ export type Track = {
   __typename?: 'Track';
   album: Album;
   artists: Array<Artist>;
-  createdAt: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
   duration?: Maybe<Scalars['Int']['output']>;
   id: Scalars['Int']['output'];
   title: Scalars['String']['output'];
@@ -131,7 +137,7 @@ export type TestQuery = { __typename?: 'Query', howdy: string };
 export type TracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: number, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
+export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
