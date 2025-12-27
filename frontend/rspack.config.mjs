@@ -72,7 +72,7 @@ export default defineConfig({
   },
 
   plugins: [
-    new rspack.EnvironmentPlugin(['NODE_ENV', 'PUBLIC_GRAPHQL_URL']),
+    new rspack.EnvironmentPlugin(["NODE_ENV", "PUBLIC_GRAPHQL_URL"]),
     new rspack.HtmlRspackPlugin({
       template: "./src/index.html",
       filename: "index.html",
