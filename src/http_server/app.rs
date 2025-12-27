@@ -9,7 +9,6 @@ use axum::{
     routing::get,
 };
 use color_eyre::eyre::{Context, eyre};
-use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -30,16 +29,28 @@ async fn serve_index(frontend_dist: PathBuf) -> Response {
     }
 }
 
-pub async fn start(
-    port: u16,
-    database: Database,
-    config: Config,
-    acoustid_api_key: &str,
-    watch_directory_path: PathBuf,
-    soulseek_username: &str,
-    soulseek_password: &str,
-    download_directory: PathBuf,
-) -> color_eyre::Result<()> {
+pub struct HttpServerConfig {
+    pub port: u16,
+    pub database: Database,
+    pub config: Config,
+    pub acoustid_api_key: String,
+    pub watch_directory_path: PathBuf,
+    pub soulseek_username: String,
+    pub soulseek_password: String,
+    pub download_directory: PathBuf,
+}
+
+pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
+    let HttpServerConfig {
+        port,
+        database,
+        config,
+        acoustid_api_key,
+        watch_directory_path,
+        soulseek_username,
+        soulseek_password,
+        download_directory,
+    } = config;
     log::info!("Initializing SoulSeek client context");
     let soulseek_context = SoulSeekClientContext::new(SearchConfig {
         username: soulseek_username.to_string(),
@@ -55,7 +66,7 @@ pub async fn start(
 
     let app_state = Arc::new(AppState {
         db: database,
-        soulseek_context: Arc::new(Mutex::new(soulseek_context)),
+        soulseek_context,
         download_directory,
     });
 

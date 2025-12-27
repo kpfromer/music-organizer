@@ -20,6 +20,7 @@ use color_eyre::{Result, eyre::Context};
 use crate::{
     config::Config,
     database::Database,
+    http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
     logging::setup_logging,
     soulseek::{SearchConfig, SoulSeekClientContext},
@@ -211,16 +212,16 @@ async fn main() -> Result<()> {
             download_directory,
         } => {
             log::info!("Starting HTTP server on port: {}", port);
-            http_server::app::start(
+            http_server::app::start(HttpServerConfig {
                 port,
                 database,
                 config,
-                &api_key,
-                directory,
-                &soulseek_username,
-                &soulseek_password,
+                acoustid_api_key: api_key,
+                watch_directory_path: directory,
+                soulseek_username,
+                soulseek_password,
                 download_directory,
-            )
+            })
             .await?;
         }
     }

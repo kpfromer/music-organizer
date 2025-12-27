@@ -300,6 +300,7 @@ struct SoulSeekClientContextInner {
     config: SearchConfig,
 }
 
+#[derive(Clone)]
 pub struct SoulSeekClientContext {
     inner: Arc<Mutex<SoulSeekClientContextInner>>,
 }

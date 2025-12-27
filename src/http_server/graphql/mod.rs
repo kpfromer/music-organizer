@@ -33,4 +33,3 @@ pub fn create_schema(app_state: Arc<AppState>) -> Schema<Query, Mutation, EmptyS
         .data(app_state)
         .finish()
 }
-

@@ -102,11 +102,10 @@ impl Mutation {
             length: duration.map(|d| d as u32),
         };
 
-        // Acquire lock on SoulSeek client context
-        let mut context = app_state.soulseek_context.lock().await;
-
         // Perform search
-        let results = crate::soulseek::search_for_track(&track, &mut context)
+        let results = app_state
+            .soulseek_context
+            .search_for_track(&track)
             .await
             .map_err(|e| {
                 log::error!("SoulSeek search error: {}", e);
@@ -146,11 +145,11 @@ impl Mutation {
             attrs: HashMap::new(),
         };
 
-        // Acquire lock on SoulSeek client context
-        let context = app_state.soulseek_context.lock().await;
-
         // Initiate download
-        match crate::soulseek::download_file(&result, &app_state.download_directory, &context).await
+        match app_state
+            .soulseek_context
+            .download_file(&result, &app_state.download_directory)
+            .await
         {
             Ok(receiver) => {
                 for status in receiver {
