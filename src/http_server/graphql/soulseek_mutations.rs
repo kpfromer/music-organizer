@@ -126,7 +126,7 @@ impl Mutation {
         ctx: &Context<'_>,
         username: String,
         filename: String,
-        size: i64,
+        size: u64,
         token: String,
     ) -> GraphqlResult<DownloadStatus> {
         let app_state = ctx
@@ -138,7 +138,7 @@ impl Mutation {
             username,
             token,
             filename,
-            size: size as u64,
+            size,
             slots_free: true,
             avg_speed: 0.0,
             queue_length: 0,
@@ -152,49 +152,60 @@ impl Mutation {
             .await
         {
             Ok(receiver) => {
-                for status in receiver {
-                    match status {
-                        soulseek_rs::DownloadStatus::Queued => {
-                            log::info!("Download queued: {}", result.filename);
-                        }
-                        soulseek_rs::DownloadStatus::InProgress {
-                            bytes_downloaded,
-                            total_bytes,
-                            speed_bytes_per_sec: _,
-                        } => {
-                            log::info!(
-                                "Download in progress: {} ({} bytes downloaded, {} bytes total)",
-                                result.filename,
+                let filename = result.filename.clone();
+
+                // Spawn a blocking task to iterate the receiver and return the final result
+                let download_result = tokio::task::spawn_blocking(move || {
+                    for status in receiver {
+                        match status {
+                            soulseek_rs::DownloadStatus::Queued => {
+                                log::info!("Download queued: {}", filename);
+                            }
+                            soulseek_rs::DownloadStatus::InProgress {
                                 bytes_downloaded,
-                                total_bytes
-                            );
-                        }
-                        soulseek_rs::DownloadStatus::Completed => {
-                            log::info!("Download completed: {}", result.filename);
-                            return Ok(DownloadStatus {
-                                success: true,
-                                message: format!("Download completed: {}", result.filename),
-                            });
-                        }
-                        soulseek_rs::DownloadStatus::Failed => {
-                            log::error!("Download failed: {}", result.filename);
-                            return Err(color_eyre::eyre::eyre!(
-                                "Download failed: {}",
-                                result.filename
-                            )
-                            .into());
-                        }
-                        soulseek_rs::DownloadStatus::TimedOut => {
-                            log::error!("Download timed out: {}", result.filename);
-                            return Err(color_eyre::eyre::eyre!(
-                                "Download timed out: {}",
-                                result.filename
-                            )
-                            .into());
+                                total_bytes,
+                                speed_bytes_per_sec: _,
+                            } => {
+                                log::info!(
+                                    "Download in progress: {} ({} bytes downloaded, {} bytes total)",
+                                    filename,
+                                    bytes_downloaded,
+                                    total_bytes
+                                );
+                            }
+                            soulseek_rs::DownloadStatus::Completed => {
+                                log::info!("Download completed: {}", filename);
+                                return Ok(DownloadStatus {
+                                    success: true,
+                                    message: format!("Download completed: {}", filename),
+                                });
+                            }
+                            soulseek_rs::DownloadStatus::Failed => {
+                                log::error!("Download failed: {}", filename);
+                                return Err(color_eyre::eyre::eyre!(
+                                    "Download failed: {}",
+                                    filename
+                                ));
+                            }
+                            soulseek_rs::DownloadStatus::TimedOut => {
+                                log::error!("Download timed out: {}", filename);
+                                return Err(color_eyre::eyre::eyre!(
+                                    "Download timed out: {}",
+                                    filename
+                                ));
+                            }
                         }
                     }
+                    // If the loop ends without a terminal status, return an error
+                    Err(color_eyre::eyre::eyre!("Download failed: {}", filename))
+                })
+                .await
+                .map_err(|e| color_eyre::eyre::eyre!("Blocking task panicked: {}", e))?;
+
+                match download_result {
+                    Ok(status) => Ok(status),
+                    Err(e) => Err(e.into()),
                 }
-                Err(color_eyre::eyre::eyre!("Download failed: {}", result.filename).into())
             }
             Err(e) => {
                 log::error!("SoulSeek download error: {}", e);
