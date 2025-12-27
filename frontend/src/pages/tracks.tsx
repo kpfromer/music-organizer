@@ -26,14 +26,14 @@ const TracksQuery = graphql(`
     tracks {
       id
       title
-      track_number
+      trackNumber
       duration
-      created_at
+      createdAt
       album {
         id
         title
         year
-        artwork_url
+        artworkUrl
       }
       artists {
         id
@@ -46,14 +46,14 @@ const TracksQuery = graphql(`
 type Track = {
 	id: number;
 	title: string;
-	track_number: number | null;
+	trackNumber: number | null;
 	duration: number | null;
-	created_at: number;
+	createdAt: number;
 	album: {
 		id: number;
 		title: string;
 		year: number | null;
-		artwork_url: string | null;
+		artworkUrl: string | null;
 	};
 	artists: Array<{
 		id: number;
@@ -102,10 +102,10 @@ export function Tracks() {
 
 	const columns: ColumnDef<Track>[] = [
 		{
-			accessorKey: "track_number",
+			accessorKey: "trackNumber",
 			header: "#",
 			cell: ({ row }) => {
-				const value = row.getValue("track_number") as number | null;
+				const value = row.getValue("trackNumber") as number | null;
 				return <div className="text-muted-foreground">{value ?? ""}</div>;
 			},
 		},
@@ -117,9 +117,9 @@ export function Tracks() {
 				const primaryArtist = track.artists[0]?.name ?? "Unknown Artist";
 				return (
 					<div className="flex items-center gap-3">
-						{track.album.artwork_url ? (
+						{track.album.artworkUrl ? (
 							<img
-								src={track.album.artwork_url}
+								src={track.album.artworkUrl}
 								alt={track.album.title}
 								className="h-10 w-10 rounded object-cover"
 							/>
@@ -152,7 +152,7 @@ export function Tracks() {
 			},
 		},
 		{
-			accessorKey: "created_at",
+			accessorKey: "createdAt",
 			header: ({ column }) => {
 				return (
 					<Button

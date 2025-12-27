@@ -31,7 +31,7 @@ impl Query {
 
     async fn tracks(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<Track>> {
         let app_state = ctx
-            .data::<AppState>()
+            .data::<Arc<AppState>>()
             .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
         let db = &app_state.db;
 

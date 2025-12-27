@@ -1,6 +1,7 @@
 # Frontend development server
 [working-directory: 'frontend']
 frontend-dev-server:
+    # bun run rspack dev --mode development --port 3001
     bun --hot src/index.ts
 
 # Watch GraphQL codegen

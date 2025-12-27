@@ -14,12 +14,6 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
-  /**
-   * Implement the DateTime<Utc> scalar
-   *
-   * The input/output is a string in RFC3339 format.
-   */
-  DateTime: { input: any; output: any; }
 };
 
 export type Album = {
@@ -34,34 +28,6 @@ export type Artist = {
   __typename?: 'Artist';
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
-};
-
-export type DownloadStatus = {
-  __typename?: 'DownloadStatus';
-  message: Scalars['String']['output'];
-  success: Scalars['Boolean']['output'];
-};
-
-export type Mutation = {
-  __typename?: 'Mutation';
-  downloadSoulseekFile: DownloadStatus;
-  searchSoulseek: Array<SoulSeekSearchResult>;
-};
-
-
-export type MutationDownloadSoulseekFileArgs = {
-  filename: Scalars['String']['input'];
-  size: Scalars['Int']['input'];
-  token: Scalars['String']['input'];
-  username: Scalars['String']['input'];
-};
-
-
-export type MutationSearchSoulseekArgs = {
-  albumName?: InputMaybe<Scalars['String']['input']>;
-  artists?: InputMaybe<Array<Scalars['String']['input']>>;
-  duration?: InputMaybe<Scalars['Int']['input']>;
-  trackTitle: Scalars['String']['input'];
 };
 
 export type DownloadStatus = {
@@ -130,44 +96,22 @@ export type Track = {
   __typename?: 'Track';
   album: Album;
   artists: Array<Artist>;
-  createdAt: Scalars['DateTime']['output'];
+  createdAt: Scalars['Int']['output'];
   duration?: Maybe<Scalars['Int']['output']>;
   id: Scalars['Int']['output'];
   title: Scalars['String']['output'];
   trackNumber?: Maybe<Scalars['Int']['output']>;
 };
 
-export enum SoulSeekFileAttribute {
-  Bitrate = 'BITRATE',
-  BitDepth = 'BIT_DEPTH',
-  Duration = 'DURATION',
-  Encoder = 'ENCODER',
-  SampleRate = 'SAMPLE_RATE',
-  VariableBitRate = 'VARIABLE_BIT_RATE'
-}
-
-export type SoulSeekFileAttributeValue = {
-  __typename?: 'SoulSeekFileAttributeValue';
-  attribute: SoulSeekFileAttribute;
-  value: Scalars['Int']['output'];
-};
-
-export type SoulSeekSearchResult = {
-  __typename?: 'SoulSeekSearchResult';
-  attributes: Array<SoulSeekFileAttributeValue>;
-  avgSpeed: Scalars['Float']['output'];
-  filename: Scalars['String']['output'];
-  queueLength: Scalars['Int']['output'];
-  size: Scalars['Int']['output'];
-  slotsFree: Scalars['Boolean']['output'];
-  token: Scalars['String']['output'];
-  username: Scalars['String']['output'];
-};
-
 export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type TestQuery = { __typename?: 'Query', howdy: string };
+
+export type TracksQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: number, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -193,3 +137,24 @@ export const TestDocument = new TypedDocumentString(`
   howdy
 }
     `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
+export const TracksDocument = new TypedDocumentString(`
+    query Tracks {
+  tracks {
+    id
+    title
+    trackNumber
+    duration
+    createdAt
+    album {
+      id
+      title
+      year
+      artworkUrl
+    }
+    artists {
+      id
+      name
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<TracksQuery, TracksQueryVariables>;

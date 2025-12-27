@@ -16,15 +16,21 @@ import * as types from './graphql';
  */
 type Documents = {
     "\n  query Test {\n    howdy\n  }\n": typeof types.TestDocument,
+    "\n  query Tracks {\n    tracks {\n      id\n      title\n      trackNumber\n      duration\n      createdAt\n      album {\n        id\n        title\n        year\n        artworkUrl\n      }\n      artists {\n        id\n        name\n      }\n    }\n  }\n": typeof types.TracksDocument,
 };
 const documents: Documents = {
     "\n  query Test {\n    howdy\n  }\n": types.TestDocument,
+    "\n  query Tracks {\n    tracks {\n      id\n      title\n      trackNumber\n      duration\n      createdAt\n      album {\n        id\n        title\n        year\n        artworkUrl\n      }\n      artists {\n        id\n        name\n      }\n    }\n  }\n": types.TracksDocument,
 };
 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query Test {\n    howdy\n  }\n"): typeof import('./graphql').TestDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Tracks {\n    tracks {\n      id\n      title\n      trackNumber\n      duration\n      createdAt\n      album {\n        id\n        title\n        year\n        artworkUrl\n      }\n      artists {\n        id\n        name\n      }\n    }\n  }\n"): typeof import('./graphql').TracksDocument;
 
 
 export function graphql(source: string) {

@@ -29,7 +29,7 @@ backend-audit:
 
 # Watch backend server
 backend-watch:
-    cargo watch -x 'run -- serve --log-level info --directory downloads'
+    cargo watch -w src -x 'run -- serve --log-level info --directory downloads'
 
 # Check (format-check + lint + test)
 [parallel]
