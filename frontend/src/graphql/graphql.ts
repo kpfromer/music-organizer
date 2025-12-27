@@ -64,6 +64,34 @@ export type MutationSearchSoulseekArgs = {
   trackTitle: Scalars['String']['input'];
 };
 
+export type DownloadStatus = {
+  __typename?: 'DownloadStatus';
+  message: Scalars['String']['output'];
+  success: Scalars['Boolean']['output'];
+};
+
+export type Mutation = {
+  __typename?: 'Mutation';
+  downloadSoulseekFile: DownloadStatus;
+  searchSoulseek: Array<SoulSeekSearchResult>;
+};
+
+
+export type MutationDownloadSoulseekFileArgs = {
+  filename: Scalars['String']['input'];
+  size: Scalars['Int']['input'];
+  token: Scalars['String']['input'];
+  username: Scalars['String']['input'];
+};
+
+
+export type MutationSearchSoulseekArgs = {
+  albumName?: InputMaybe<Scalars['String']['input']>;
+  artists?: InputMaybe<Array<Scalars['String']['input']>>;
+  duration?: InputMaybe<Scalars['Int']['input']>;
+  trackTitle: Scalars['String']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
@@ -107,6 +135,33 @@ export type Track = {
   id: Scalars['Int']['output'];
   title: Scalars['String']['output'];
   trackNumber?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum SoulSeekFileAttribute {
+  Bitrate = 'BITRATE',
+  BitDepth = 'BIT_DEPTH',
+  Duration = 'DURATION',
+  Encoder = 'ENCODER',
+  SampleRate = 'SAMPLE_RATE',
+  VariableBitRate = 'VARIABLE_BIT_RATE'
+}
+
+export type SoulSeekFileAttributeValue = {
+  __typename?: 'SoulSeekFileAttributeValue';
+  attribute: SoulSeekFileAttribute;
+  value: Scalars['Int']['output'];
+};
+
+export type SoulSeekSearchResult = {
+  __typename?: 'SoulSeekSearchResult';
+  attributes: Array<SoulSeekFileAttributeValue>;
+  avgSpeed: Scalars['Float']['output'];
+  filename: Scalars['String']['output'];
+  queueLength: Scalars['Int']['output'];
+  size: Scalars['Int']['output'];
+  slotsFree: Scalars['Boolean']['output'];
+  token: Scalars['String']['output'];
+  username: Scalars['String']['output'];
 };
 
 export type TestQueryVariables = Exact<{ [key: string]: never; }>;
