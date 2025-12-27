@@ -5,16 +5,14 @@ use std::sync::Arc;
 use crate::http_server::state::AppState;
 use axum::{
     extract::{Path, State},
-    http::{StatusCode, Uri, header},
+    http::{StatusCode, header},
     response::IntoResponse,
 };
 
 pub async fn get_track_album_art_image(
-    uri: Uri,
     State(app_state): State<Arc<AppState>>,
     Path(track_id): Path<i64>,
 ) -> impl IntoResponse {
-    println!("The request is: {}", uri);
     let track = match app_state.db.get_track(track_id).await {
         Ok(track) => track,
         Err(_e) => {
