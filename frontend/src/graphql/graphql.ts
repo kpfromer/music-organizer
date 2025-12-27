@@ -111,7 +111,7 @@ export type SearchSoulseekMutationVariables = Exact<{
 }>;
 
 
-export type SearchSoulseekMutation = { __typename?: 'Mutation', searchSoulseek: Array<{ __typename?: 'SoulSeekSearchResult', username: string, token: string, filename: string, size: number, avgSpeed: number, attributes: Array<{ __typename?: 'SoulSeekFileAttributeValue', attribute: SoulSeekFileAttribute, value: number }> }> };
+export type SearchSoulseekMutation = { __typename?: 'Mutation', searchSoulseek: Array<{ __typename?: 'SoulSeekSearchResult', username: string, token: string, filename: string, size: number, avgSpeed: number, queueLength: number, slotsFree: boolean, attributes: Array<{ __typename?: 'SoulSeekFileAttributeValue', attribute: SoulSeekFileAttribute, value: number }> }> };
 
 export type DownloadFromSoulseekMutationVariables = Exact<{
   username: Scalars['String']['input'];
@@ -165,6 +165,8 @@ export const SearchSoulseekDocument = new TypedDocumentString(`
     filename
     size
     avgSpeed
+    queueLength
+    slotsFree
     attributes {
       attribute
       value
