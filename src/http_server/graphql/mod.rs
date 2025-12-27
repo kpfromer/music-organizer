@@ -66,6 +66,11 @@ impl Query {
                 })
                 .collect();
 
+            #[cfg(debug_assertions)]
+            let base_url = "http://localhost:3000".to_string();
+            #[cfg(not(debug_assertions))]
+            let base_url = "";
+
             tracks.push(Track {
                 id: track_model.id,
                 title: track_model.title,
@@ -77,7 +82,7 @@ impl Query {
                     id: album_model.id,
                     title: album_model.title,
                     year: album_model.year,
-                    artwork_url: None, // TODO: Add artwork URL support
+                    artwork_url: Some(format!("{}/album-art-image/{}", base_url, track_model.id)),
                 },
                 artists,
             });
