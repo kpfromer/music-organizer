@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
     AppEvent, BackgroundEvent, BackgroundRequest, DownloadEvent, Event, EventHandler,
@@ -64,7 +66,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        soulseek_context: SoulSeekClientContext,
+        soulseek_context: Arc<SoulSeekClientContext>,
         download_output_directory: PathBuf,
     ) -> Self {
         Self {

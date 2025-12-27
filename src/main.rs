@@ -12,6 +12,7 @@ mod soulseek;
 mod soulseek_tui;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::Context};
@@ -156,16 +157,18 @@ async fn main() -> Result<()> {
             output_directory,
         } => {
             log::debug!("Starting download command with username: {}", username);
-            let soulseek_context = SoulSeekClientContext::new(SearchConfig {
-                username,
-                password,
-                concurrency: Some(2),
-                searches_per_time: Some(34),
-                renew_time_secs: Some(220),
-                max_search_time_ms: Some(8000),
-                remove_special_chars: Some(true),
-            })
-            .await?;
+            let soulseek_context = Arc::new(
+                SoulSeekClientContext::new(SearchConfig {
+                    username,
+                    password,
+                    concurrency: Some(2),
+                    searches_per_time: Some(34),
+                    renew_time_secs: Some(220),
+                    max_search_time_ms: Some(8000),
+                    remove_special_chars: Some(true),
+                })
+                .await?,
+            );
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
             log::info!("Download command completed successfully");
         }
