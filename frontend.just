@@ -9,7 +9,7 @@ frontend-dev-codegen:
     @echo "Waiting for backend server to be ready on port 3000..."
     until nc -z 127.0.0.1 3000; do sleep 1; done
     @echo "Backend server is ready on port 3000!"
-    bun run graphql-codegen --config codegen.ts --watch
+    bun run graphql-code-generator --require dotenv/config --config codegen.ts --watch
 
 # Run dev server and codegen concurrently
 [working-directory: 'frontend']
@@ -29,7 +29,7 @@ frontend-build:
 # Run GraphQL codegen once
 [working-directory: 'frontend']
 frontend-codegen:
-    bun run graphql-codegen --config codegen.ts
+    bun run graphql-code-generator --require dotenv/config --config codegen.ts
 
 # Format code with biome
 [working-directory: 'frontend']
