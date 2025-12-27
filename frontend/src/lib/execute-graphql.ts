@@ -24,28 +24,11 @@ export async function execute<TResult, TVariables>(
 	query: TypedDocumentString<TResult, TVariables>,
 	...[variables]: TVariables extends Record<string, never> ? [] : [TVariables]
 ) {
-	console.log("EXECUTE");
-	console.log("process.env", process.env.PUBLIC_GRAPHQL_URL);
 	const publicGraphqlUrl = process.env.PUBLIC_GRAPHQL_URL;
-	console.log("PUBLIC_GRAPHQL_URL", publicGraphqlUrl);
-
 	if (!publicGraphqlUrl) {
 		console.error("PUBLIC_GRAPHQL_URL is not set");
 		throw new Error("PUBLIC_GRAPHQL_URL is not set");
 	}
-	console.log({ publicGraphqlUrl });
-	console.log("BODY");
-	console.log({
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Accept: "application/graphql-response+json",
-		},
-		body: JSON.stringify({
-			query,
-			variables,
-		}),
-	});
 	const response = await fetch(publicGraphqlUrl, {
 		method: "POST",
 		headers: {

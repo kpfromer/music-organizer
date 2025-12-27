@@ -15,14 +15,26 @@ import * as types from './graphql';
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\tsearchSoulseek(\n\t\ttrackTitle: $trackTitle\n\t\talbumName: $albumName\n\t\tartists: $artists\n\t\tduration: $duration\n\t) {\n\t\tusername\n\t\ttoken\n\t\tfilename\n\t\tsize\n\t\tavgSpeed\n\t\tattributes {\n\t\tattribute\n\t\tvalue\n\t\t}\n\t}\n\t}\n": typeof types.SearchSoulseekDocument,
+    "\n\tmutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {\n\tdownloadSoulseekFile(\n\t\tusername: $username\n\t\tfilename: $filename\n\t\tsize: $size\n\t\ttoken: $token\n\t) {\n\t\tsuccess\n\t\tmessage\n\t}\n\t}\n": typeof types.DownloadFromSoulseekDocument,
     "\n  query Test {\n    howdy\n  }\n": typeof types.TestDocument,
     "\n  query Tracks {\n    tracks {\n      id\n      title\n      trackNumber\n      duration\n      createdAt\n      album {\n        id\n        title\n        year\n        artworkUrl\n      }\n      artists {\n        id\n        name\n      }\n    }\n  }\n": typeof types.TracksDocument,
 };
 const documents: Documents = {
+    "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\tsearchSoulseek(\n\t\ttrackTitle: $trackTitle\n\t\talbumName: $albumName\n\t\tartists: $artists\n\t\tduration: $duration\n\t) {\n\t\tusername\n\t\ttoken\n\t\tfilename\n\t\tsize\n\t\tavgSpeed\n\t\tattributes {\n\t\tattribute\n\t\tvalue\n\t\t}\n\t}\n\t}\n": types.SearchSoulseekDocument,
+    "\n\tmutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {\n\tdownloadSoulseekFile(\n\t\tusername: $username\n\t\tfilename: $filename\n\t\tsize: $size\n\t\ttoken: $token\n\t) {\n\t\tsuccess\n\t\tmessage\n\t}\n\t}\n": types.DownloadFromSoulseekDocument,
     "\n  query Test {\n    howdy\n  }\n": types.TestDocument,
     "\n  query Tracks {\n    tracks {\n      id\n      title\n      trackNumber\n      duration\n      createdAt\n      album {\n        id\n        title\n        year\n        artworkUrl\n      }\n      artists {\n        id\n        name\n      }\n    }\n  }\n": types.TracksDocument,
 };
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\tsearchSoulseek(\n\t\ttrackTitle: $trackTitle\n\t\talbumName: $albumName\n\t\tartists: $artists\n\t\tduration: $duration\n\t) {\n\t\tusername\n\t\ttoken\n\t\tfilename\n\t\tsize\n\t\tavgSpeed\n\t\tattributes {\n\t\tattribute\n\t\tvalue\n\t\t}\n\t}\n\t}\n"): typeof import('./graphql').SearchSoulseekDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n\tmutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {\n\tdownloadSoulseekFile(\n\t\tusername: $username\n\t\tfilename: $filename\n\t\tsize: $size\n\t\ttoken: $token\n\t) {\n\t\tsuccess\n\t\tmessage\n\t}\n\t}\n"): typeof import('./graphql').DownloadFromSoulseekDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
