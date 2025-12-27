@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  mode: "production",
+  mode: process.env.NODE_ENV === "production" ? "production" : "development",
 
   entry: {
     main: "./src/frontend.tsx",
@@ -72,6 +72,7 @@ export default defineConfig({
   },
 
   plugins: [
+    new rspack.EnvironmentPlugin(["NODE_ENV", "PUBLIC_GRAPHQL_URL"]),
     new rspack.HtmlRspackPlugin({
       template: "./src/index.html",
       filename: "index.html",
@@ -81,7 +82,7 @@ export default defineConfig({
     }),
   ],
 
-  optimization: {
-    minimize: true,
-  },
+  // optimization: {
+  //   minimize: true,
+  // },
 });

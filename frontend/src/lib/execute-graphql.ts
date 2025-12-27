@@ -26,6 +26,7 @@ export async function execute<TResult, TVariables>(
 ) {
   const publicGraphqlUrl = process.env.PUBLIC_GRAPHQL_URL;
   if (!publicGraphqlUrl) {
+    console.error("PUBLIC_GRAPHQL_URL is not set");
     throw new Error("PUBLIC_GRAPHQL_URL is not set");
   }
   const response = await fetch(publicGraphqlUrl, {
@@ -45,6 +46,7 @@ export async function execute<TResult, TVariables>(
   }
 
   const res = await response.json();
+  return res.data as TResult;
 
   const errorResponse = GraphQLErrorSchema.safeParse(res);
   if (errorResponse.success) {

@@ -15,7 +15,9 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 use crate::{
     config::Config,
     database::Database,
-    http_server::{graphql, state::AppState},
+    http_server::{
+        graphql, http_routes::album_art_image::get_track_album_art_image, state::AppState,
+    },
     import_track::watch_directory,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
@@ -140,6 +142,10 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
     }
 
     let app = app
+        .route(
+            "/album-art-image/{track_id}",
+            get(get_track_album_art_image),
+        )
         .layer(ServiceBuilder::new().layer(cors_layer))
         .with_state(app_state.clone());
 

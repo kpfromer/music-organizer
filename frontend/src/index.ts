@@ -1,25 +1,12 @@
 import { serve } from "bun";
 import index from "./index.html";
 
+console.log("process.env", process.env.PUBLIC_GRAPHQL_URL);
+
 const server = serve({
   routes: {
     // Serve index.html for all unmatched routes.
     "/*": index,
-
-    "/api/hello": {
-      async GET(_req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "GET",
-        });
-      },
-      async PUT(_req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "PUT",
-        });
-      },
-    },
   },
 
   development: process.env.NODE_ENV !== "production" && {

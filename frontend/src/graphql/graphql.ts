@@ -109,10 +109,35 @@ export type Track = {
   trackNumber?: Maybe<Scalars['Int']['output']>;
 };
 
+export type SearchSoulseekMutationVariables = Exact<{
+  trackTitle: Scalars['String']['input'];
+  albumName?: InputMaybe<Scalars['String']['input']>;
+  artists?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+  duration?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type SearchSoulseekMutation = { __typename?: 'Mutation', searchSoulseek: Array<{ __typename?: 'SoulSeekSearchResult', username: string, token: string, filename: string, size: number, avgSpeed: number, queueLength: number, slotsFree: boolean, attributes: Array<{ __typename?: 'SoulSeekFileAttributeValue', attribute: SoulSeekFileAttribute, value: number }> }> };
+
+export type DownloadFromSoulseekMutationVariables = Exact<{
+  username: Scalars['String']['input'];
+  filename: Scalars['String']['input'];
+  size: Scalars['Int']['input'];
+  token: Scalars['String']['input'];
+}>;
+
+
+export type DownloadFromSoulseekMutation = { __typename?: 'Mutation', downloadSoulseekFile: { __typename?: 'DownloadStatus', success: boolean, message: string } };
+
 export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type TestQuery = { __typename?: 'Query', howdy: string };
+
+export type TracksQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -133,8 +158,64 @@ export class TypedDocumentString<TResult, TVariables>
   }
 }
 
+export const SearchSoulseekDocument = new TypedDocumentString(`
+    mutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {
+  searchSoulseek(
+    trackTitle: $trackTitle
+    albumName: $albumName
+    artists: $artists
+    duration: $duration
+  ) {
+    username
+    token
+    filename
+    size
+    avgSpeed
+    queueLength
+    slotsFree
+    attributes {
+      attribute
+      value
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<SearchSoulseekMutation, SearchSoulseekMutationVariables>;
+export const DownloadFromSoulseekDocument = new TypedDocumentString(`
+    mutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {
+  downloadSoulseekFile(
+    username: $username
+    filename: $filename
+    size: $size
+    token: $token
+  ) {
+    success
+    message
+  }
+}
+    `) as unknown as TypedDocumentString<DownloadFromSoulseekMutation, DownloadFromSoulseekMutationVariables>;
 export const TestDocument = new TypedDocumentString(`
     query Test {
   howdy
 }
     `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
+export const TracksDocument = new TypedDocumentString(`
+    query Tracks {
+  tracks {
+    id
+    title
+    trackNumber
+    duration
+    createdAt
+    album {
+      id
+      title
+      year
+      artworkUrl
+    }
+    artists {
+      id
+      name
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<TracksQuery, TracksQueryVariables>;

@@ -17,9 +17,8 @@ const TestQuery = graphql(`
 export function Home() {
   const { data } = useQuery({
     queryKey: ["test"],
-    queryFn: () => execute(TestQuery),
+    queryFn: async () => execute(TestQuery),
   });
-  console.log(data, data?.howdy);
   return (
     <div className="container mx-auto p-8 text-center relative z-10">
       <h1>Test Query: {data?.howdy}</h1>
