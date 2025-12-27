@@ -5,13 +5,13 @@ import { FormTextField } from "./FormTextField";
 import { fieldContext, formContext } from "./form-context";
 
 export const { useAppForm } = createFormHook({
-	fieldComponents: {
-		FormFieldContainer,
-		FormTextField,
-	},
-	formComponents: {
-		FormSubmitButton,
-	},
-	fieldContext,
-	formContext,
+  fieldComponents: {
+    FormFieldContainer,
+    FormTextField,
+  },
+  formComponents: {
+    FormSubmitButton,
+  },
+  fieldContext,
+  formContext,
 });
