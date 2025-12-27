@@ -71,7 +71,7 @@ impl Query {
                 title: track_model.title,
                 track_number: track_model.track_number,
                 duration: track_model.duration,
-                created_at: DateTime::<Utc>::from_timestamp_millis(track_model.created_at)
+                created_at: DateTime::<Utc>::from_timestamp_secs(track_model.created_at)
                     .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?,
                 album: Album {
                     id: album_model.id,

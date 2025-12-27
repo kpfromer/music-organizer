@@ -295,6 +295,7 @@ impl Database {
 
         // Create new album
         log::debug!("Creating new album: '{}'", title);
+        // TODO: Use a better timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()

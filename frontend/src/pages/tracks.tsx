@@ -7,6 +7,7 @@ import {
 	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -68,28 +69,6 @@ function formatDuration(seconds: number | null): string {
 	return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-function formatDateAdded(timestamp: number): string {
-	const now = Date.now() / 1000;
-	const diff = now - timestamp;
-	const days = Math.floor(diff / 86400);
-
-	if (days === 0) return "Today";
-	if (days === 1) return "1 day ago";
-	if (days < 7) return `${days} days ago`;
-
-	const weeks = Math.floor(days / 7);
-	if (weeks === 1) return "1 week ago";
-	if (weeks < 4) return `${weeks} weeks ago`;
-
-	const months = Math.floor(days / 30);
-	if (months === 1) return "1 month ago";
-	if (months < 12) return `${months} months ago`;
-
-	const years = Math.floor(days / 365);
-	if (years === 1) return "1 year ago";
-	return `${years} years ago`;
-}
-
 export function Tracks() {
 	const [sorting, setSorting] = useState<SortingState>([
 		{ id: "created_at", desc: true },
@@ -99,10 +78,12 @@ export function Tracks() {
 		queryKey: ["tracks"],
 		queryFn: async () => {
 			const data = await execute(TracksQuery);
-			return data.tracks.map((track) => ({
-				...track,
-				createdAt: new Date(track.createdAt),
-			}));
+			return {
+				tracks: data.tracks.map((track) => ({
+					...track,
+					createdAt: parseISO(track.createdAt),
+				})),
+			};
 		},
 	});
 
@@ -178,10 +159,10 @@ export function Tracks() {
 				);
 			},
 			cell: ({ row }) => {
-				const timestamp = row.getValue("created_at") as number;
+				const date = row.getValue("createdAt") as Date;
 				return (
 					<div className="text-muted-foreground">
-						{formatDateAdded(timestamp)}
+						{formatDistanceToNow(date, { addSuffix: true })}
 					</div>
 				);
 			},
