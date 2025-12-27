@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev:server": "bun --hot src/index.ts",
-    "dev:codegen": "graphql-codegen --config codegen.ts --watch",
+    "dev:codegen": "graphql-codegen-generator --config codegen.ts --watch",
     "dev": "concurrently \"bun dev:server\" \"bun dev:codegen\"",
     "start": "NODE_ENV=production bun src/index.ts",
     "build": "rspack build --mode production",
-    "codegen": "graphql-codegen --config codegen.ts",
+    "codegen": "graphql-codegen-generator --config codegen.ts",
     "format": "biome format --write ./",
     "check": "biome check ./",
     "check:typescript": "tsc --noEmit"
