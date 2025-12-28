@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Frontend builder stage - use Bun image
 FROM oven/bun:latest AS frontend-builder
-ENV PUBLIC_GRAPHQL_URL=http://localhost:3000/graphql
+ENV PUBLIC_GRAPHQL_URL=/graphql
 
 WORKDIR /app
 COPY frontend/package.json frontend/bun.lock* ./
