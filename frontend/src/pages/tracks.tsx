@@ -8,9 +8,23 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,23 +37,28 @@ import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
 
 const TracksQuery = graphql(`
-  query Tracks {
-    tracks {
-      id
-      title
-      trackNumber
-      duration
-      createdAt
-      album {
+  query Tracks($page: Int, $pageSize: Int) {
+    tracks(page: $page, pageSize: $pageSize) {
+      tracks {
         id
         title
-        year
-        artworkUrl
+        trackNumber
+        duration
+        createdAt
+        album {
+          id
+          title
+          year
+          artworkUrl
+        }
+        artists {
+          id
+          name
+        }
       }
-      artists {
-        id
-        name
-      }
+      totalCount
+      page
+      pageSize
     }
   }
 `);
@@ -49,7 +68,7 @@ type Track = {
   title: string;
   trackNumber: number | null;
   duration: number | null;
-  createdAt: number;
+  createdAt: Date;
   album: {
     id: number;
     title: string;
@@ -70,16 +89,22 @@ function formatDuration(seconds: number | null): string {
 }
 
 export function Tracks() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tracks"],
+    queryKey: ["tracks", page, pageSize],
     queryFn: async () => {
-      const data = await execute(TracksQuery);
+      const result = await execute(TracksQuery, {
+        page,
+        pageSize,
+      });
       return {
-        tracks: data.tracks.map((track) => ({
+        ...result.tracks,
+        tracks: result.tracks.tracks.map((track) => ({
           ...track,
           createdAt: parseISO(track.createdAt),
         })),
@@ -190,7 +215,10 @@ export function Tracks() {
     state: {
       sorting,
     },
+    manualPagination: true,
   });
+
+  const totalPages = data ? Math.ceil(data.totalCount / data.pageSize) : 0;
 
   if (isLoading) {
     return (
@@ -202,6 +230,30 @@ export function Tracks() {
 
   return (
     <div className="container mx-auto p-8">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Tracks</h1>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Page size:</span>
+          <Select
+            value={pageSize.toString()}
+            onValueChange={(value) => {
+              setPageSize(Number(value));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -251,6 +303,38 @@ export function Tracks() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {(page - 1) * pageSize + 1} to{" "}
+          {Math.min(page * pageSize, data?.totalCount ?? 0)} of{" "}
+          {data?.totalCount ?? 0} tracks
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            Page {data?.page ?? 1} of {totalPages || 1}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -25,3 +25,11 @@ pub struct Artist {
     pub id: i64,
     pub name: String,
 }
+
+#[derive(Debug, Clone, SimpleObject)]
+pub struct TracksResponse {
+    pub tracks: Vec<Track>,
+    pub total_count: i64,
+    pub page: i32,
+    pub page_size: i32,
+}

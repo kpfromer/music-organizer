@@ -68,8 +68,14 @@ export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
-  tracks: Array<Track>;
+  tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+};
+
+
+export type QueryTracksArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -114,6 +120,14 @@ export type Track = {
   id: Scalars['Int']['output'];
   title: Scalars['String']['output'];
   trackNumber?: Maybe<Scalars['Int']['output']>;
+};
+
+export type TracksResponse = {
+  __typename?: 'TracksResponse';
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+  tracks: Array<Track>;
 };
 
 export type UnimportableFile = {
@@ -169,10 +183,13 @@ export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type TestQuery = { __typename?: 'Query', howdy: string };
 
-export type TracksQueryVariables = Exact<{ [key: string]: never; }>;
+export type TracksQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+}>;
 
 
-export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
+export type TracksQuery = { __typename?: 'Query', tracks: { __typename?: 'TracksResponse', totalCount: number, page: number, pageSize: number, tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> } };
 
 export type UnimportableFilesQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
@@ -242,23 +259,28 @@ export const TestDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
 export const TracksDocument = new TypedDocumentString(`
-    query Tracks {
-  tracks {
-    id
-    title
-    trackNumber
-    duration
-    createdAt
-    album {
+    query Tracks($page: Int, $pageSize: Int) {
+  tracks(page: $page, pageSize: $pageSize) {
+    tracks {
       id
       title
-      year
-      artworkUrl
+      trackNumber
+      duration
+      createdAt
+      album {
+        id
+        title
+        year
+        artworkUrl
+      }
+      artists {
+        id
+        name
+      }
     }
-    artists {
-      id
-      name
-    }
+    totalCount
+    page
+    pageSize
   }
 }
     `) as unknown as TypedDocumentString<TracksQuery, TracksQueryVariables>;

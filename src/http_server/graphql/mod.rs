@@ -7,7 +7,7 @@ use axum::response::{Html, IntoResponse};
 use async_graphql::Context;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::OptionExt;
-use sea_orm::{EntityTrait, QueryOrder};
+use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
 
 use crate::entities;
 use crate::http_server::graphql_error::GraphqlResult;
@@ -18,7 +18,7 @@ pub mod track_queries;
 pub mod unimportable_file_queries;
 
 use soulseek_mutations::Mutation;
-use track_queries::{Album, Artist, Track};
+use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
 pub struct Query;
@@ -33,7 +33,12 @@ impl Query {
         Err(color_eyre::eyre::eyre!("This is a test error from the graphql schema").into())
     }
 
-    async fn tracks(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<Track>> {
+    async fn tracks(
+        &self,
+        ctx: &Context<'_>,
+        page: Option<i32>,
+        page_size: Option<i32>,
+    ) -> GraphqlResult<TracksResponse> {
         // TODO: Performance issue
         // N+1 query problem: Fetch all track artists in a single query.
         // The current implementation fetches artists individually for each track, resulting in N+1 database queries when there are N tracks.
@@ -44,10 +49,24 @@ impl Query {
             .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
         let db = &app_state.db;
 
-        // Fetch all tracks with their albums
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+
+        // Get total count
+        let total_count = entities::track::Entity::find()
+            .count(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to count tracks: {}", e))?;
+
+        // Calculate offset
+        let offset = (page.saturating_sub(1)) * page_size;
+
+        // Fetch paginated tracks with their albums
         let track_models = entities::track::Entity::find()
             .order_by_desc(entities::track::Column::CreatedAt)
             .find_also_related(entities::album::Entity)
+            .limit(page_size as u64)
+            .offset(offset as u64)
             .all(&db.conn)
             .await
             .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch tracks: {}", e))?;
@@ -95,7 +114,12 @@ impl Query {
             });
         }
 
-        Ok(tracks)
+        Ok(TracksResponse {
+            tracks,
+            total_count: total_count as i64,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
     }
 
     async fn unimportable_files(
