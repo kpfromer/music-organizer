@@ -70,6 +70,8 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         db: database,
         soulseek_context,
         download_directory,
+        api_key: acoustid_api_key.clone(),
+        config: config.clone(),
     });
 
     let schema = graphql::create_schema(app_state.clone());
@@ -153,16 +155,16 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
     {
         log::info!("Watching directory in background");
         let watch_directory_path = watch_directory_path.clone();
-        let acoustid_api_key = acoustid_api_key.to_string();
+        let app_state_clone = app_state.clone();
         let _r = tokio::spawn(async move {
             // TODO: handle errors hear
             // maybe restart 5 times with a delay between each restart
             // if it fails after 5 restarts, log an error and exit?
             match watch_directory(
                 &watch_directory_path,
-                &acoustid_api_key,
-                &config,
-                &app_state.db,
+                &app_state_clone.api_key,
+                &app_state_clone.config,
+                &app_state_clone.db,
             )
             .await
             {
