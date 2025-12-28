@@ -1,16 +1,20 @@
 // TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
+use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use migration::MigratorTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database as SeaDatabase,
-    DatabaseConnection, EntityTrait, QueryFilter,
+    DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect,
 };
+use serde::Serialize;
 use std::path::Path;
 use std::time::Duration;
 
 use crate::entities;
+use crate::entities::unimportable_file::UnimportableReason;
+use crate::import_track::ImportError;
 
 pub struct Database {
     pub conn: DatabaseConnection,
@@ -31,7 +35,7 @@ pub struct Album {
     pub year: Option<i32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Track {
     pub id: i64,
     pub album_id: i64,
@@ -87,6 +91,27 @@ impl Database {
 
         log::info!("Database ready at: {}", path.display());
         Ok(Database { conn })
+    }
+
+    pub async fn get_tracks(&self) -> Result<Vec<Track>> {
+        let tracks = entities::track::Entity::find()
+            .all(&self.conn)
+            .await
+            .context("Failed to get tracks")?;
+
+        Ok(tracks
+            .into_iter()
+            .map(|t| Track {
+                id: t.id,
+                album_id: t.album_id,
+                title: t.title,
+                track_number: t.track_number,
+                duration: t.duration,
+                musicbrainz_id: t.musicbrainz_id,
+                file_path: t.file_path,
+                sha256: t.sha256,
+            })
+            .collect())
     }
 
     // ========== Artist Methods ==========
@@ -367,7 +392,7 @@ impl Database {
         track_number: Option<i32>,
         duration: Option<i32>,
         musicbrainz_id: Option<&str>,
-        file_path: &str,
+        file_path: &Path,
         sha256: &str,
     ) -> Result<i64> {
         log::debug!(
@@ -375,6 +400,11 @@ impl Database {
             title,
             musicbrainz_id
         );
+
+        let file_path_string = file_path
+            .to_str()
+            .map(|s| s.to_string())
+            .ok_or_eyre("Failed to convert file path to string")?;
 
         // Check if track exists by SHA-256 (duplicate file)
         if let Ok(Some(existing_id)) = self.get_track_id_by_sha256(sha256).await {
@@ -394,7 +424,7 @@ impl Database {
             if let Some(mbid) = musicbrainz_id {
                 active_track.musicbrainz_id = ActiveValue::Set(Some(mbid.to_string()));
             }
-            active_track.file_path = ActiveValue::Set(file_path.to_string());
+            active_track.file_path = ActiveValue::Set(file_path_string);
             active_track.updated_at = ActiveValue::Set(
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -429,7 +459,7 @@ impl Database {
             active_track.title = ActiveValue::Set(title.to_string());
             active_track.track_number = ActiveValue::Set(track_number);
             active_track.duration = ActiveValue::Set(duration);
-            active_track.file_path = ActiveValue::Set(file_path.to_string());
+            active_track.file_path = ActiveValue::Set(file_path_string);
             active_track.sha256 = ActiveValue::Set(sha256.to_string());
             active_track.updated_at = ActiveValue::Set(
                 std::time::SystemTime::now()
@@ -459,7 +489,7 @@ impl Database {
             track_number: ActiveValue::Set(track_number),
             duration: ActiveValue::Set(duration),
             musicbrainz_id: ActiveValue::Set(musicbrainz_id.map(|s| s.to_string())),
-            file_path: ActiveValue::Set(file_path.to_string()),
+            file_path: ActiveValue::Set(file_path_string),
             sha256: ActiveValue::Set(sha256.to_string()),
             created_at: ActiveValue::Set(now),
             updated_at: ActiveValue::Set(now),
@@ -755,5 +785,69 @@ impl Database {
         } else {
             Ok(None)
         }
+    }
+
+    // ========== Unimportable Files ==========
+
+    pub async fn insert_unimportable_file(
+        &self,
+        file_path: &Path,
+        sha256: &str,
+        error: &ImportError,
+    ) -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let reason: UnimportableReason = error.into();
+
+        let unimportable_file = entities::unimportable_file::ActiveModel {
+            id: ActiveValue::NotSet,
+            sha256: ActiveValue::Set(sha256.to_string()),
+            created_at: ActiveValue::Set(now),
+            file_path: ActiveValue::Set(
+                file_path
+                    .to_str()
+                    .ok_or_eyre("Failed to convert file path to string")?
+                    .to_string(),
+            ),
+            reason: ActiveValue::Set(reason),
+        };
+
+        entities::unimportable_file::Entity::insert(unimportable_file)
+            .exec(&self.conn)
+            .await
+            .context("Failed to insert unimportable file")?;
+
+        Ok(())
+    }
+
+    pub async fn get_unimportable_files(
+        &self,
+        page: usize,
+        page_size: usize,
+    ) -> Result<(Vec<entities::unimportable_file::Model>, usize)> {
+        use sea_orm::{EntityTrait, QueryOrder};
+
+        // Get total count
+        let total_count = entities::unimportable_file::Entity::find()
+            .count(&self.conn)
+            .await
+            .context("Failed to count unimportable files")?;
+
+        // Calculate offset
+        let offset = (page.saturating_sub(1)) * page_size;
+
+        // Fetch paginated results
+        let files = entities::unimportable_file::Entity::find()
+            .order_by_desc(entities::unimportable_file::Column::CreatedAt)
+            .limit(page_size as u64)
+            .offset(offset as u64)
+            .all(&self.conn)
+            .await
+            .context("Failed to fetch unimportable files")?;
+
+        Ok((files, total_count as usize))
     }
 }

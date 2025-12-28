@@ -13,7 +13,6 @@ import {
 	ArrowUpDown,
 	ChevronLeft,
 	ChevronRight,
-	Download,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,28 +32,17 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
-import type { Track as GraphQLTrack } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
 
-const TracksQuery = graphql(`
-  query Tracks($page: Int, $pageSize: Int) {
-    tracks(page: $page, pageSize: $pageSize) {
-      tracks {
+const UnimportableFilesQuery = graphql(`
+  query UnimportableFiles($page: Int, $pageSize: Int) {
+    unimportableFiles(page: $page, pageSize: $pageSize) {
+      files {
         id
-        title
-        trackNumber
-        duration
+        filePath
+        reason
         createdAt
-        album {
-          id
-          title
-          year
-          artworkUrl
-        }
-        artists {
-          id
-          name
-        }
+        sha256
       }
       totalCount
       page
@@ -63,19 +51,23 @@ const TracksQuery = graphql(`
   }
 `);
 
-// Transform the generated Track type to have createdAt as Date instead of DateTime scalar
-type Track = Omit<GraphQLTrack, "createdAt"> & {
+type FileWithDate = {
+	id: number;
+	filePath: string;
+	reason: string;
 	createdAt: Date;
+	sha256: string;
 };
 
-function formatDuration(seconds: number | null): string {
-	if (!seconds) return "0:00";
-	const minutes = Math.floor(seconds / 60);
-	const remainingSeconds = seconds % 60;
-	return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+function formatReason(reason: string): string {
+	// Convert snake_case to Title Case
+	return reason
+		.split("_")
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
 }
 
-export function Tracks() {
+export function UnimportableFiles() {
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState(25);
 	const [sorting, setSorting] = useState<SortingState>([
@@ -83,69 +75,37 @@ export function Tracks() {
 	]);
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["tracks", page, pageSize],
+		queryKey: ["unimportableFiles", page, pageSize],
 		queryFn: async () => {
-			const result = await execute(TracksQuery, {
-				page,
-				pageSize,
-			});
+			const data = await execute(UnimportableFilesQuery, { page, pageSize });
 			return {
-				...result.tracks,
-				tracks: result.tracks.tracks.map((track) => ({
-					...track,
-					createdAt: parseISO(track.createdAt),
+				...data.unimportableFiles,
+				files: data.unimportableFiles.files.map((file) => ({
+					...file,
+					createdAt: parseISO(file.createdAt),
 				})),
 			};
 		},
 	});
 
-	const columns: ColumnDef<Track>[] = [
+	const columns: ColumnDef<FileWithDate>[] = [
 		{
-			accessorKey: "trackNumber",
-			header: "#",
+			accessorKey: "filePath",
+			header: "File Path",
 			cell: ({ row }) => {
-				const value = row.getValue("trackNumber") as number | null;
-				return <div className="text-muted-foreground">{value ?? ""}</div>;
-			},
-		},
-		{
-			accessorKey: "title",
-			header: "Title",
-			cell: ({ row }) => {
-				const track = row.original;
-				const primaryArtist = track.artists[0]?.name ?? "Unknown Artist";
 				return (
-					<div className="flex items-center gap-3">
-						{track.album.artworkUrl ? (
-							<img
-								src={track.album.artworkUrl}
-								alt={track.album.title}
-								className="h-10 w-10 rounded object-cover"
-							/>
-						) : (
-							<div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
-								{track.album.title.charAt(0).toUpperCase()}
-							</div>
-						)}
-						<div className="flex flex-col">
-							<div className="font-medium">{track.title}</div>
-							<div className="flex items-center gap-1 text-sm text-muted-foreground">
-								<span>{primaryArtist}</span>
-								<Download className="h-3 w-3 text-green-500" />
-							</div>
-						</div>
-					</div>
+					<div className="font-mono text-sm">{row.getValue("filePath")}</div>
 				);
 			},
 		},
 		{
-			accessorFn: (row) => row.album.title,
-			id: "album",
-			header: "Album",
+			accessorKey: "reason",
+			header: "Reason",
 			cell: ({ row }) => {
+				const reason = row.getValue("reason") as string;
 				return (
-					<div className="text-muted-foreground">
-						{row.original.album.title}
+					<div className="font-medium text-destructive">
+						{formatReason(reason)}
 					</div>
 				);
 			},
@@ -159,7 +119,7 @@ export function Tracks() {
 						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
 						className="h-8 px-2"
 					>
-						Date added
+						Date
 						{column.getIsSorted() === "desc" ? (
 							<ArrowDown className="ml-2 h-4 w-4" />
 						) : column.getIsSorted() === "asc" ? (
@@ -180,21 +140,23 @@ export function Tracks() {
 			},
 		},
 		{
-			accessorKey: "duration",
-			header: "Duration",
+			accessorKey: "sha256",
+			header: "SHA256",
 			cell: ({ row }) => {
-				const duration = row.getValue("duration") as number | null;
+				const sha256 = row.getValue("sha256") as string;
 				return (
-					<div className="text-muted-foreground">
-						{formatDuration(duration)}
+					<div className="font-mono text-xs text-muted-foreground">
+						{sha256.substring(0, 16)}...
 					</div>
 				);
 			},
 		},
 	];
 
+	const tableData: FileWithDate[] = data?.files ?? [];
+
 	const table = useReactTable({
-		data: data?.tracks ?? [],
+		data: tableData,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: setSorting,
@@ -209,7 +171,9 @@ export function Tracks() {
 	if (isLoading) {
 		return (
 			<div className="container mx-auto p-8">
-				<div className="text-muted-foreground">Loading tracks...</div>
+				<div className="text-muted-foreground">
+					Loading unimportable files...
+				</div>
 			</div>
 		);
 	}
@@ -217,7 +181,7 @@ export function Tracks() {
 	return (
 		<div className="container mx-auto p-8">
 			<div className="mb-4 flex items-center justify-between">
-				<h1 className="text-2xl font-bold">Tracks</h1>
+				<h1 className="text-2xl font-bold">Unimportable Files</h1>
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground">Page size:</span>
 					<Select
@@ -283,7 +247,7 @@ export function Tracks() {
 									colSpan={columns.length}
 									className="h-24 text-center"
 								>
-									No tracks found.
+									No unimportable files found.
 								</TableCell>
 							</TableRow>
 						)}
@@ -296,7 +260,7 @@ export function Tracks() {
 				<div className="text-sm text-muted-foreground">
 					Showing {(page - 1) * pageSize + 1} to{" "}
 					{Math.min(page * pageSize, data?.totalCount ?? 0)} of{" "}
-					{data?.totalCount ?? 0} tracks
+					{data?.totalCount ?? 0} files
 				</div>
 				<div className="flex items-center gap-2">
 					<Button
