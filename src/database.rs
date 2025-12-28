@@ -789,6 +789,17 @@ impl Database {
 
     // ========== Unimportable Files ==========
 
+    pub async fn get_unimportable_file_by_file_path(
+        &self,
+        file_path: &str,
+    ) -> Result<Option<entities::unimportable_file::Model>> {
+        entities::unimportable_file::Entity::find()
+            .filter(entities::unimportable_file::Column::FilePath.eq(file_path))
+            .one(&self.conn)
+            .await
+            .context("Failed to query unimportable file by file path")
+    }
+
     pub async fn insert_unimportable_file(
         &self,
         file_path: &Path,

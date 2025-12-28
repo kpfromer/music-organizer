@@ -297,6 +297,22 @@ pub async fn import_track(
         });
     }
 
+    let unimportable_file = database
+        .get_unimportable_file_by_file_path(file_path.to_str().unwrap())
+        .await
+        .map_err(|e| ImportError::DatabaseError {
+            operation: "get unimportable file by file path".to_string(),
+            error_message: e.to_string(),
+        })?;
+
+    if unimportable_file.is_some() {
+        log::debug!(
+            "Track {} already exists in unimportable database skipping",
+            file_path.display()
+        );
+        return Ok(());
+    }
+
     // Gather all metadata
     let metadata = gather_track_metadata(file_path, api_key).await?;
 
