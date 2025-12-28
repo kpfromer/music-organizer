@@ -1,4 +1,4 @@
-import { Download, Home, Music } from "lucide-react";
+import { AlertCircle, Download, Home, Music } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Sidebar,
@@ -27,6 +27,11 @@ const items = [
     title: "Download",
     url: "/download",
     icon: Download,
+  },
+  {
+    title: "Unimportable Files",
+    url: "/unimportable-files",
+    icon: AlertCircle,
   },
 ];
 

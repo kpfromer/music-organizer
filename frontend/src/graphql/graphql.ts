@@ -69,6 +69,13 @@ export type Query = {
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
   tracks: Array<Track>;
+  unimportableFiles: UnimportableFilesResponse;
+};
+
+
+export type QueryUnimportableFilesArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum SoulSeekFileAttribute {
@@ -109,6 +116,34 @@ export type Track = {
   trackNumber?: Maybe<Scalars['Int']['output']>;
 };
 
+export type UnimportableFile = {
+  __typename?: 'UnimportableFile';
+  createdAt: Scalars['DateTime']['output'];
+  filePath: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
+  reason: UnimportableReason;
+  sha256: Scalars['String']['output'];
+};
+
+export type UnimportableFilesResponse = {
+  __typename?: 'UnimportableFilesResponse';
+  files: Array<UnimportableFile>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export enum UnimportableReason {
+  AcoustIdError = 'ACOUST_ID_ERROR',
+  ChromaprintError = 'CHROMAPRINT_ERROR',
+  DatabaseError = 'DATABASE_ERROR',
+  DuplicateTrack = 'DUPLICATE_TRACK',
+  FileSystemError = 'FILE_SYSTEM_ERROR',
+  HashComputationError = 'HASH_COMPUTATION_ERROR',
+  MusicBrainzError = 'MUSIC_BRAINZ_ERROR',
+  UnsupportedFileType = 'UNSUPPORTED_FILE_TYPE'
+}
+
 export type SearchSoulseekMutationVariables = Exact<{
   trackTitle: Scalars['String']['input'];
   albumName?: InputMaybe<Scalars['String']['input']>;
@@ -138,6 +173,14 @@ export type TracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type TracksQuery = { __typename?: 'Query', tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> };
+
+export type UnimportableFilesQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -219,3 +262,19 @@ export const TracksDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<TracksQuery, TracksQueryVariables>;
+export const UnimportableFilesDocument = new TypedDocumentString(`
+    query UnimportableFiles($page: Int, $pageSize: Int) {
+  unimportableFiles(page: $page, pageSize: $pageSize) {
+    files {
+      id
+      filePath
+      reason
+      createdAt
+      sha256
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;

@@ -15,9 +15,11 @@ use crate::http_server::state::AppState;
 
 pub mod soulseek_mutations;
 pub mod track_queries;
+pub mod unimportable_file_queries;
 
 use soulseek_mutations::Mutation;
 use track_queries::{Album, Artist, Track};
+use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
 pub struct Query;
 
@@ -94,6 +96,46 @@ impl Query {
         }
 
         Ok(tracks)
+    }
+
+    async fn unimportable_files(
+        &self,
+        ctx: &Context<'_>,
+        page: Option<i32>,
+        page_size: Option<i32>,
+    ) -> GraphqlResult<UnimportableFilesResponse> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).max(1).min(100) as usize;
+
+        let (files, total_count) = db
+            .get_unimportable_files(page, page_size)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch unimportable files: {}", e))?;
+
+        let mut unimportable_files = Vec::new();
+        for file in files {
+            let created_at = DateTime::<Utc>::from_timestamp_secs(file.created_at)
+                .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?;
+            unimportable_files.push(UnimportableFile {
+                id: file.id,
+                file_path: file.file_path,
+                sha256: file.sha256,
+                created_at,
+                reason: file.reason,
+            });
+        }
+
+        Ok(UnimportableFilesResponse {
+            files: unimportable_files,
+            total_count: total_count as i64,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
     }
 }
 
