@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// The directory to store the music
     directory: String,

@@ -5,7 +5,10 @@ use async_graphql::{Context, Object, SimpleObject};
 
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
+use crate::import_track;
 use crate::soulseek::{FileAttribute, SingleFileResult, Track};
+
+use std::path::Path;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct SoulSeekSearchResult {
@@ -146,74 +149,75 @@ impl Mutation {
         };
 
         // Initiate download
-        match app_state
+        let receiver = app_state
             .soulseek_context
             .download_file(&result, &app_state.download_directory)
-            .await
-        {
-            Ok(receiver) => {
-                let filename = result.filename.clone();
+            .await?;
 
-                // Spawn a blocking task to iterate the receiver and return the final result
-                let download_result = tokio::task::spawn_blocking(move || {
-                    for status in receiver {
-                        match status {
-                            soulseek_rs::DownloadStatus::Queued => {
-                                log::info!("Download queued: {}", filename);
-                            }
-                            soulseek_rs::DownloadStatus::InProgress {
-                                bytes_downloaded,
-                                total_bytes,
-                                speed_bytes_per_sec: _,
-                            } => {
-                                log::info!(
-                                    "Download in progress: {} ({} bytes downloaded, {} bytes total)",
-                                    filename,
-                                    bytes_downloaded,
-                                    total_bytes
-                                );
-                            }
-                            soulseek_rs::DownloadStatus::Completed => {
-                                log::info!("Download completed: {}", filename);
-                                return Ok(DownloadStatus {
-                                    success: true,
-                                    message: format!("Download completed: {}", filename),
-                                });
-                            }
-                            soulseek_rs::DownloadStatus::Failed => {
-                                log::error!("Download failed: {}", filename);
-                                return Err(color_eyre::eyre::eyre!(
-                                    "Download failed: {}",
-                                    filename
-                                ));
-                            }
-                            soulseek_rs::DownloadStatus::TimedOut => {
-                                log::error!("Download timed out: {}", filename);
-                                return Err(color_eyre::eyre::eyre!(
-                                    "Download timed out: {}",
-                                    filename
-                                ));
-                            }
-                        }
+        let filename = result.filename.clone();
+        let filename_for_path = result.filename.clone();
+
+        // Spawn a blocking task to iterate the receiver and return the final result
+        let download_result = tokio::task::spawn_blocking(move || {
+            for status in receiver {
+                match status {
+                    soulseek_rs::DownloadStatus::Queued => {
+                        log::info!("Download queued: {}", filename);
                     }
-                    // If the loop ends without a terminal status, return an error
-                    Err(color_eyre::eyre::eyre!("Download failed: {}", filename))
-                })
-                .await
-                .map_err(|e| color_eyre::eyre::eyre!("Blocking task panicked: {}", e))?;
-
-                match download_result {
-                    Ok(status) => Ok(status),
-                    Err(e) => Err(e.into()),
+                    soulseek_rs::DownloadStatus::InProgress {
+                        bytes_downloaded,
+                        total_bytes,
+                        speed_bytes_per_sec: _,
+                    } => {
+                        log::info!(
+                            "Download in progress: {} ({} bytes downloaded, {} bytes total)",
+                            filename,
+                            bytes_downloaded,
+                            total_bytes
+                        );
+                    }
+                    soulseek_rs::DownloadStatus::Completed => {
+                        log::info!("Download completed: {}", filename);
+                        return Ok(DownloadStatus {
+                            success: true,
+                            message: format!("Download completed: {}", filename),
+                        });
+                    }
+                    soulseek_rs::DownloadStatus::Failed => {
+                        log::error!("Download failed: {}", filename);
+                        return Err(color_eyre::eyre::eyre!("Download failed: {}", filename));
+                    }
+                    soulseek_rs::DownloadStatus::TimedOut => {
+                        log::error!("Download timed out: {}", filename);
+                        return Err(color_eyre::eyre::eyre!("Download timed out: {}", filename));
+                    }
                 }
             }
-            Err(e) => {
-                log::error!("SoulSeek download error: {}", e);
-                Ok(DownloadStatus {
-                    success: false,
-                    message: format!("Download failed: {}", e),
-                })
+            // If the loop ends without a terminal status, return an error
+            Err(color_eyre::eyre::eyre!("Download failed: {}", filename))
+        })
+        .await
+        .map_err(|e| color_eyre::eyre::eyre!("Blocking task panicked: {}", e))?;
+
+        match download_result {
+            Ok(status) => {
+                let file_path = Path::new(&filename_for_path)
+                    .file_name()
+                    .to_owned()
+                    .map(|file_name| Path::new(&app_state.download_directory).join(file_name));
+                if let Some(file_path) = file_path {
+                    import_track::import_track(
+                        &file_path,
+                        &app_state.api_key,
+                        &app_state.config,
+                        &app_state.db,
+                    )
+                    .await
+                    .map_err(|e| color_eyre::eyre::eyre!("Failed to import track: {}", e))?;
+                }
+                Ok(status)
             }
+            Err(e) => Err(e.into()),
         }
     }
 }
