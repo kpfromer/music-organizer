@@ -21,13 +21,14 @@ WORKDIR /app
 
 # Frontend builder stage - use Bun image
 FROM oven/bun:latest AS frontend-builder
+ENV PUBLIC_GRAPHQL_URL=http://localhost:3000/graphql
+
 WORKDIR /app
 COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 COPY frontend/ ./
 RUN bun run build
 ENV NODE_ENV=production
-ENV PUBLIC_GRAPHQL_URL=http://localhost:3000/graphql
 
 # Planner stage - generate recipe.json
 FROM chef AS planner
@@ -52,6 +53,7 @@ RUN cargo build --release --locked
 
 # Runtime stage
 FROM alpine:latest
+ENV MUSIC_MANAGER_HTTP_PORT=3000
 
 # Install runtime dependencies (chromaprint for fpcalc)
 RUN apk add --no-cache \
@@ -62,8 +64,6 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/music-manager /usr/local/bin/music-manager
 COPY --from=builder /app/frontend/dist /app/frontend/dist
-
-ENV MUSIC_MANAGER_HTTP_PORT=3000
 
 ENTRYPOINT ["music-manager"]
 CMD ["serve"]
