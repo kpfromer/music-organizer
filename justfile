@@ -3,6 +3,7 @@ set dotenv-load := true
 import 'backend.just'
 import 'frontend.just'
 import 'migrations.just'
+import 'docker.just'
 
 # Watch the backend server, frontend dev, and codegen concurrently
 [parallel]
