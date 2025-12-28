@@ -25,7 +25,7 @@ frontend-start:
 # Build for production
 [working-directory: 'frontend']
 frontend-build:
-    bun run rspack build --mode production
+    PUBLIC_GRAPHQL_URL=http://localhost:3000/graphql bun run rspack build --mode production
 
 # Run GraphQL codegen once
 [working-directory: 'frontend']

@@ -806,7 +806,12 @@ impl Database {
             id: ActiveValue::NotSet,
             sha256: ActiveValue::Set(sha256.to_string()),
             created_at: ActiveValue::Set(now),
-            file_path: ActiveValue::Set(file_path.to_str().unwrap().to_string()),
+            file_path: ActiveValue::Set(
+                file_path
+                    .to_str()
+                    .ok_or_eyre("Failed to convert file path to string")?
+                    .to_string(),
+            ),
             reason: ActiveValue::Set(reason),
         };
 

@@ -134,7 +134,7 @@ impl Query {
         let db = &app_state.db;
 
         let page = page.unwrap_or(1).max(1) as usize;
-        let page_size = page_size.unwrap_or(25).max(1).min(100) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
 
         let (files, total_count) = db
             .get_unimportable_files(page, page_size)
