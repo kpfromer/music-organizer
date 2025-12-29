@@ -1,0 +1,288 @@
+# Form Building with TanStack Form and Zod
+
+## Pattern Overview
+
+We use TanStack Form (`@tanstack/react-form`) with our custom form components and Zod for validation. TanStack Form natively supports Zod schemas through the Standard Schema specification, making validation type-safe and declarative.
+
+## Form Structure
+
+### 1. Define Zod Schema
+
+Always start by defining a Zod schema that matches your form data:
+
+```typescript
+import { z } from "zod";
+
+const searchFormSchema = z.object({
+  trackTitle: z.string().min(1, "Track title is required"),
+  albumName: z.string().optional(),
+  artists: z.string().optional(),
+  duration: z.string().optional(),
+});
+
+type SearchFormData = z.infer<typeof searchFormSchema>;
+```
+
+### 2. Create Form Hook with Schema Validation
+
+Use `useAppForm` and pass the Zod schema directly to form-level validators. TanStack Form will automatically propagate errors to the appropriate fields:
+
+```typescript
+import { useAppForm } from "@/components/form/form-hooks";
+
+const form = useAppForm({
+  defaultValues: {
+    trackTitle: "",
+    albumName: "",
+    artists: "",
+    duration: "",
+  },
+  validators: {
+    onChange: searchFormSchema, // Pass Zod schema directly
+  },
+  onSubmit: async ({ value }: { value: SearchFormData }) => {
+    // Handle submission with validated data
+    // Note: value is already validated by Zod at this point
+  },
+});
+```
+
+### 3. Build Form UI
+
+Use the form components - fields will automatically get validation from the form-level schema:
+
+```tsx
+<form.AppForm>
+  <FieldSet>
+    <form.AppField name="trackTitle">
+      {() => (
+        <FormFieldContainer label="Track Title *">
+          <FormTextField placeholder="Enter track title" />
+        </FormFieldContainer>
+      )}
+    </form.AppField>
+
+    <form.AppField name="albumName">
+      {() => (
+        <FormFieldContainer label="Album Name">
+          <FormTextField placeholder="Enter album name (optional)" />
+        </FormFieldContainer>
+      )}
+    </form.AppField>
+
+    <form.AppField name="artists">
+      {() => (
+        <FormFieldContainer label="Artists">
+          <FormTextField placeholder="Enter artists, comma-separated (optional)" />
+        </FormFieldContainer>
+      )}
+    </form.AppField>
+
+    <form.AppField name="duration">
+      {() => (
+        <FormFieldContainer label="Duration (seconds)">
+          <FormTextField
+            type="number"
+            placeholder="Enter duration in seconds (optional)"
+          />
+        </FormFieldContainer>
+      )}
+    </form.AppField>
+
+    <form.FormSubmitButton
+      label="Search"
+      loadingLabel="Searching..."
+      errorLabel="Search failed. Please try again."
+      icon={Search}
+    />
+  </FieldSet>
+</form.AppForm>
+```
+
+### 4. Field-Level Validation (Optional)
+
+You can also use Zod schemas at the field level for more granular control:
+
+```tsx
+<form.AppField
+  name="trackTitle"
+  validators={{
+    onChange: z.string().min(1, "Track title is required"),
+  }}
+>
+  {() => (
+    <FormFieldContainer label="Track Title *">
+      <FormTextField placeholder="Enter track title" />
+    </FormFieldContainer>
+  )}
+</form.AppField>
+```
+
+### 5. Async Validation with Zod
+
+For async validation, you can use Zod's `refine` method:
+
+```tsx
+<form.AppField
+  name="age"
+  validators={{
+    onChange: z.number().gte(13, "You must be 13 to make an account"),
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: z.number().refine(
+      async (value) => {
+        const currentAge = await fetchCurrentAgeOnProfile();
+        return value >= currentAge;
+      },
+      {
+        message: "You can only increase the age",
+      }
+    ),
+  }}
+>
+  {() => (
+    <FormFieldContainer label="Age">
+      <FormTextField type="number" />
+    </FormFieldContainer>
+  )}
+</form.AppField>
+```
+
+### 6. Combining Schema with Custom Logic
+
+If you need more control, you can combine Zod schema validation with custom logic:
+
+```tsx
+<form.AppField
+  name="age"
+  validators={{
+    onChangeAsync: async ({ value, fieldApi }) => {
+      // First validate with Zod schema
+      const errors = fieldApi.parseValueWithSchema(
+        z.number().gte(13, "You must be 13 to make an account")
+      );
+      if (errors) return errors;
+      
+      // Then do custom async validation
+      const isAvailable = await checkAgeAvailability(value);
+      return isAvailable ? undefined : "This age is not available";
+    },
+  }}
+>
+  {() => (
+    <FormFieldContainer label="Age">
+      <FormTextField type="number" />
+    </FormFieldContainer>
+  )}
+</form.AppField>
+```
+
+## Available Form Components
+
+- **`FormFieldContainer`**: Wraps a field with label, description, and error display
+- **`FormTextField`**: Text input component that integrates with form state
+- **`FormSubmitButton`**: Submit button with loading and error states
+
+## Key Principles
+
+1. **Always define Zod schema first** - This provides both validation and TypeScript types via `z.infer`
+2. **Use form-level validation when possible** - Pass the entire schema to `validators.onChange` at the form level for automatic error propagation
+3. **Use `z.infer<typeof schema>`** for form data types - Never manually type form data
+4. **Use `form.AppField`** for each form field - never use raw inputs or manual state
+5. **Wrap fields in `FormFieldContainer`** for consistent styling and error display
+6. **Use `form.FormSubmitButton`** instead of regular buttons for submission
+7. **Let Zod handle validation logic** - Don't write manual validation functions when Zod can do it
+
+## Example: Complete Form with Form-Level Schema
+
+```tsx
+import { z } from "zod";
+import { useAppForm } from "@/components/form/form-hooks";
+import { FormFieldContainer } from "@/components/form/FormFieldContainer";
+import { FormTextField } from "@/components/form/FormTextField";
+import { FieldSet } from "@/components/ui/field";
+import { Search } from "lucide-react";
+
+const formSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  age: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+export function MyForm() {
+  const form = useAppForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      age: "",
+    },
+    validators: {
+      onChange: formSchema, // Form-level validation - errors auto-propagate to fields
+    },
+    onSubmit: async ({ value }: { value: FormData }) => {
+      // Handle submission - value is already validated
+      console.log(value);
+    },
+  });
+
+  return (
+    <form.AppForm>
+      <FieldSet>
+        <form.AppField name="name">
+          {() => (
+            <FormFieldContainer label="Name *">
+              <FormTextField placeholder="Enter name" />
+            </FormFieldContainer>
+          )}
+        </form.AppField>
+
+        <form.AppField name="email">
+          {() => (
+            <FormFieldContainer label="Email *">
+              <FormTextField type="email" placeholder="Enter email" />
+            </FormFieldContainer>
+          )}
+        </form.AppField>
+
+        <form.AppField name="age">
+          {() => (
+            <FormFieldContainer label="Age">
+              <FormTextField type="number" placeholder="Enter age (optional)" />
+            </FormFieldContainer>
+          )}
+        </form.AppField>
+
+        <form.FormSubmitButton
+          label="Submit"
+          loadingLabel="Submitting..."
+          errorLabel="Submission failed"
+        />
+      </FieldSet>
+    </form.AppForm>
+  );
+}
+```
+
+## Validation Timing
+
+- **`onChange`**: Validates on every keystroke (good for immediate feedback)
+- **`onBlur`**: Validates when field loses focus (good for less aggressive validation)
+- **`onChangeAsync`**: Async validation on change (use with `asyncDebounceMs` to debounce)
+- **`onBlurAsync`**: Async validation on blur
+
+## What NOT to Do
+
+- ❌ Don't use `useState` for form fields - use `form.AppField`
+- ❌ Don't use raw `<Input>` components - use `FormTextField`
+- ❌ Don't write manual validation functions when Zod can handle it
+- ❌ Don't manually type form data - use `z.infer<typeof schema>`
+- ❌ Don't skip `FormFieldContainer` - it provides consistent error display
+- ❌ Don't use the old modal pattern (CreateArtistModal, CreateAlbumModal) - they use manual state management
+- ❌ Don't pass individual field validators when you can use form-level schema validation
+
+## References
+
+- [TanStack Form Validation Guide](https://tanstack.com/form/latest/docs/framework/react/guides/validation#standard-schema-libraries)
+- TanStack Form natively supports Zod through the Standard Schema specification
+
