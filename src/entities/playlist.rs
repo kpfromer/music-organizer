@@ -13,7 +13,7 @@ pub struct Model {
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    #[sea_orm(has_many, via = "playlist_tracks")]
+    #[sea_orm(has_many, via = "playlist_track")]
     pub tracks: HasMany<super::track::Entity>,
 }
 

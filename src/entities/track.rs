@@ -16,24 +16,11 @@ pub struct Model {
     pub created_at: i64,
     pub updated_at: i64,
 
-    #[sea_orm(has_many, via = "playlist_tracks")]
+    #[sea_orm(has_many, via = "playlist_track")]
     pub playlists: HasMany<super::playlist::Entity>,
-}
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::album::Entity",
-        from = "Column::AlbumId",
-        to = "super::album::Column::Id"
-    )]
-    Album,
-}
-
-impl Related<super::album::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Album.def()
-    }
+    #[sea_orm(belongs_to, from = "album_id", to = "id")]
+    pub album: Option<super::album::Entity>,
 }
 
 impl Related<super::artist::Entity> for Entity {

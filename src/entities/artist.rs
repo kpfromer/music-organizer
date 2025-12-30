@@ -1,5 +1,6 @@
 use sea_orm::entity::prelude::*;
 
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "artists")]
 pub struct Model {
@@ -10,9 +11,6 @@ pub struct Model {
     pub created_at: i64,
     pub updated_at: i64,
 }
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
 
 impl Related<super::album::Entity> for Entity {
     fn to() -> RelationDef {
