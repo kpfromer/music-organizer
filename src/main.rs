@@ -132,6 +132,10 @@ enum Commands {
         /// Directory to download SoulSeek files to
         #[arg(long, value_parser = is_directory, env = "SOULSEEK_DOWNLOAD_DIRECTORY")]
         download_directory: PathBuf,
+
+        /// Base URL for the service (used for auth redirects)
+        #[arg(long, env = "BASE_URL")]
+        base_url: Option<String>,
     },
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -233,7 +237,18 @@ async fn main() -> Result<()> {
             soulseek_username,
             soulseek_password,
             download_directory,
+            base_url,
         } => {
+            // Set default base_url in debug mode, require it in release mode
+            let base_url = if let Some(url) = base_url {
+                url
+            } else if cfg!(debug_assertions) {
+                "http://localhost:3001".to_string()
+            } else {
+                return Err(color_eyre::eyre::eyre!(
+                    "BASE_URL is required in release mode. Set it via --base-url or BASE_URL environment variable"
+                ));
+            };
             log::info!("Starting HTTP server on port: {}", port);
             http_server::app::start(HttpServerConfig {
                 port,
@@ -244,6 +259,7 @@ async fn main() -> Result<()> {
                 soulseek_username,
                 soulseek_password,
                 download_directory,
+                base_url,
             })
             .await?;
         }
@@ -255,7 +271,8 @@ async fn main() -> Result<()> {
             let client = Client::new();
             let pin = create_plex_pin(&client).await?;
             log::info!("Plex pin created: {}", pin.code);
-            let url = construct_auth_app_url(&pin.code)?;
+            let url =
+                construct_auth_app_url(&pin.code, "http://localhost:3001/plex-auth/callback")?;
             println!("Open this URL in your browser: {}", url);
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             async fn poll_for_plex_auth_loop(client: &Client, pin_id: i32) -> Result<String> {

@@ -9,4 +9,5 @@ pub struct AppState {
     pub download_directory: PathBuf,
     pub api_key: String,
     pub config: Config,
+    pub base_url: String,
 }

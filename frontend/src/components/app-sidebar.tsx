@@ -1,4 +1,11 @@
-import { AlertCircle, Download, Home, ListMusic, Music } from "lucide-react";
+import {
+  AlertCircle,
+  Download,
+  Home,
+  ListMusic,
+  Music,
+  Server,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Sidebar,
@@ -37,6 +44,16 @@ const items = [
     title: "Unimportable Files",
     url: "/unimportable-files",
     icon: AlertCircle,
+  },
+  {
+    title: "Plex Servers",
+    url: "/plex-servers",
+    icon: Server,
+  },
+  {
+    title: "Plex Tracks",
+    url: "/plex-tracks",
+    icon: Music,
   },
 ];
 

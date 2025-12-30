@@ -21,6 +21,9 @@ use crate::http_server::state::AppState;
 
 pub mod playlist_mutations;
 pub mod playlist_queries;
+pub mod plex_server_mutations;
+pub mod plex_server_queries;
+pub mod plex_track_queries;
 pub mod query_builder;
 pub mod soulseek_mutations;
 pub mod track_queries;
@@ -28,6 +31,9 @@ pub mod unimportable_file_queries;
 
 use playlist_mutations::PlaylistMutation;
 use playlist_queries::{Playlist, PlaylistsResponse};
+use plex_server_mutations::PlexServerMutation;
+use plex_server_queries::PlexServer;
+use plex_track_queries::PlexTracksResult;
 use soulseek_mutations::SoulseekMutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
@@ -444,10 +450,40 @@ impl Query {
             page_size: page_size as i32,
         })
     }
+
+    async fn plex_servers(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<PlexServer>> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        let servers = entities::plex_server::Entity::find()
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))?;
+
+        let plex_servers: Vec<PlexServer> = servers
+            .into_iter()
+            .map(|server| PlexServer {
+                id: server.id,
+                name: server.name,
+                server_url: server.server_url,
+                has_access_token: server.access_token.is_some(),
+                created_at: server.created_at,
+                updated_at: server.updated_at,
+            })
+            .collect();
+
+        Ok(plex_servers)
+    }
+
+    async fn plex_tracks(&self, ctx: &Context<'_>) -> GraphqlResult<PlexTracksResult> {
+        plex_track_queries::plex_tracks(ctx).await
+    }
 }
 
 #[derive(Default, MergedObject)]
-pub struct Mutation(PlaylistMutation, SoulseekMutation);
+pub struct Mutation(PlaylistMutation, SoulseekMutation, PlexServerMutation);
 
 pub async fn graphql() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())

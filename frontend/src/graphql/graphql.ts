@@ -36,16 +36,31 @@ export type Artist = {
   name: Scalars['String']['output'];
 };
 
+export type AuthResponse = {
+  __typename?: 'AuthResponse';
+  authUrl: Scalars['String']['output'];
+  pinId: Scalars['Int']['output'];
+};
+
 export type DownloadStatus = {
   __typename?: 'DownloadStatus';
   message: Scalars['String']['output'];
   success: Scalars['Boolean']['output'];
 };
 
+export type MultiplePlexServersError = {
+  __typename?: 'MultiplePlexServersError';
+  message: Scalars['String']['output'];
+  serverCount: Scalars['Int']['output'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   addTrackToPlaylist: Scalars['Boolean']['output'];
+  authenticatePlexServer: AuthResponse;
+  completePlexServerAuthentication: PlexServer;
   createPlaylist: Playlist;
+  createPlexServer: PlexServer;
   downloadSoulseekFile: DownloadStatus;
   searchSoulseek: Array<SoulSeekSearchResult>;
 };
@@ -57,9 +72,26 @@ export type MutationAddTrackToPlaylistArgs = {
 };
 
 
+export type MutationAuthenticatePlexServerArgs = {
+  serverId: Scalars['Int']['input'];
+};
+
+
+export type MutationCompletePlexServerAuthenticationArgs = {
+  pinId: Scalars['Int']['input'];
+  serverId: Scalars['Int']['input'];
+};
+
+
 export type MutationCreatePlaylistArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+};
+
+
+export type MutationCreatePlexServerArgs = {
+  name: Scalars['String']['input'];
+  serverUrl: Scalars['String']['input'];
 };
 
 
@@ -76,6 +108,11 @@ export type MutationSearchSoulseekArgs = {
   artists?: InputMaybe<Array<Scalars['String']['input']>>;
   duration?: InputMaybe<Scalars['Int']['input']>;
   trackTitle: Scalars['String']['input'];
+};
+
+export type NoPlexServerError = {
+  __typename?: 'NoPlexServerError';
+  message: Scalars['String']['output'];
 };
 
 export type PaginationInput = {
@@ -101,6 +138,35 @@ export type PlaylistsResponse = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type PlexServer = {
+  __typename?: 'PlexServer';
+  createdAt: Scalars['DateTime']['output'];
+  hasAccessToken: Scalars['Boolean']['output'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  serverUrl: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type PlexTrack = {
+  __typename?: 'PlexTrack';
+  album?: Maybe<Scalars['String']['output']>;
+  artist?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
+};
+
+export type PlexTracksError = {
+  __typename?: 'PlexTracksError';
+  message: Scalars['String']['output'];
+};
+
+export type PlexTracksResult = MultiplePlexServersError | NoPlexServerError | PlexTracksError | PlexTracksSuccess;
+
+export type PlexTracksSuccess = {
+  __typename?: 'PlexTracksSuccess';
+  tracks: Array<PlexTrack>;
+};
+
 export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
@@ -108,6 +174,8 @@ export type Query = {
   playlist?: Maybe<Playlist>;
   playlistTracks: TracksResponse;
   playlists: PlaylistsResponse;
+  plexServers: Array<PlexServer>;
+  plexTracks: PlexTracksResult;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
 };
@@ -316,6 +384,44 @@ export type PlaylistsQueryVariables = Exact<{
 
 export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number }> } };
 
+export type CompletePlexServerAuthenticationMutationVariables = Exact<{
+  serverId: Scalars['Int']['input'];
+  pinId: Scalars['Int']['input'];
+}>;
+
+
+export type CompletePlexServerAuthenticationMutation = { __typename?: 'Mutation', completePlexServerAuthentication: { __typename?: 'PlexServer', id: number, name: string, serverUrl: string, hasAccessToken: boolean, createdAt: any, updatedAt: any } };
+
+export type PlexServersQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type PlexServersQuery = { __typename?: 'Query', plexServers: Array<{ __typename?: 'PlexServer', id: number, name: string, serverUrl: string, hasAccessToken: boolean, createdAt: any, updatedAt: any }> };
+
+export type CreatePlexServerMutationVariables = Exact<{
+  name: Scalars['String']['input'];
+  serverUrl: Scalars['String']['input'];
+}>;
+
+
+export type CreatePlexServerMutation = { __typename?: 'Mutation', createPlexServer: { __typename?: 'PlexServer', id: number, name: string, serverUrl: string, hasAccessToken: boolean, createdAt: any, updatedAt: any } };
+
+export type AuthenticatePlexServerMutationVariables = Exact<{
+  serverId: Scalars['Int']['input'];
+}>;
+
+
+export type AuthenticatePlexServerMutation = { __typename?: 'Mutation', authenticatePlexServer: { __typename?: 'AuthResponse', authUrl: string, pinId: number } };
+
+export type PlexTracksQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type PlexTracksQuery = { __typename?: 'Query', plexTracks:
+    | { __typename?: 'MultiplePlexServersError', message: string, serverCount: number }
+    | { __typename?: 'NoPlexServerError', message: string }
+    | { __typename?: 'PlexTracksError', message: string }
+    | { __typename?: 'PlexTracksSuccess', tracks: Array<{ __typename?: 'PlexTrack', title: string, album?: string | null, artist?: string | null }> }
+   };
+
 export type TracksQueryVariables = Exact<{
   pagination?: InputMaybe<PaginationInput>;
   search?: InputMaybe<TextSearchInput>;
@@ -478,6 +584,73 @@ export const PlaylistsDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<PlaylistsQuery, PlaylistsQueryVariables>;
+export const CompletePlexServerAuthenticationDocument = new TypedDocumentString(`
+    mutation CompletePlexServerAuthentication($serverId: Int!, $pinId: Int!) {
+  completePlexServerAuthentication(serverId: $serverId, pinId: $pinId) {
+    id
+    name
+    serverUrl
+    hasAccessToken
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<CompletePlexServerAuthenticationMutation, CompletePlexServerAuthenticationMutationVariables>;
+export const PlexServersDocument = new TypedDocumentString(`
+    query PlexServers {
+  plexServers {
+    id
+    name
+    serverUrl
+    hasAccessToken
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<PlexServersQuery, PlexServersQueryVariables>;
+export const CreatePlexServerDocument = new TypedDocumentString(`
+    mutation CreatePlexServer($name: String!, $serverUrl: String!) {
+  createPlexServer(name: $name, serverUrl: $serverUrl) {
+    id
+    name
+    serverUrl
+    hasAccessToken
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<CreatePlexServerMutation, CreatePlexServerMutationVariables>;
+export const AuthenticatePlexServerDocument = new TypedDocumentString(`
+    mutation AuthenticatePlexServer($serverId: Int!) {
+  authenticatePlexServer(serverId: $serverId) {
+    authUrl
+    pinId
+  }
+}
+    `) as unknown as TypedDocumentString<AuthenticatePlexServerMutation, AuthenticatePlexServerMutationVariables>;
+export const PlexTracksDocument = new TypedDocumentString(`
+    query PlexTracks {
+  plexTracks {
+    ... on PlexTracksSuccess {
+      tracks {
+        title
+        album
+        artist
+      }
+    }
+    ... on NoPlexServerError {
+      message
+    }
+    ... on MultiplePlexServersError {
+      message
+      serverCount
+    }
+    ... on PlexTracksError {
+      message
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<PlexTracksQuery, PlexTracksQueryVariables>;
 export const TracksDocument = new TypedDocumentString(`
     query Tracks($pagination: PaginationInput, $search: TextSearchInput, $sort: [TrackSortInput!]) {
   tracks(pagination: $pagination, search: $search, sort: $sort) {
