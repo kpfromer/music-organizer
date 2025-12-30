@@ -37,6 +37,7 @@ import {
 import { graphql } from "@/graphql";
 import type { Track as GraphQLTrack } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
+import { useAudioPlayerStore } from "@/stores/audio-player-store";
 
 const PlaylistTracksQuery = graphql(`
 	query PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {
@@ -91,6 +92,7 @@ function formatDuration(seconds: number | null): string {
 export function Playlist() {
   const { id } = useParams<{ id: string }>();
   const playlistId = id ? parseInt(id, 10) : null;
+  const playTrack = useAudioPlayerStore((state) => state.playTrack);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -325,7 +327,11 @@ export function Playlist() {
                     trackId={track.id}
                     trackTitle={track.title}
                   >
-                    <TableRow data-state={row.getIsSelected() && "selected"}>
+                    <TableRow
+                      data-state={row.getIsSelected() && "selected"}
+                      onClick={() => playTrack(track)}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(
@@ -351,8 +357,6 @@ export function Playlist() {
           </TableBody>
         </Table>
       </div>
-
-      {/* Pagination Controls */}
       <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           Showing {(page - 1) * pageSize + 1} to{" "}

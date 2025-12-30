@@ -16,7 +16,9 @@ use crate::{
     config::Config,
     database::Database,
     http_server::{
-        graphql, http_routes::album_art_image::get_track_album_art_image, state::AppState,
+        graphql,
+        http_routes::{album_art_image::get_track_album_art_image, audio_file::audio_file},
+        state::AppState,
     },
     import_track::watch_directory,
     soulseek::{SearchConfig, SoulSeekClientContext},
@@ -148,6 +150,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
             "/album-art-image/{track_id}",
             get(get_track_album_art_image),
         )
+        .route("/audio-file/{track_id}", get(audio_file))
         .layer(ServiceBuilder::new().layer(cors_layer))
         .with_state(app_state.clone());
 
