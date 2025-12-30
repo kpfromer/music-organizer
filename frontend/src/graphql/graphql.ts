@@ -44,8 +44,22 @@ export type DownloadStatus = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  addTrackToPlaylist: Scalars['Boolean']['output'];
+  createPlaylist: Playlist;
   downloadSoulseekFile: DownloadStatus;
   searchSoulseek: Array<SoulSeekSearchResult>;
+};
+
+
+export type MutationAddTrackToPlaylistArgs = {
+  playlistId: Scalars['Int']['input'];
+  trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationCreatePlaylistArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
 };
 
 
@@ -186,6 +200,27 @@ export enum UnimportableReason {
   UnsupportedFileType = 'UNSUPPORTED_FILE_TYPE'
 }
 
+export type PlaylistsForMenuQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type PlaylistsForMenuQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', playlists: Array<{ __typename?: 'Playlist', id: number, name: string }> } };
+
+export type CreatePlaylistMutationVariables = Exact<{
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type CreatePlaylistMutation = { __typename?: 'Mutation', createPlaylist: { __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number } };
+
+export type AddTrackToPlaylistMutationVariables = Exact<{
+  playlistId: Scalars['Int']['input'];
+  trackId: Scalars['Int']['input'];
+}>;
+
+
+export type AddTrackToPlaylistMutation = { __typename?: 'Mutation', addTrackToPlaylist: boolean };
+
 export type SearchSoulseekMutationVariables = Exact<{
   trackTitle: Scalars['String']['input'];
   albumName?: InputMaybe<Scalars['String']['input']>;
@@ -257,6 +292,33 @@ export class TypedDocumentString<TResult, TVariables>
   }
 }
 
+export const PlaylistsForMenuDocument = new TypedDocumentString(`
+    query PlaylistsForMenu {
+  playlists(page: 1, pageSize: 100) {
+    playlists {
+      id
+      name
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<PlaylistsForMenuQuery, PlaylistsForMenuQueryVariables>;
+export const CreatePlaylistDocument = new TypedDocumentString(`
+    mutation CreatePlaylist($name: String!, $description: String) {
+  createPlaylist(name: $name, description: $description) {
+    id
+    name
+    description
+    createdAt
+    updatedAt
+    trackCount
+  }
+}
+    `) as unknown as TypedDocumentString<CreatePlaylistMutation, CreatePlaylistMutationVariables>;
+export const AddTrackToPlaylistDocument = new TypedDocumentString(`
+    mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {
+  addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)
+}
+    `) as unknown as TypedDocumentString<AddTrackToPlaylistMutation, AddTrackToPlaylistMutationVariables>;
 export const SearchSoulseekDocument = new TypedDocumentString(`
     mutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {
   searchSoulseek(

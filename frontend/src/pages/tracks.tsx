@@ -16,6 +16,7 @@ import {
   Download,
 } from "lucide-react";
 import { useState } from "react";
+import { TrackContextMenu } from "@/components/track-context-menu";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -262,21 +263,27 @@ export function Tracks() {
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const track = row.original;
+                return (
+                  <TrackContextMenu
+                    key={row.id}
+                    trackId={track.id}
+                    trackTitle={track.title}
+                  >
+                    <TableRow data-state={row.getIsSelected() && "selected"}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TrackContextMenu>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
