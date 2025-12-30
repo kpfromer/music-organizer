@@ -8,6 +8,7 @@ mod http_server;
 mod import_track;
 mod logging;
 mod musicbrainz;
+mod plex_rs;
 mod soulseek;
 mod soulseek_tui;
 
@@ -15,7 +16,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, OptionExt},
+};
+use reqwest::Client;
+use url::Url;
 
 use crate::{
     config::Config,
@@ -23,6 +29,10 @@ use crate::{
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
     logging::setup_logging,
+    plex_rs::{
+        PlexAuthResponse, construct_auth_app_url, create_plex_pin, get_plex_playlists,
+        get_plex_resources, poll_for_plex_auth,
+    },
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -122,6 +132,16 @@ enum Commands {
     },
     #[command(subcommand)]
     Config(ConfigCommands),
+    /// Test out plex authentication
+    Plex {
+        /// The name of the Plex server to use
+        #[arg(long, env = "PLEX_SERVER_NAME")]
+        plex_server_name: String,
+
+        /// The URL of the Plex server to use
+        #[arg(long, env = "PLEX_SERVER_URL")]
+        plex_server_url: Url,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -223,6 +243,54 @@ async fn main() -> Result<()> {
                 download_directory,
             })
             .await?;
+        }
+        Commands::Plex {
+            plex_server_name,
+            plex_server_url,
+        } => {
+            log::debug!("Starting plex command");
+            let client = Client::new();
+            let pin = create_plex_pin(&client).await?;
+            log::info!("Plex pin created: {}", pin.code);
+            let url = construct_auth_app_url(&pin.code)?;
+            println!("Open this URL in your browser: {}", url);
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            async fn poll_for_plex_auth_loop(client: &Client, pin_id: i32) -> Result<String> {
+                for _ in 0..10 {
+                    let auth_response = poll_for_plex_auth(client, pin_id).await;
+                    log::info!("Plex auth response: {:?}", auth_response);
+                    match auth_response {
+                        Ok(PlexAuthResponse {
+                            auth_token: Some(user_token),
+                        }) => {
+                            log::info!("User token: {}", user_token);
+                            return Ok(user_token);
+                        }
+                        Ok(PlexAuthResponse { auth_token: None }) => {
+                            log::info!("No user token found");
+                        }
+                        Err(_) => {
+                            // TODO: use thiserror
+                            log::error!("Error polling for plex auth");
+                        }
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+                Err(color_eyre::eyre::eyre!("Failed to poll for plex auth"))
+            }
+            let user_token = poll_for_plex_auth_loop(&client, pin.id).await?;
+            let plex_resources = get_plex_resources(&client, &user_token).await?;
+            let plex_server = plex_resources
+                .into_iter()
+                .find(|resource| resource.name == plex_server_name)
+                .ok_or_eyre("Plex server not found")?;
+            let access_token = plex_server
+                .access_token
+                .ok_or_eyre("No access token found")?;
+            let plex_playlists =
+                get_plex_playlists(&client, &plex_server_url, &access_token).await?;
+            println!("Plex playlists");
+            println!("{:#?}", plex_playlists);
         }
     }
 
