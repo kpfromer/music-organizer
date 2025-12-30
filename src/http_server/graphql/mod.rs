@@ -274,6 +274,149 @@ impl Query {
             page_size: page_size as i32,
         })
     }
+
+    async fn playlist(&self, ctx: &Context<'_>, id: i64) -> GraphqlResult<Option<Playlist>> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        let playlist_model = entities::playlist::Entity::find_by_id(id)
+            .one(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to find playlist: {}", e))?;
+
+        if let Some(playlist_model) = playlist_model {
+            // Count tracks for this playlist
+            let track_count = entities::playlist_track::Entity::find()
+                .filter(entities::playlist_track::Column::PlaylistId.eq(playlist_model.id))
+                .count(&db.conn)
+                .await
+                .map_err(|e| {
+                    color_eyre::eyre::eyre!("Failed to count tracks for playlist: {}", e)
+                })?;
+
+            Ok(Some(Playlist {
+                id: playlist_model.id,
+                name: playlist_model.name,
+                description: playlist_model.description,
+                created_at: playlist_model.created_at,
+                updated_at: playlist_model.updated_at,
+                track_count: track_count as i64,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn playlist_tracks(
+        &self,
+        ctx: &Context<'_>,
+        playlist_id: i64,
+        page: Option<i32>,
+        page_size: Option<i32>,
+    ) -> GraphqlResult<TracksResponse> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        // Verify playlist exists
+        let playlist = entities::playlist::Entity::find_by_id(playlist_id)
+            .one(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to find playlist: {}", e))?;
+
+        if playlist.is_none() {
+            return Err(color_eyre::eyre::eyre!("Playlist not found").into());
+        }
+
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+
+        // Get track IDs for this playlist
+        let playlist_track_models = entities::playlist_track::Entity::find()
+            .filter(entities::playlist_track::Column::PlaylistId.eq(playlist_id))
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch playlist tracks: {}", e))?;
+
+        let track_ids: Vec<i64> = playlist_track_models.iter().map(|pt| pt.track_id).collect();
+
+        let total_count = track_ids.len() as i64;
+
+        // Calculate offset
+        let offset = (page.saturating_sub(1)) * page_size;
+        let paginated_track_ids: Vec<i64> =
+            track_ids.into_iter().skip(offset).take(page_size).collect();
+
+        if paginated_track_ids.is_empty() {
+            return Ok(TracksResponse {
+                tracks: Vec::new(),
+                total_count,
+                page: page as i32,
+                page_size: page_size as i32,
+            });
+        }
+
+        // Fetch paginated tracks with their albums
+        let track_models = entities::track::Entity::find()
+            .filter(entities::track::Column::Id.is_in(paginated_track_ids))
+            .find_also_related(entities::album::Entity)
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch tracks: {}", e))?;
+
+        let mut tracks = Vec::new();
+
+        for (track_model, album_model) in track_models {
+            let album_model = album_model.ok_or_else(|| {
+                color_eyre::eyre::eyre!("Track {} has no associated album", track_model.id)
+            })?;
+
+            // Fetch artists for this track
+            let track_artists = db
+                .get_track_artists(track_model.id)
+                .await
+                .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch track artists: {}", e))?;
+
+            let artists: Vec<Artist> = track_artists
+                .into_iter()
+                .map(|(artist, _)| Artist {
+                    id: artist.id,
+                    name: artist.name,
+                })
+                .collect();
+
+            #[cfg(debug_assertions)]
+            let base_url = "http://localhost:3000".to_string();
+            #[cfg(not(debug_assertions))]
+            let base_url = "";
+
+            tracks.push(Track {
+                id: track_model.id,
+                title: track_model.title,
+                track_number: track_model.track_number,
+                duration: track_model.duration,
+                created_at: DateTime::<Utc>::from_timestamp_secs(track_model.created_at)
+                    .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?,
+                album: Album {
+                    id: album_model.id,
+                    title: album_model.title,
+                    year: album_model.year,
+                    artwork_url: Some(format!("{}/album-art-image/{}", base_url, track_model.id)),
+                },
+                artists,
+            });
+        }
+
+        Ok(TracksResponse {
+            tracks,
+            total_count,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
+    }
 }
 
 #[derive(Default, MergedObject)]

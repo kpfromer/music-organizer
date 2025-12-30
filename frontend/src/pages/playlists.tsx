@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -82,15 +83,17 @@ export function Playlists() {
     { id: "createdAt", desc: true },
   ]);
 
-  const firstSorting = sorting.length > 0 ? sorting[0] : undefined;
-  const sortBy = firstSorting
-    ? firstSorting.id === "name"
-      ? "name"
-      : firstSorting.id === "updatedAt"
-        ? "updated_at"
-        : "created_at"
-    : undefined;
-  const sortOrder = firstSorting?.desc ? "desc" : "asc";
+  // Convert sorting state to backend parameters
+  const sortBy =
+    sorting.length > 0 && sorting[0]
+      ? sorting[0].id === "name"
+        ? "name"
+        : sorting[0].id === "updatedAt"
+          ? "updated_at"
+          : "created_at"
+      : undefined;
+  const sortOrder =
+    sorting.length > 0 && sorting[0] && sorting[0].desc ? "desc" : "asc";
 
   const { data, isLoading } = useQuery({
     queryKey: ["playlists", page, pageSize, search, sortBy, sortOrder],
@@ -146,7 +149,15 @@ export function Playlists() {
         );
       },
       cell: ({ row }) => {
-        return <div className="font-medium">{row.original.name}</div>;
+        const playlist = row.original;
+        return (
+          <Link
+            to={`/playlist/${playlist.id}`}
+            className="font-medium hover:underline"
+          >
+            {playlist.name}
+          </Link>
+        );
       },
     },
     {
