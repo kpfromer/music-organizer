@@ -64,12 +64,40 @@ export type MutationSearchSoulseekArgs = {
   trackTitle: Scalars['String']['input'];
 };
 
+export type Playlist = {
+  __typename?: 'Playlist';
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  trackCount: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type PlaylistsResponse = {
+  __typename?: 'PlaylistsResponse';
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  playlists: Array<Playlist>;
+  totalCount: Scalars['Int']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
+  playlists: PlaylistsResponse;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+};
+
+
+export type QueryPlaylistsArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  sortBy?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -183,6 +211,17 @@ export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type TestQuery = { __typename?: 'Query', howdy: string };
 
+export type PlaylistsQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+  sortBy?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number }> } };
+
 export type TracksQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
@@ -258,6 +297,29 @@ export const TestDocument = new TypedDocumentString(`
   howdy
 }
     `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
+export const PlaylistsDocument = new TypedDocumentString(`
+    query Playlists($page: Int, $pageSize: Int, $search: String, $sortBy: String, $sortOrder: String) {
+  playlists(
+    page: $page
+    pageSize: $pageSize
+    search: $search
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+  ) {
+    playlists {
+      id
+      name
+      description
+      createdAt
+      updatedAt
+      trackCount
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<PlaylistsQuery, PlaylistsQueryVariables>;
 export const TracksDocument = new TypedDocumentString(`
     query Tracks($page: Int, $pageSize: Int) {
   tracks(page: $page, pageSize: $pageSize) {

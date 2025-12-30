@@ -5,3 +5,6 @@ migrate-down:
 
 migrate-up:
     sea-orm-cli migrate up -u {{sqlite_database}}
+
+migrate-generate name:
+    sea-orm-cli migrate generate "{{name}}"

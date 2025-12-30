@@ -1,6 +1,7 @@
 use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 
+#[sea_orm::model]
 #[derive(SimpleObject, Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[graphql(name = "UnimportableFile")]
 #[sea_orm(table_name = "unimportable_files")]
@@ -51,8 +52,5 @@ impl From<&crate::import_track::ImportError> for UnimportableReason {
         }
     }
 }
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}

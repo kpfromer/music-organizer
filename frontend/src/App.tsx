@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Page } from "./components/page";
 import { Download } from "./pages/download";
 import { Home } from "./pages/home";
+import { Playlists } from "./pages/playlists";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 
@@ -25,6 +26,7 @@ export function App() {
             <Route path="/" element={<Home />} />
             <Route path="/albums" element={<>Albums</>} />
             <Route path="/tracks" element={<Tracks />} />
+            <Route path="/playlists" element={<Playlists />} />
             <Route path="/download" element={<Download />} />
             <Route path="/unimportable-files" element={<UnimportableFiles />} />
           </Route>

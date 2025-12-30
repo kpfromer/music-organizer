@@ -1,5 +1,6 @@
 use sea_orm::entity::prelude::*;
 
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "albums")]
 pub struct Model {
@@ -10,12 +11,9 @@ pub struct Model {
     pub year: Option<i32>,
     pub created_at: i64,
     pub updated_at: i64,
-}
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "super::track::Entity")]
-    Track,
+    #[sea_orm(has_many)]
+    pub tracks: HasMany<super::track::Entity>,
 }
 
 impl Related<super::artist::Entity> for Entity {
