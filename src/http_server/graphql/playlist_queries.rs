@@ -18,4 +18,3 @@ pub struct PlaylistsResponse {
     pub page: i32,
     pub page_size: i32,
 }
-

@@ -185,13 +185,13 @@ impl Query {
 
         // Build query with search filter
         let mut query = entities::playlist::Entity::find();
-        if let Some(search_term) = &search {
-            if !search_term.is_empty() {
-                let condition = Condition::any()
-                    .add(entities::playlist::Column::Name.contains(search_term))
-                    .add(entities::playlist::Column::Description.contains(search_term));
-                query = query.filter(condition);
-            }
+        if let Some(search_term) = &search
+            && !search_term.is_empty()
+        {
+            let condition = Condition::any()
+                .add(entities::playlist::Column::Name.contains(search_term))
+                .add(entities::playlist::Column::Description.contains(search_term));
+            query = query.filter(condition);
         }
 
         // Get total count with search filter applied
@@ -245,6 +245,7 @@ impl Query {
         let mut playlists = Vec::new();
 
         for playlist_model in playlist_models {
+            // TODO: fix n+1 query issue
             // Count tracks for this playlist
             let track_count = entities::playlist_track::Entity::find()
                 .filter(entities::playlist_track::Column::PlaylistId.eq(playlist_model.id))

@@ -68,10 +68,7 @@ const PlaylistsQuery = graphql(`
 `);
 
 // Transform the generated Playlist type to have createdAt/updatedAt as Date instead of DateTime scalar
-type Playlist = Omit<
-  GraphQLPlaylist,
-  "createdAt" | "updatedAt"
-> & {
+type Playlist = Omit<GraphQLPlaylist, "createdAt" | "updatedAt"> & {
   createdAt: Date;
   updatedAt: Date;
 };
@@ -85,17 +82,15 @@ export function Playlists() {
     { id: "createdAt", desc: true },
   ]);
 
-  // Convert sorting state to backend parameters
-  const sortBy =
-    sorting.length > 0
-      ? sorting[0].id === "name"
-        ? "name"
-        : sorting[0].id === "updatedAt"
-          ? "updated_at"
-          : "created_at"
-      : undefined;
-  const sortOrder =
-    sorting.length > 0 && sorting[0].desc ? "desc" : "asc";
+  const firstSorting = sorting.length > 0 ? sorting[0] : undefined;
+  const sortBy = firstSorting
+    ? firstSorting.id === "name"
+      ? "name"
+      : firstSorting.id === "updatedAt"
+        ? "updated_at"
+        : "created_at"
+    : undefined;
+  const sortOrder = firstSorting?.desc ? "desc" : "asc";
 
   const { data, isLoading } = useQuery({
     queryKey: ["playlists", page, pageSize, search, sortBy, sortOrder],
@@ -358,7 +353,9 @@ export function Playlists() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {search ? "No playlists found matching your search." : "No playlists found."}
+                  {search
+                    ? "No playlists found matching your search."
+                    : "No playlists found."}
                 </TableCell>
               </TableRow>
             )}
@@ -400,4 +397,3 @@ export function Playlists() {
     </div>
   );
 }
-
