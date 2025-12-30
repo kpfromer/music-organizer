@@ -81,10 +81,11 @@ impl From<SingleFileResult> for SoulSeekSearchResult {
     }
 }
 
-pub struct Mutation;
+#[derive(Default)]
+pub struct SoulseekMutation;
 
 #[Object]
-impl Mutation {
+impl SoulseekMutation {
     async fn search_soulseek(
         &self,
         ctx: &Context<'_>,

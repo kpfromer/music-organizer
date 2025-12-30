@@ -15,6 +15,9 @@ import * as types from './graphql';
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n": typeof types.PlaylistsForMenuDocument,
+    "\n  mutation CreatePlaylist($name: String!, $description: String) {\n    createPlaylist(name: $name, description: $description) {\n      id\n      name\n      description\n      createdAt\n      updatedAt\n      trackCount\n    }\n  }\n": typeof types.CreatePlaylistDocument,
+    "\n  mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {\n    addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)\n  }\n": typeof types.AddTrackToPlaylistDocument,
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": typeof types.SearchSoulseekDocument,
     "\n\tmutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {\n\t\tdownloadSoulseekFile(\n\t\t\tusername: $username\n\t\t\tfilename: $filename\n\t\t\tsize: $size\n\t\t\ttoken: $token\n\t\t) {\n\t\t\tsuccess\n\t\t\tmessage\n\t\t}\n\t}\n": typeof types.DownloadFromSoulseekDocument,
     "\n  query Test {\n    howdy\n  }\n": typeof types.TestDocument,
@@ -23,6 +26,9 @@ type Documents = {
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
 };
 const documents: Documents = {
+    "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n": types.PlaylistsForMenuDocument,
+    "\n  mutation CreatePlaylist($name: String!, $description: String) {\n    createPlaylist(name: $name, description: $description) {\n      id\n      name\n      description\n      createdAt\n      updatedAt\n      trackCount\n    }\n  }\n": types.CreatePlaylistDocument,
+    "\n  mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {\n    addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)\n  }\n": types.AddTrackToPlaylistDocument,
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": types.SearchSoulseekDocument,
     "\n\tmutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {\n\t\tdownloadSoulseekFile(\n\t\t\tusername: $username\n\t\t\tfilename: $filename\n\t\t\tsize: $size\n\t\t\ttoken: $token\n\t\t) {\n\t\t\tsuccess\n\t\t\tmessage\n\t\t}\n\t}\n": types.DownloadFromSoulseekDocument,
     "\n  query Test {\n    howdy\n  }\n": types.TestDocument,
@@ -31,6 +37,18 @@ const documents: Documents = {
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
 };
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n"): typeof import('./graphql').PlaylistsForMenuDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreatePlaylist($name: String!, $description: String) {\n    createPlaylist(name: $name, description: $description) {\n      id\n      name\n      description\n      createdAt\n      updatedAt\n      trackCount\n    }\n  }\n"): typeof import('./graphql').CreatePlaylistDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {\n    addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)\n  }\n"): typeof import('./graphql').AddTrackToPlaylistDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

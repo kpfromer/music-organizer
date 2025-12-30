@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::http::GraphiQLSource;
-use async_graphql::{EmptySubscription, Object, Schema};
+use async_graphql::{EmptySubscription, MergedObject, Object, Schema};
 use axum::response::{Html, IntoResponse};
 
 use async_graphql::Context;
@@ -15,13 +15,15 @@ use crate::entities;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 
+pub mod playlist_mutations;
 pub mod playlist_queries;
 pub mod soulseek_mutations;
 pub mod track_queries;
 pub mod unimportable_file_queries;
 
+use playlist_mutations::PlaylistMutation;
 use playlist_queries::{Playlist, PlaylistsResponse};
-use soulseek_mutations::Mutation;
+use soulseek_mutations::SoulseekMutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
@@ -274,12 +276,15 @@ impl Query {
     }
 }
 
+#[derive(Default, MergedObject)]
+pub struct Mutation(PlaylistMutation, SoulseekMutation);
+
 pub async fn graphql() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
 pub fn create_schema(app_state: Arc<AppState>) -> Schema<Query, Mutation, EmptySubscription> {
-    Schema::build(Query, Mutation, EmptySubscription)
+    Schema::build(Query, Mutation::default(), EmptySubscription)
         .data(app_state)
         .finish()
 }

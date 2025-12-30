@@ -29,7 +29,7 @@ impl ActiveModelBehavior for ActiveModel {
         Self {
             created_at: Set(now),
             updated_at: Set(now),
-            ..Default::default()
+            ..ActiveModelTrait::default()
         }
     }
 
