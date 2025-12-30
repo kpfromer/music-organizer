@@ -4,6 +4,9 @@ use color_eyre::eyre::{Context, Result};
 use serde::Deserialize;
 use url::Url;
 
+mod auth;
+pub mod playlist;
+
 pub const APP_NAME: &str = "Music Manager";
 pub const APP_IDENTIFIER: &str = "kpfromer-music-manager";
 

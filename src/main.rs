@@ -31,7 +31,9 @@ use crate::{
     logging::setup_logging,
     plex_rs::{
         PlexAuthResponse, construct_auth_app_url, create_plex_pin, get_plex_playlists,
-        get_plex_resources, poll_for_plex_auth,
+        get_plex_resources,
+        playlist::{get_playlist_tracks, get_playlists, is_music_playlist},
+        poll_for_plex_auth,
     },
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
@@ -291,6 +293,37 @@ async fn main() -> Result<()> {
                 get_plex_playlists(&client, &plex_server_url, &access_token).await?;
             println!("Plex playlists");
             println!("{:#?}", plex_playlists);
+
+            // 1. Fetch all playlists
+            let playlists = get_playlists(&client, &plex_server_url, &access_token).await?;
+
+            // 2. Pick the first music playlist
+            let playlist = playlists
+                .iter()
+                .find(|p| is_music_playlist(p))
+                .ok_or_eyre("No music playlists found")?;
+
+            println!("Playlist: {} (id={})", playlist.title, playlist.rating_key);
+
+            // 3. Fetch tracks for that playlist
+            let tracks = get_playlist_tracks(
+                &client,
+                &plex_server_url,
+                &access_token,
+                &playlist.rating_key,
+            )
+            .await?;
+
+            // 4. Print tracks
+            for (idx, track) in tracks.iter().enumerate() {
+                println!(
+                    "{:>3}. {} – {} ({})",
+                    idx + 1,
+                    track.artist.as_deref().unwrap_or("Unknown Artist"),
+                    track.title,
+                    track.album.as_deref().unwrap_or("Unknown Album"),
+                );
+            }
         }
     }
 
