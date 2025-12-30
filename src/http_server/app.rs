@@ -17,10 +17,7 @@ use crate::{
     database::Database,
     http_server::{
         graphql,
-        http_routes::{
-            album_art_image::get_track_album_art_image,
-            audio_file::{self, audio_file},
-        },
+        http_routes::{album_art_image::get_track_album_art_image, audio_file::audio_file},
         state::AppState,
     },
     import_track::watch_directory,

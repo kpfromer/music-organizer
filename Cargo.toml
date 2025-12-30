@@ -45,6 +45,7 @@ tower = "0.5.2"
 thiserror = "2.0.17"
 axum-range = "1.0.0"
 axum-extra = { version = "0.12.5", features = ["typed-header"] }
+infer = "0.19.0"
 
 [dev-dependencies]
 mockall = "0.12"

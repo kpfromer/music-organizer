@@ -1,5 +1,4 @@
 use axum_extra::{TypedHeader, headers::Range};
-use color_eyre::eyre::Context;
 use std::sync::Arc;
 
 use tokio::fs::File;
@@ -9,7 +8,7 @@ use axum_range::{KnownSize, Ranged};
 use crate::http_server::state::AppState;
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{StatusCode, header},
     response::IntoResponse,
 };
 
@@ -28,22 +27,39 @@ pub async fn audio_file(
                 .into_response());
         }
         Err(e) => {
-            log::error!("Failed to get track: {}", e);
+            log::error!("Get track database error: {}", e);
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Track not found: {}", track_id),
+                "Get track database error",
             )
                 .into_response());
         }
     };
 
-    let file = File::open(track.file_path).await.map_err(|e| {
+    let file = File::open(&track.file_path).await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to open file: {}", e),
         )
             .into_response()
     })?;
+
+    // TODO: use tokio::spawn to get the mime type in the background
+    let mime_type = infer::get_from_path(track.file_path)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get file mime type: {}", e),
+            )
+                .into_response()
+        })?
+        .ok_or(
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to get file mime type",
+            )
+                .into_response(),
+        )?;
 
     let body = KnownSize::file(file).await.map_err(|e| {
         (
@@ -54,5 +70,9 @@ pub async fn audio_file(
     })?;
 
     let range = range.map(|TypedHeader(range)| range);
-    Ok(Ranged::new(range, body).into_response())
+
+    Ok((
+        [(header::CONTENT_TYPE, mime_type.mime_type().to_string())],
+        Ranged::new(range, body).into_response(),
+    ))
 }
