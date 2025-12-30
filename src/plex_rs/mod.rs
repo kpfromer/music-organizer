@@ -4,6 +4,7 @@ use color_eyre::eyre::{Context, Result};
 use serde::Deserialize;
 use url::Url;
 
+pub mod all_tracks;
 mod auth;
 pub mod playlist;
 

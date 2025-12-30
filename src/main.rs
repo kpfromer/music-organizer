@@ -30,8 +30,9 @@ use crate::{
     import_track::{import_folder, import_track, watch_directory},
     logging::setup_logging,
     plex_rs::{
-        PlexAuthResponse, construct_auth_app_url, create_plex_pin, get_plex_playlists,
-        get_plex_resources,
+        PlexAuthResponse,
+        all_tracks::{find_music_section_id, get_all_tracks_paginated, get_library_sections},
+        construct_auth_app_url, create_plex_pin, get_plex_playlists, get_plex_resources,
         playlist::{get_playlist_tracks, get_playlists, is_music_playlist},
         poll_for_plex_auth,
     },
@@ -319,6 +320,41 @@ async fn main() -> Result<()> {
                 println!(
                     "{:>3}. {} – {} ({})",
                     idx + 1,
+                    track.artist.as_deref().unwrap_or("Unknown Artist"),
+                    track.title,
+                    track.album.as_deref().unwrap_or("Unknown Album"),
+                );
+            }
+
+            // TODO
+            // all tracks
+
+            // 1. Fetch library sections
+            let sections = get_library_sections(&client, &plex_server_url, &access_token).await?;
+
+            // 2. Find the music library section
+            let music_section_id =
+                find_music_section_id(&sections).ok_or_eyre("No music library section found")?;
+
+            println!("Using music section id = {}", music_section_id);
+
+            // 3. Fetch all tracks (paged)
+            let tracks = get_all_tracks_paginated(
+                &client,
+                &plex_server_url,
+                &access_token,
+                music_section_id,
+                500, // page size
+            )
+            .await?;
+
+            println!("Fetched {} tracks", tracks.len());
+
+            // 4. Print first 20 tracks
+            for (i, track) in tracks.iter().take(20).enumerate() {
+                println!(
+                    "{:>4}. {} – {} ({})",
+                    i + 1,
                     track.artist.as_deref().unwrap_or("Unknown Artist"),
                     track.title,
                     track.album.as_deref().unwrap_or("Unknown Album"),
