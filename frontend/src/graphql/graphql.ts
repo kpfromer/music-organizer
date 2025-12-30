@@ -100,9 +100,23 @@ export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
+  playlist?: Maybe<Playlist>;
+  playlistTracks: TracksResponse;
   playlists: PlaylistsResponse;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+};
+
+
+export type QueryPlaylistArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type QueryPlaylistTracksArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  playlistId: Scalars['Int']['input'];
 };
 
 
@@ -246,6 +260,22 @@ export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type TestQuery = { __typename?: 'Query', howdy: string };
 
+export type PlaylistTracksQueryVariables = Exact<{
+  playlistId: Scalars['Int']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type PlaylistTracksQuery = { __typename?: 'Query', playlistTracks: { __typename?: 'TracksResponse', totalCount: number, page: number, pageSize: number, tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> } };
+
+export type PlaylistQueryVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type PlaylistQuery = { __typename?: 'Query', playlist?: { __typename?: 'Playlist', id: number, name: string, description?: string | null, trackCount: number } | null };
+
 export type PlaylistsQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
@@ -359,6 +389,42 @@ export const TestDocument = new TypedDocumentString(`
   howdy
 }
     `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
+export const PlaylistTracksDocument = new TypedDocumentString(`
+    query PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {
+  playlistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {
+    tracks {
+      id
+      title
+      trackNumber
+      duration
+      createdAt
+      album {
+        id
+        title
+        year
+        artworkUrl
+      }
+      artists {
+        id
+        name
+      }
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<PlaylistTracksQuery, PlaylistTracksQueryVariables>;
+export const PlaylistDocument = new TypedDocumentString(`
+    query Playlist($id: Int!) {
+  playlist(id: $id) {
+    id
+    name
+    description
+    trackCount
+  }
+}
+    `) as unknown as TypedDocumentString<PlaylistQuery, PlaylistQueryVariables>;
 export const PlaylistsDocument = new TypedDocumentString(`
     query Playlists($page: Int, $pageSize: Int, $search: String, $sortBy: String, $sortOrder: String) {
   playlists(
