@@ -7,16 +7,20 @@ use axum::response::{Html, IntoResponse};
 use async_graphql::Context;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::OptionExt;
-use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
+use sea_orm::{
+    ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+};
 
 use crate::entities;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 
+pub mod playlist_queries;
 pub mod soulseek_mutations;
 pub mod track_queries;
 pub mod unimportable_file_queries;
 
+use playlist_queries::{Playlist, PlaylistsResponse};
 use soulseek_mutations::Mutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
@@ -156,6 +160,112 @@ impl Query {
 
         Ok(UnimportableFilesResponse {
             files: unimportable_files,
+            total_count: total_count as i64,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
+    }
+
+    async fn playlists(
+        &self,
+        ctx: &Context<'_>,
+        page: Option<i32>,
+        page_size: Option<i32>,
+        search: Option<String>,
+        sort_by: Option<String>,
+        sort_order: Option<String>,
+    ) -> GraphqlResult<PlaylistsResponse> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+
+        // Build query with search filter
+        let mut query = entities::playlist::Entity::find();
+        if let Some(search_term) = &search {
+            if !search_term.is_empty() {
+                let condition = Condition::any()
+                    .add(entities::playlist::Column::Name.contains(search_term))
+                    .add(entities::playlist::Column::Description.contains(search_term));
+                query = query.filter(condition);
+            }
+        }
+
+        // Get total count with search filter applied
+        let total_count = query
+            .clone()
+            .count(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to count playlists: {}", e))?;
+
+        // Apply sorting
+        let sort_by = sort_by.as_deref().unwrap_or("created_at");
+        let sort_order = sort_order.as_deref().unwrap_or("desc");
+        let is_desc = sort_order == "desc";
+
+        query = match sort_by {
+            "name" => {
+                if is_desc {
+                    query.order_by_desc(entities::playlist::Column::Name)
+                } else {
+                    query.order_by_asc(entities::playlist::Column::Name)
+                }
+            }
+            "updated_at" => {
+                if is_desc {
+                    query.order_by_desc(entities::playlist::Column::UpdatedAt)
+                } else {
+                    query.order_by_asc(entities::playlist::Column::UpdatedAt)
+                }
+            }
+            _ => {
+                // Default to created_at
+                if is_desc {
+                    query.order_by_desc(entities::playlist::Column::CreatedAt)
+                } else {
+                    query.order_by_asc(entities::playlist::Column::CreatedAt)
+                }
+            }
+        };
+
+        // Calculate offset
+        let offset = (page.saturating_sub(1)) * page_size;
+
+        // Fetch paginated playlists
+        let playlist_models = query
+            .limit(page_size as u64)
+            .offset(offset as u64)
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch playlists: {}", e))?;
+
+        let mut playlists = Vec::new();
+
+        for playlist_model in playlist_models {
+            // Count tracks for this playlist
+            let track_count = entities::playlist_track::Entity::find()
+                .filter(entities::playlist_track::Column::PlaylistId.eq(playlist_model.id))
+                .count(&db.conn)
+                .await
+                .map_err(|e| {
+                    color_eyre::eyre::eyre!("Failed to count tracks for playlist: {}", e)
+                })?;
+
+            playlists.push(Playlist {
+                id: playlist_model.id,
+                name: playlist_model.name,
+                description: playlist_model.description,
+                created_at: playlist_model.created_at,
+                updated_at: playlist_model.updated_at,
+                track_count: track_count as i64,
+            });
+        }
+
+        Ok(PlaylistsResponse {
+            playlists,
             total_count: total_count as i64,
             page: page as i32,
             page_size: page_size as i32,
