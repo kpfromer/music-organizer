@@ -16,6 +16,7 @@ import {
   Download,
 } from "lucide-react";
 import { useState } from "react";
+import { TrackContextMenu } from "@/components/track-context-menu";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,7 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrackContextMenu } from "@/components/track-context-menu";
 import { graphql } from "@/graphql";
 import type { Track as GraphQLTrack } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
@@ -271,9 +271,7 @@ export function Tracks() {
                     trackId={track.id}
                     trackTitle={track.title}
                   >
-                    <TableRow
-                      data-state={row.getIsSelected() && "selected"}
-                    >
+                    <TableRow data-state={row.getIsSelected() && "selected"}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(

@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object};
 use chrono::Utc;
+use color_eyre::eyre::OptionExt;
 use sea_orm::{ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, Set};
 
 use crate::entities;
 use crate::http_server::graphql::playlist_queries::Playlist;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
+use sea_orm::TransactionTrait;
 
 #[derive(Default)]
 pub struct PlaylistMutation;
@@ -104,19 +106,29 @@ impl PlaylistMutation {
             updated_at: Set(now),
         };
 
-        playlist_track
-            .insert(&db.conn)
-            .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to add track to playlist: {}", e))?;
+        let result =
+            db.conn
+                .transaction::<_, bool, color_eyre::eyre::Report>(|txn| {
+                    Box::pin(async move {
+                        playlist_track.insert(txn).await.map_err(|e| {
+                            color_eyre::eyre::eyre!("Failed to add track to playlist: {}", e)
+                        })?;
 
-        // Update playlist's updated_at timestamp
-        let mut playlist_model: entities::playlist::ActiveModel = playlist.unwrap().into();
-        playlist_model.updated_at = Set(Utc::now());
-        playlist_model
-            .update(&db.conn)
-            .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to update playlist: {}", e))?;
+                        // Update playlist's updated_at timestamp
+                        let mut playlist_model: entities::playlist::ActiveModel =
+                            playlist.ok_or_eyre("No playlist")?.into();
+                        playlist_model.updated_at = Set(Utc::now());
+                        playlist_model.update(txn).await.map_err(|e| {
+                            color_eyre::eyre::eyre!("Failed to update playlist: {}", e)
+                        })?;
 
-        Ok(true)
+                        Ok(true)
+                    })
+                })
+                .await;
+        match result {
+            Ok(result) => Ok(result),
+            Err(_) => Err(color_eyre::eyre::eyre!("Failed to add track to playlist").into()),
+        }
     }
 }
