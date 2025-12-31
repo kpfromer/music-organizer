@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Result, WrapErr};
+use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
@@ -115,6 +115,49 @@ pub struct PlexLibraryTrack {
 
     #[serde(default)]
     pub duration: Option<u64>,
+
+    #[serde(rename = "Media", default)]
+    pub media: Vec<PlexMedia>,
+}
+
+/// Media element containing Part information with file paths
+#[derive(Debug, Deserialize)]
+pub struct PlexMedia {
+    #[serde(rename = "Part", default)]
+    pub parts: Vec<PlexPart>,
+}
+
+/// Part element containing the actual file path
+#[derive(Debug, Deserialize)]
+pub struct PlexPart {
+    /// Absolute path to the media file on disk
+    pub file: String,
+}
+
+impl PlexLibraryTrack {
+    /// Returns the file path from the first media part.
+    ///
+    /// # Errors
+    /// - Returns an error if there are 0 or more than 1 media items
+    /// - Returns an error if the media item has no parts or the part has no file
+    pub fn file_path(&self) -> Result<&str> {
+        match self.media.len() {
+            0 => color_eyre::eyre::bail!("Track '{}' has no media items", self.title),
+            1 => {
+                let media = &self.media[0];
+                let part = media
+                    .parts
+                    .first()
+                    .ok_or_eyre(format!("Track '{}' has no parts in media", self.title))?;
+                Ok(part.file.as_str())
+            }
+            n => color_eyre::eyre::bail!(
+                "Track '{}' has {} media items, expected exactly 1",
+                self.title,
+                n
+            ),
+        }
+    }
 }
 
 /// Response type for `/library/sections/{id}/all?type=10`.
@@ -211,10 +254,10 @@ pub async fn get_all_tracks_paginated(
         start = out.len() as u32;
 
         // If Plex tells us the total size, stop exactly at the end.
-        if let Some(total) = container.total_size {
-            if start >= total {
-                break;
-            }
+        if let Some(total) = container.total_size
+            && start >= total
+        {
+            break;
         }
     }
 
