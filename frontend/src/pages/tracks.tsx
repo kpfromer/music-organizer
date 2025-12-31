@@ -7,17 +7,11 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-} from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { TrackContextMenu } from "@/components/track-context-menu";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SortButton } from "@/components/ui/sort-button";
 import {
   Table,
   TableBody,
@@ -36,11 +31,20 @@ import {
 import { graphql } from "@/graphql";
 import type { Track as GraphQLTrack } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
+import {
+  buildPaginationInput,
+  buildTextSearchInput,
+  buildTrackSortInput,
+} from "@/lib/query-builder";
 import { useAudioPlayerStore } from "@/stores/audio-player-store";
 
 const TracksQuery = graphql(`
-  query Tracks($page: Int, $pageSize: Int) {
-    tracks(page: $page, pageSize: $pageSize) {
+  query Tracks(
+    $pagination: PaginationInput
+    $search: TextSearchInput
+    $sort: [TrackSortInput!]
+  ) {
+    tracks(pagination: $pagination, search: $search, sort: $sort) {
       tracks {
         id
         title
@@ -81,16 +85,19 @@ export function Tracks() {
   const playTrack = useAudioPlayerStore((state) => state.playTrack);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tracks", page, pageSize],
+    queryKey: ["tracks", page, pageSize, search, sorting],
     queryFn: async () => {
       const result = await execute(TracksQuery, {
-        page,
-        pageSize,
+        pagination: buildPaginationInput(page, pageSize),
+        search: buildTextSearchInput(search),
+        sort: buildTrackSortInput(sorting),
       });
       return {
         ...result.tracks,
@@ -102,99 +109,102 @@ export function Tracks() {
     },
   });
 
-  const columns: ColumnDef<Track>[] = [
-    {
-      accessorKey: "trackNumber",
-      header: "#",
-      cell: ({ row }) => {
-        const value = row.getValue("trackNumber") as number | null;
-        return <div className="text-muted-foreground">{value ?? ""}</div>;
+  const handleSearch = () => {
+    setSearch(searchInput);
+    setPage(1);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const columns: ColumnDef<Track>[] = useMemo(
+    () => [
+      {
+        accessorKey: "trackNumber",
+        header: "#",
+        cell: ({ row }) => {
+          const value = row.getValue("trackNumber") as number | null;
+          return <div className="text-muted-foreground">{value ?? ""}</div>;
+        },
       },
-    },
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => {
-        const track = row.original;
-        const primaryArtist = track.artists[0]?.name ?? "Unknown Artist";
-        return (
-          <div className="flex items-center gap-3">
-            {track.album.artworkUrl ? (
-              <img
-                src={track.album.artworkUrl}
-                alt={track.album.title}
-                className="h-10 w-10 rounded object-cover"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
-                {track.album.title.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="flex flex-col">
-              <div className="font-medium">{track.title}</div>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <span>{primaryArtist}</span>
-                <Download className="h-3 w-3 text-green-500" />
+      {
+        accessorKey: "title",
+        header: ({ column }) => {
+          return <SortButton column={column}>Title</SortButton>;
+        },
+        cell: ({ row }) => {
+          const track = row.original;
+          const primaryArtist = track.artists[0]?.name ?? "Unknown Artist";
+          return (
+            <div className="flex items-center gap-3">
+              {track.album.artworkUrl ? (
+                <img
+                  src={track.album.artworkUrl}
+                  alt={track.album.title}
+                  className="h-10 w-10 rounded object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                  {track.album.title.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <div className="font-medium">{track.title}</div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <span>{primaryArtist}</span>
+                  <Download className="h-3 w-3 text-green-500" />
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        },
       },
-    },
-    {
-      accessorFn: (row) => row.album.title,
-      id: "album",
-      header: "Album",
-      cell: ({ row }) => {
-        return (
-          <div className="text-muted-foreground">
-            {row.original.album.title}
-          </div>
-        );
+      {
+        accessorFn: (row) => row.album.title,
+        id: "album",
+        header: "Album",
+        cell: ({ row }) => {
+          return (
+            <div className="text-muted-foreground">
+              {row.original.album.title}
+            </div>
+          );
+        },
       },
-    },
-    {
-      accessorKey: "createdAt",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="h-8 px-2"
-          >
-            Date added
-            {column.getIsSorted() === "desc" ? (
-              <ArrowDown className="ml-2 h-4 w-4" />
-            ) : column.getIsSorted() === "asc" ? (
-              <ArrowUp className="ml-2 h-4 w-4" />
-            ) : (
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            )}
-          </Button>
-        );
+      {
+        accessorKey: "createdAt",
+        header: ({ column }) => {
+          return <SortButton column={column}>Date added</SortButton>;
+        },
+        cell: ({ row }) => {
+          const date = row.getValue("createdAt") as Date;
+          return (
+            <div className="text-muted-foreground">
+              {formatDistanceToNow(date, { addSuffix: true })}
+            </div>
+          );
+        },
       },
-      cell: ({ row }) => {
-        const date = row.getValue("createdAt") as Date;
-        return (
-          <div className="text-muted-foreground">
-            {formatDistanceToNow(date, { addSuffix: true })}
-          </div>
-        );
+      {
+        accessorKey: "duration",
+        header: ({ column }) => {
+          return <SortButton column={column}>Duration</SortButton>;
+        },
+        cell: ({ row }) => {
+          const duration = row.getValue("duration") as number | null;
+          return (
+            <div className="text-muted-foreground">
+              {formatDuration(duration)}
+            </div>
+          );
+        },
       },
-    },
-    {
-      accessorKey: "duration",
-      header: "Duration",
-      cell: ({ row }) => {
-        const duration = row.getValue("duration") as number | null;
-        return (
-          <div className="text-muted-foreground">
-            {formatDuration(duration)}
-          </div>
-        );
-      },
-    },
-  ];
+    ],
+    [],
+  );
 
   const table = useReactTable({
     data: data?.tracks ?? [],
@@ -241,6 +251,37 @@ export function Tracks() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Search Input */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search tracks by title..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className="pl-9"
+          />
+        </div>
+        <Button onClick={handleSearch} variant="outline">
+          Search
+        </Button>
+        {search && (
+          <Button
+            onClick={() => {
+              setSearch("");
+              setSearchInput("");
+              setPage(1);
+            }}
+            variant="ghost"
+            size="icon"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border">
