@@ -5,6 +5,7 @@ use url::Url;
 pub mod all_tracks;
 pub mod auth;
 pub mod playlist;
+pub mod sync_playlist;
 
 // Re-export authentication items for backward compatibility
 pub use auth::{
