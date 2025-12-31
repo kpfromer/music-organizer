@@ -48,6 +48,14 @@ export type DownloadStatus = {
   success: Scalars['Boolean']['output'];
 };
 
+export type LibraryScanStatus = {
+  __typename?: 'LibraryScanStatus';
+  isScanning: Scalars['Boolean']['output'];
+  progress?: Maybe<Scalars['Float']['output']>;
+  subtitle?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+};
+
 export type MissingTrackInfo = {
   __typename?: 'MissingTrackInfo';
   filePath: Scalars['String']['output'];
@@ -69,6 +77,8 @@ export type Mutation = {
   createPlaylist: Playlist;
   createPlexServer: PlexServer;
   downloadSoulseekFile: DownloadStatus;
+  /** Trigger a refresh/rescan of the music library on a Plex server */
+  refreshMusicLibrary: RefreshLibraryResult;
   searchSoulseek: Array<SoulSeekSearchResult>;
   /** Sync a database playlist to Plex */
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
@@ -109,6 +119,11 @@ export type MutationDownloadSoulseekFileArgs = {
   size: Scalars['Int']['input'];
   token: Scalars['String']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type MutationRefreshMusicLibraryArgs = {
+  plexServerId: Scalars['Int']['input'];
 };
 
 
@@ -199,6 +214,7 @@ export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
+  musicLibraryScanStatus: LibraryScanStatus;
   playlist?: Maybe<Playlist>;
   playlistTracks: TracksResponse;
   playlists: PlaylistsResponse;
@@ -207,6 +223,11 @@ export type Query = {
   plexTracks: PlexTracksResult;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+};
+
+
+export type QueryMusicLibraryScanStatusArgs = {
+  plexServerId: Scalars['Int']['input'];
 };
 
 
@@ -241,6 +262,13 @@ export type QueryTracksArgs = {
 export type QueryUnimportableFilesArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type RefreshLibraryResult = {
+  __typename?: 'RefreshLibraryResult';
+  message: Scalars['String']['output'];
+  sectionId: Scalars['String']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export enum SortOrder {
@@ -455,6 +483,20 @@ export type AuthenticatePlexServerMutationVariables = Exact<{
 
 
 export type AuthenticatePlexServerMutation = { __typename?: 'Mutation', authenticatePlexServer: { __typename?: 'AuthResponse', authUrl: string, pinId: number } };
+
+export type RefreshMusicLibraryMutationVariables = Exact<{
+  plexServerId: Scalars['Int']['input'];
+}>;
+
+
+export type RefreshMusicLibraryMutation = { __typename?: 'Mutation', refreshMusicLibrary: { __typename?: 'RefreshLibraryResult', success: boolean, message: string, sectionId: string } };
+
+export type MusicLibraryScanStatusQueryVariables = Exact<{
+  plexServerId: Scalars['Int']['input'];
+}>;
+
+
+export type MusicLibraryScanStatusQuery = { __typename?: 'Query', musicLibraryScanStatus: { __typename?: 'LibraryScanStatus', isScanning: boolean, progress?: number | null, title?: string | null, subtitle?: string | null } };
 
 export type PlexTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -686,6 +728,25 @@ export const AuthenticatePlexServerDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<AuthenticatePlexServerMutation, AuthenticatePlexServerMutationVariables>;
+export const RefreshMusicLibraryDocument = new TypedDocumentString(`
+    mutation RefreshMusicLibrary($plexServerId: Int!) {
+  refreshMusicLibrary(plexServerId: $plexServerId) {
+    success
+    message
+    sectionId
+  }
+}
+    `) as unknown as TypedDocumentString<RefreshMusicLibraryMutation, RefreshMusicLibraryMutationVariables>;
+export const MusicLibraryScanStatusDocument = new TypedDocumentString(`
+    query MusicLibraryScanStatus($plexServerId: Int!) {
+  musicLibraryScanStatus(plexServerId: $plexServerId) {
+    isScanning
+    progress
+    title
+    subtitle
+  }
+}
+    `) as unknown as TypedDocumentString<MusicLibraryScanStatusQuery, MusicLibraryScanStatusQueryVariables>;
 export const PlexTracksDocument = new TypedDocumentString(`
     query PlexTracks {
   plexTracks {

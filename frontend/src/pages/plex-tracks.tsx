@@ -166,7 +166,6 @@ export function PlexTracks() {
 
   // It's a success variant - render table
   if ("tracks" in result) {
-
     return (
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-4">Plex Tracks</h1>
@@ -181,7 +180,7 @@ export function PlexTracks() {
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   ))}
@@ -199,7 +198,7 @@ export function PlexTracks() {
                       <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         )}
                       </TableCell>
                     ))}
@@ -241,4 +240,3 @@ export function PlexTracks() {
     </div>
   );
 }
-

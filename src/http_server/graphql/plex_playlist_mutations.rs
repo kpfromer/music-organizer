@@ -48,8 +48,8 @@ impl PlexPlaylistMutation {
         let db = &app_state.db;
 
         let client = reqwest::Client::new();
-        let result = crate::plex_rs::sync_playlist::sync_playlist_to_plex(db, &client, playlist_id)
-            .await?;
+        let result =
+            crate::plex_rs::sync_playlist::sync_playlist_to_plex(db, &client, playlist_id).await?;
 
         Ok(SyncPlaylistToPlexResult {
             missing_tracks: result
@@ -63,4 +63,3 @@ impl PlexPlaylistMutation {
         })
     }
 }
-

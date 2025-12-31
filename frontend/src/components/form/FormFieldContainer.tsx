@@ -24,7 +24,11 @@ export function FormFieldContainer({
         <FieldError
           errors={errors.map((error) => {
             // Handle Zod error objects - extract message if it's an object
-            if (typeof error === "object" && error !== null && "message" in error) {
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              "message" in error
+            ) {
               return { message: String(error.message) };
             }
             // Handle string errors

@@ -16,4 +16,3 @@ pub struct AuthResponse {
     pub auth_url: String,
     pub pin_id: i32,
 }
-

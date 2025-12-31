@@ -18,12 +18,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new("name")
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new("name").string().not_null().unique_key())
                     .col(
                         ColumnDef::new("server_url")
                             .string()
@@ -48,4 +43,3 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 }
-
