@@ -21,6 +21,8 @@ use crate::http_server::state::AppState;
 
 pub mod playlist_mutations;
 pub mod playlist_queries;
+pub mod plex_playlist_mutations;
+pub mod plex_playlist_queries;
 pub mod plex_server_mutations;
 pub mod plex_server_queries;
 pub mod plex_track_queries;
@@ -31,6 +33,8 @@ pub mod unimportable_file_queries;
 
 use playlist_mutations::PlaylistMutation;
 use playlist_queries::{Playlist, PlaylistsResponse};
+use plex_playlist_mutations::PlexPlaylistMutation;
+use plex_playlist_queries::PlexPlaylistsResponse;
 use plex_server_mutations::PlexServerMutation;
 use plex_server_queries::PlexServer;
 use plex_track_queries::PlexTracksResult;
@@ -480,10 +484,22 @@ impl Query {
     async fn plex_tracks(&self, ctx: &Context<'_>) -> GraphqlResult<PlexTracksResult> {
         plex_track_queries::plex_tracks(ctx).await
     }
+
+    async fn plex_playlists(
+        &self,
+        ctx: &Context<'_>,
+    ) -> GraphqlResult<PlexPlaylistsResponse> {
+        plex_playlist_queries::plex_playlists(ctx).await
+    }
 }
 
 #[derive(Default, MergedObject)]
-pub struct Mutation(PlaylistMutation, SoulseekMutation, PlexServerMutation);
+pub struct Mutation(
+    PlaylistMutation,
+    SoulseekMutation,
+    PlexServerMutation,
+    PlexPlaylistMutation,
+);
 
 pub async fn graphql() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())

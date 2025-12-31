@@ -189,12 +189,29 @@ pub async fn sync_playlist_to_plex(
         plex_lookup.len()
     );
 
-    // Step 5: Find or Create Plex Playlist
+    // Step 5: Calculate which database tracks exist in Plex (before creating playlist)
+    // Build set of database track rating_keys (only for tracks that exist in Plex)
+    // Match using normalized path keys
+    let db_rating_keys: HashSet<String> = track_models
+        .iter()
+        .filter_map(|track| {
+            normalize_path_key(&track.file_path).and_then(|key| plex_lookup.get(&key).cloned())
+        })
+        .collect();
+
+    // Step 6: Get Machine Identifier (needed for creating playlist with initial track)
+    let machine_identifier = get_machine_identifier(client, &server_url, access_token).await?;
+    log::debug!("Using machine identifier: {}", machine_identifier);
+
+    // Step 7: Find or Create Plex Playlist
     let plex_playlists = get_playlists(client, &server_url, access_token).await?;
     let music_playlists: Vec<_> = plex_playlists
         .into_iter()
         .filter(is_music_playlist)
         .collect();
+
+    let playlist_existed = music_playlists.iter().any(|p| p.title == playlist.name);
+    let first_rating_key = db_rating_keys.iter().next().cloned();
 
     let plex_playlist = match music_playlists.iter().find(|p| p.title == playlist.name) {
         Some(p) => {
@@ -207,7 +224,26 @@ pub async fn sync_playlist_to_plex(
         }
         None => {
             log::info!("Creating new Plex playlist: '{}'", playlist.name);
-            create_music_playlist(client, &server_url, access_token, &playlist.name).await?
+            // Try to create playlist with first track if available (some Plex versions require it)
+            let first_track_uri = first_rating_key.as_ref().map(|rating_key| {
+                format!(
+                    "server://{}/com.plexapp.plugins.library/library/metadata/{}",
+                    machine_identifier, rating_key
+                )
+            });
+
+            if let Some(uri) = first_track_uri.as_deref() {
+                crate::plex_rs::playlist::create_music_playlist_with_uri(
+                    client,
+                    &server_url,
+                    access_token,
+                    &playlist.name,
+                    Some(uri),
+                )
+                .await?
+            } else {
+                create_music_playlist(client, &server_url, access_token, &playlist.name).await?
+            }
         }
     };
 
@@ -263,16 +299,7 @@ pub async fn sync_playlist_to_plex(
         }
     }
 
-    // Step 8: Calculate Differences
-    // Build set of database track rating_keys (only for tracks that exist in Plex)
-    // Match using normalized path keys
-    let db_rating_keys: HashSet<String> = track_models
-        .iter()
-        .filter_map(|track| {
-            normalize_path_key(&track.file_path).and_then(|key| plex_lookup.get(&key).cloned())
-        })
-        .collect();
-
+    // Step 9: Calculate Differences
     let tracks_to_add: Vec<String> = db_rating_keys
         .difference(&current_plex_rating_keys)
         .cloned()
@@ -286,15 +313,24 @@ pub async fn sync_playlist_to_plex(
     log::info!("Tracks to add: {}", tracks_to_add.len());
     log::info!("Tracks to remove: {}", tracks_to_remove.len());
 
-    // Step 9: Get Machine Identifier
-    let machine_identifier = get_machine_identifier(client, &server_url, access_token).await?;
-    log::debug!("Using machine identifier: {}", machine_identifier);
-
     // Step 10: Add Missing Tracks (Incremental)
     let mut tracks_added = 0;
     let mut tracks_skipped = 0;
 
-    for rating_key in &tracks_to_add {
+    // If we just created the playlist with the first track, skip adding it again
+    let tracks_to_add_final: Vec<String> = if !playlist_existed
+        && first_rating_key.is_some()
+        && tracks_to_add.contains(first_rating_key.as_ref().unwrap())
+    {
+        tracks_to_add
+            .into_iter()
+            .filter(|k| k != first_rating_key.as_ref().unwrap())
+            .collect()
+    } else {
+        tracks_to_add
+    };
+
+    for rating_key in &tracks_to_add_final {
         match add_track_to_playlist(
             client,
             &server_url,

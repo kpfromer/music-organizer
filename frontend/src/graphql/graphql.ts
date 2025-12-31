@@ -48,6 +48,13 @@ export type DownloadStatus = {
   success: Scalars['Boolean']['output'];
 };
 
+export type MissingTrackInfo = {
+  __typename?: 'MissingTrackInfo';
+  filePath: Scalars['String']['output'];
+  title: Scalars['String']['output'];
+  trackId: Scalars['Int']['output'];
+};
+
 export type MultiplePlexServersError = {
   __typename?: 'MultiplePlexServersError';
   message: Scalars['String']['output'];
@@ -63,6 +70,8 @@ export type Mutation = {
   createPlexServer: PlexServer;
   downloadSoulseekFile: DownloadStatus;
   searchSoulseek: Array<SoulSeekSearchResult>;
+  /** Sync a database playlist to Plex */
+  syncPlaylistToPlex: SyncPlaylistToPlexResult;
 };
 
 
@@ -110,6 +119,11 @@ export type MutationSearchSoulseekArgs = {
   trackTitle: Scalars['String']['input'];
 };
 
+
+export type MutationSyncPlaylistToPlexArgs = {
+  playlistId: Scalars['Int']['input'];
+};
+
 export type NoPlexServerError = {
   __typename?: 'NoPlexServerError';
   message: Scalars['String']['output'];
@@ -136,6 +150,20 @@ export type PlaylistsResponse = {
   pageSize: Scalars['Int']['output'];
   playlists: Array<Playlist>;
   totalCount: Scalars['Int']['output'];
+};
+
+export type PlexPlaylist = {
+  __typename?: 'PlexPlaylist';
+  duration?: Maybe<Scalars['Int']['output']>;
+  leafCount?: Maybe<Scalars['Int']['output']>;
+  playlistType: Scalars['String']['output'];
+  ratingKey: Scalars['String']['output'];
+  title: Scalars['String']['output'];
+};
+
+export type PlexPlaylistsResponse = {
+  __typename?: 'PlexPlaylistsResponse';
+  playlists: Array<PlexPlaylist>;
 };
 
 export type PlexServer = {
@@ -174,6 +202,7 @@ export type Query = {
   playlist?: Maybe<Playlist>;
   playlistTracks: TracksResponse;
   playlists: PlaylistsResponse;
+  plexPlaylists: PlexPlaylistsResponse;
   plexServers: Array<PlexServer>;
   plexTracks: PlexTracksResult;
   tracks: TracksResponse;
@@ -244,6 +273,14 @@ export type SoulSeekSearchResult = {
   slotsFree: Scalars['Boolean']['output'];
   token: Scalars['String']['output'];
   username: Scalars['String']['output'];
+};
+
+export type SyncPlaylistToPlexResult = {
+  __typename?: 'SyncPlaylistToPlexResult';
+  missingTracks: Array<MissingTrackInfo>;
+  tracksAdded: Scalars['Int']['output'];
+  tracksRemoved: Scalars['Int']['output'];
+  tracksSkipped: Scalars['Int']['output'];
 };
 
 export type TextSearchInput = {
@@ -383,6 +420,13 @@ export type PlaylistsQueryVariables = Exact<{
 
 
 export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number }> } };
+
+export type SyncPlaylistToPlexMutationVariables = Exact<{
+  playlistId: Scalars['Int']['input'];
+}>;
+
+
+export type SyncPlaylistToPlexMutation = { __typename?: 'Mutation', syncPlaylistToPlex: { __typename?: 'SyncPlaylistToPlexResult', tracksAdded: number, tracksRemoved: number, tracksSkipped: number, missingTracks: Array<{ __typename?: 'MissingTrackInfo', trackId: number, filePath: string, title: string }> } };
 
 export type CompletePlexServerAuthenticationMutationVariables = Exact<{
   serverId: Scalars['Int']['input'];
@@ -584,6 +628,20 @@ export const PlaylistsDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<PlaylistsQuery, PlaylistsQueryVariables>;
+export const SyncPlaylistToPlexDocument = new TypedDocumentString(`
+    mutation SyncPlaylistToPlex($playlistId: Int!) {
+  syncPlaylistToPlex(playlistId: $playlistId) {
+    missingTracks {
+      trackId
+      filePath
+      title
+    }
+    tracksAdded
+    tracksRemoved
+    tracksSkipped
+  }
+}
+    `) as unknown as TypedDocumentString<SyncPlaylistToPlexMutation, SyncPlaylistToPlexMutationVariables>;
 export const CompletePlexServerAuthenticationDocument = new TypedDocumentString(`
     mutation CompletePlexServerAuthentication($serverId: Int!, $pinId: Int!) {
   completePlexServerAuthentication(serverId: $serverId, pinId: $pinId) {
