@@ -8,6 +8,7 @@ mod http_server;
 mod import_track;
 mod logging;
 mod musicbrainz;
+mod plex_rs;
 mod soulseek;
 mod soulseek_tui;
 
@@ -119,6 +120,10 @@ enum Commands {
         /// Directory to download SoulSeek files to
         #[arg(long, value_parser = is_directory, env = "SOULSEEK_DOWNLOAD_DIRECTORY")]
         download_directory: PathBuf,
+
+        /// Base URL for the service (used for auth redirects)
+        #[arg(long, env = "BASE_URL")]
+        base_url: Option<String>,
     },
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -210,7 +215,18 @@ async fn main() -> Result<()> {
             soulseek_username,
             soulseek_password,
             download_directory,
+            base_url,
         } => {
+            // Set default base_url in debug mode, require it in release mode
+            let base_url = if let Some(url) = base_url {
+                url
+            } else if cfg!(debug_assertions) {
+                "http://localhost:3001".to_string()
+            } else {
+                return Err(color_eyre::eyre::eyre!(
+                    "BASE_URL is required in release mode. Set it via --base-url or BASE_URL environment variable"
+                ));
+            };
             log::info!("Starting HTTP server on port: {}", port);
             http_server::app::start(HttpServerConfig {
                 port,
@@ -221,6 +237,7 @@ async fn main() -> Result<()> {
                 soulseek_username,
                 soulseek_password,
                 download_directory,
+                base_url,
             })
             .await?;
         }

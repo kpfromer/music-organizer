@@ -22,9 +22,31 @@ export async function execute<TResult, TVariables>(
   });
 
   if (!response.ok) {
-    throw new Error("Network response was not ok");
+    const errorText = await response.text();
+    console.error("GraphQL request failed:", {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+    });
+    throw new Error(
+      `Network response was not ok: ${response.status} ${response.statusText}`,
+    );
   }
 
   const res = await response.json();
+
+  // GraphQL returns errors in the response body even with 200 OK
+  if (res.errors && res.errors.length > 0) {
+    const errorMessages = res.errors
+      .map((e: unknown) =>
+        typeof e === "object" && e !== null && "message" in e
+          ? e.message
+          : JSON.stringify(e),
+      )
+      .join(", ");
+    console.error("GraphQL errors:", res.errors);
+    throw new Error(`GraphQL error: ${errorMessages}`);
+  }
+
   return res.data as TResult;
 }

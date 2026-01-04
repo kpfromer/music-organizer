@@ -42,6 +42,7 @@ pub struct HttpServerConfig {
     pub soulseek_username: String,
     pub soulseek_password: String,
     pub download_directory: PathBuf,
+    pub base_url: String,
 }
 
 pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
@@ -54,6 +55,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         soulseek_username,
         soulseek_password,
         download_directory,
+        base_url,
     } = config;
     log::info!("Initializing SoulSeek client context");
     let soulseek_context = SoulSeekClientContext::new(SearchConfig {
@@ -74,6 +76,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         download_directory,
         api_key: acoustid_api_key.clone(),
         config: config.clone(),
+        base_url: base_url.clone(),
     });
 
     let schema = graphql::create_schema(app_state.clone());

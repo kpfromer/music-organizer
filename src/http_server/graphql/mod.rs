@@ -12,6 +12,7 @@ use sea_orm::{
 };
 
 use crate::entities;
+use crate::http_server::graphql::plex_library_refresh_queries::PlexLibraryRefreshQuery;
 use crate::http_server::graphql::query_builder::{
     PaginationInput, SortInput, SortableField, TextSearchInput, TrackSortField, TrackSortInput,
     apply_multi_column_text_search, apply_pagination, apply_sort,
@@ -21,6 +22,13 @@ use crate::http_server::state::AppState;
 
 pub mod playlist_mutations;
 pub mod playlist_queries;
+pub mod plex_library_refresh_mutations;
+pub mod plex_library_refresh_queries;
+pub mod plex_playlist_mutations;
+pub mod plex_playlist_queries;
+pub mod plex_server_mutations;
+pub mod plex_server_queries;
+pub mod plex_track_queries;
 pub mod query_builder;
 pub mod soulseek_mutations;
 pub mod track_queries;
@@ -28,14 +36,22 @@ pub mod unimportable_file_queries;
 
 use playlist_mutations::PlaylistMutation;
 use playlist_queries::{Playlist, PlaylistsResponse};
+use plex_library_refresh_mutations::PlexLibraryRefreshMutation;
+use plex_playlist_mutations::PlexPlaylistMutation;
+use plex_playlist_queries::PlexPlaylistsResponse;
+use plex_server_mutations::PlexServerMutation;
+use plex_server_queries::PlexServer;
+use plex_track_queries::PlexTracksResult;
 use soulseek_mutations::SoulseekMutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
-pub struct Query;
+// TODO: Remove this once we have a proper query object.
+#[derive(Default)]
+pub struct LegacyQuery;
 
 #[Object]
-impl Query {
+impl LegacyQuery {
     async fn howdy(&self) -> &'static str {
         "partner"
     }
@@ -444,17 +460,60 @@ impl Query {
             page_size: page_size as i32,
         })
     }
+
+    async fn plex_servers(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<PlexServer>> {
+        let app_state = ctx
+            .data::<Arc<AppState>>()
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let db = &app_state.db;
+
+        let servers = entities::plex_server::Entity::find()
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))?;
+
+        let plex_servers: Vec<PlexServer> = servers
+            .into_iter()
+            .map(|server| PlexServer {
+                id: server.id,
+                name: server.name,
+                server_url: server.server_url,
+                has_access_token: server.access_token.is_some(),
+                created_at: server.created_at,
+                updated_at: server.updated_at,
+            })
+            .collect();
+
+        Ok(plex_servers)
+    }
+
+    async fn plex_tracks(&self, ctx: &Context<'_>) -> GraphqlResult<PlexTracksResult> {
+        plex_track_queries::plex_tracks(ctx).await
+    }
+
+    async fn plex_playlists(&self, ctx: &Context<'_>) -> GraphqlResult<PlexPlaylistsResponse> {
+        plex_playlist_queries::plex_playlists(ctx).await
+    }
 }
 
 #[derive(Default, MergedObject)]
-pub struct Mutation(PlaylistMutation, SoulseekMutation);
+pub struct Query(LegacyQuery, PlexLibraryRefreshQuery);
+
+#[derive(Default, MergedObject)]
+pub struct Mutation(
+    PlaylistMutation,
+    SoulseekMutation,
+    PlexServerMutation,
+    PlexPlaylistMutation,
+    PlexLibraryRefreshMutation,
+);
 
 pub async fn graphql() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
 pub fn create_schema(app_state: Arc<AppState>) -> Schema<Query, Mutation, EmptySubscription> {
-    Schema::build(Query, Mutation::default(), EmptySubscription)
+    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
         .data(app_state)
         .finish()
 }

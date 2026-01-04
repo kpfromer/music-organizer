@@ -13,14 +13,33 @@ export function FormFieldContainer({
   children,
 }: FormFieldContainerProps) {
   const field = useFieldContext();
-  const firstError = field.state.meta.errors.find((e) => e !== undefined);
+  const errors = field.state.meta.errors.filter((e) => e !== undefined);
 
   return (
     <Field>
       <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
       {children}
       {description && <FieldDescription>{description}</FieldDescription>}
-      {firstError !== undefined && <FieldError>{firstError}</FieldError>}
+      {errors.length > 0 && (
+        <FieldError
+          errors={errors.map((error) => {
+            // Handle Zod error objects - extract message if it's an object
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              "message" in error
+            ) {
+              return { message: String(error.message) };
+            }
+            // Handle string errors
+            if (typeof error === "string") {
+              return { message: error };
+            }
+            // Fallback: convert to string
+            return { message: String(error) };
+          })}
+        />
+      )}
     </Field>
   );
 }

@@ -7,6 +7,9 @@ import { Download } from "./pages/download";
 import { Home } from "./pages/home";
 import { Playlist } from "./pages/playlist";
 import { Playlists } from "./pages/playlists";
+import { PlexAuthCallback } from "./pages/plex-auth-callback";
+import { PlexServers } from "./pages/plex-servers";
+import { PlexTracks } from "./pages/plex-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 
@@ -31,7 +34,10 @@ export function App() {
             <Route path="/playlist/:id" element={<Playlist />} />
             <Route path="/download" element={<Download />} />
             <Route path="/unimportable-files" element={<UnimportableFiles />} />
+            <Route path="/plex-servers" element={<PlexServers />} />
+            <Route path="/plex-tracks" element={<PlexTracks />} />
           </Route>
+          <Route path="/plex-auth/callback" element={<PlexAuthCallback />} />
         </Routes>
       </Providers>
     </BrowserRouter>

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   flexRender,
@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
   Search,
 } from "lucide-react";
 import { useState } from "react";
@@ -68,6 +69,21 @@ const PlaylistsQuery = graphql(`
   }
 `);
 
+const SyncPlaylistToPlexMutation = graphql(`
+  mutation SyncPlaylistToPlex($playlistId: Int!) {
+    syncPlaylistToPlex(playlistId: $playlistId) {
+      missingTracks {
+        trackId
+        filePath
+        title
+      }
+      tracksAdded
+      tracksRemoved
+      tracksSkipped
+    }
+  }
+`);
+
 // Transform the generated Playlist type to have createdAt/updatedAt as Date instead of DateTime scalar
 type Playlist = Omit<GraphQLPlaylist, "createdAt" | "updatedAt"> & {
   createdAt: Date;
@@ -75,6 +91,7 @@ type Playlist = Omit<GraphQLPlaylist, "createdAt" | "updatedAt"> & {
 };
 
 export function Playlists() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
@@ -82,6 +99,9 @@ export function Playlists() {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
+  const [syncingPlaylistId, setSyncingPlaylistId] = useState<number | null>(
+    null,
+  );
 
   // Convert sorting state to backend parameters
   const sortBy =
@@ -124,6 +144,41 @@ export function Playlists() {
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleSearch();
+    }
+  };
+
+  const syncMutation = useMutation({
+    mutationFn: async (playlistId: number) => {
+      const result = await execute(SyncPlaylistToPlexMutation, {
+        playlistId,
+      });
+      return result.syncPlaylistToPlex;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
+      setSyncingPlaylistId(null);
+      alert(
+        `Sync complete!\n` +
+          `Added: ${data.tracksAdded}\n` +
+          `Removed: ${data.tracksRemoved}\n` +
+          `Skipped: ${data.tracksSkipped}\n` +
+          `Missing: ${data.missingTracks.length}`,
+      );
+    },
+    onError: (error) => {
+      setSyncingPlaylistId(null);
+      alert(`Sync failed: ${error.message}`);
+    },
+  });
+
+  const handleSync = (playlistId: number) => {
+    if (
+      confirm(
+        `Sync playlist to Plex? This will add missing tracks and remove extra tracks.`,
+      )
+    ) {
+      setSyncingPlaylistId(playlistId);
+      syncMutation.mutate(playlistId);
     }
   };
 
@@ -237,6 +292,34 @@ export function Playlists() {
           <div className="text-muted-foreground">
             {formatDistanceToNow(date, { addSuffix: true })}
           </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const playlist = row.original;
+        const isSyncing = syncingPlaylistId === playlist.id;
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSync(playlist.id)}
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sync to Plex
+              </>
+            )}
+          </Button>
         );
       },
     },
