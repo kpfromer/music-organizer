@@ -12,11 +12,16 @@ use sea_orm::{
 };
 
 use crate::entities;
+use crate::http_server::graphql::query_builder::{
+    PaginationInput, SortInput, SortableField, TextSearchInput, TrackSortField, TrackSortInput,
+    apply_multi_column_text_search, apply_pagination, apply_sort,
+};
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 
 pub mod playlist_mutations;
 pub mod playlist_queries;
+pub mod query_builder;
 pub mod soulseek_mutations;
 pub mod track_queries;
 pub mod unimportable_file_queries;
@@ -42,8 +47,9 @@ impl Query {
     async fn tracks(
         &self,
         ctx: &Context<'_>,
-        page: Option<i32>,
-        page_size: Option<i32>,
+        pagination: Option<PaginationInput>,
+        search: Option<TextSearchInput>,
+        sort: Option<Vec<TrackSortInput>>,
     ) -> GraphqlResult<TracksResponse> {
         // TODO: Performance issue
         // N+1 query problem: Fetch all track artists in a single query.
@@ -55,24 +61,45 @@ impl Query {
             .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
         let db = &app_state.db;
 
-        let page = page.unwrap_or(1).max(1) as usize;
-        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+        // Build query with search filter
+        let mut query = entities::track::Entity::find();
+        if let Some(search_input) = &search
+            && let Some(search_term) = &search_input.search
+            && !search_term.is_empty()
+        {
+            query = apply_multi_column_text_search(
+                query,
+                vec![entities::track::Column::Title],
+                search_term,
+            );
+        }
 
-        // Get total count
-        let total_count = entities::track::Entity::find()
+        // Get total count with search filter applied
+        let total_count = query
+            .clone()
             .count(&db.conn)
             .await
             .map_err(|e| color_eyre::eyre::eyre!("Failed to count tracks: {}", e))?;
 
-        // Calculate offset
-        let offset = (page.saturating_sub(1)) * page_size;
+        // Apply sorting
+        let sort_inputs: Vec<SortInput<TrackSortField>> = sort
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        query = apply_sort(query, &sort_inputs, Some(TrackSortField::default_sort()))
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to apply sorting: {}", e))?;
+
+        // Apply pagination
+        let (query, page, page_size) = apply_pagination(
+            query,
+            pagination.as_ref().and_then(|p| p.page),
+            pagination.as_ref().and_then(|p| p.page_size),
+        );
 
         // Fetch paginated tracks with their albums
-        let track_models = entities::track::Entity::find()
-            .order_by_desc(entities::track::Column::CreatedAt)
+        let track_models = query
             .find_also_related(entities::album::Entity)
-            .limit(page_size as u64)
-            .offset(offset as u64)
             .all(&db.conn)
             .await
             .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch tracks: {}", e))?;

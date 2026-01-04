@@ -78,6 +78,11 @@ export type MutationSearchSoulseekArgs = {
   trackTitle: Scalars['String']['input'];
 };
 
+export type PaginationInput = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type Playlist = {
   __typename?: 'Playlist';
   createdAt: Scalars['DateTime']['output'];
@@ -130,8 +135,9 @@ export type QueryPlaylistsArgs = {
 
 
 export type QueryTracksArgs = {
-  page?: InputMaybe<Scalars['Int']['input']>;
-  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  pagination?: InputMaybe<PaginationInput>;
+  search?: InputMaybe<TextSearchInput>;
+  sort?: InputMaybe<Array<TrackSortInput>>;
 };
 
 
@@ -139,6 +145,11 @@ export type QueryUnimportableFilesArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
 };
+
+export enum SortOrder {
+  Asc = 'ASC',
+  Desc = 'DESC'
+}
 
 export enum SoulSeekFileAttribute {
   Bitrate = 'BITRATE',
@@ -167,6 +178,10 @@ export type SoulSeekSearchResult = {
   username: Scalars['String']['output'];
 };
 
+export type TextSearchInput = {
+  search?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Track = {
   __typename?: 'Track';
   album: Album;
@@ -176,6 +191,20 @@ export type Track = {
   id: Scalars['Int']['output'];
   title: Scalars['String']['output'];
   trackNumber?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum TrackSortField {
+  CreatedAt = 'CREATED_AT',
+  Duration = 'DURATION',
+  Id = 'ID',
+  Title = 'TITLE',
+  TrackNumber = 'TRACK_NUMBER',
+  UpdatedAt = 'UPDATED_AT'
+}
+
+export type TrackSortInput = {
+  field: TrackSortField;
+  order: SortOrder;
 };
 
 export type TracksResponse = {
@@ -288,8 +317,9 @@ export type PlaylistsQueryVariables = Exact<{
 export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number }> } };
 
 export type TracksQueryVariables = Exact<{
-  page?: InputMaybe<Scalars['Int']['input']>;
-  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  pagination?: InputMaybe<PaginationInput>;
+  search?: InputMaybe<TextSearchInput>;
+  sort?: InputMaybe<Array<TrackSortInput> | TrackSortInput>;
 }>;
 
 
@@ -449,8 +479,8 @@ export const PlaylistsDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<PlaylistsQuery, PlaylistsQueryVariables>;
 export const TracksDocument = new TypedDocumentString(`
-    query Tracks($page: Int, $pageSize: Int) {
-  tracks(page: $page, pageSize: $pageSize) {
+    query Tracks($pagination: PaginationInput, $search: TextSearchInput, $sort: [TrackSortInput!]) {
+  tracks(pagination: $pagination, search: $search, sort: $sort) {
     tracks {
       id
       title
