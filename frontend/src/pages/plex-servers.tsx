@@ -17,7 +17,6 @@ import {
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
-import { FormSubmitButton } from "@/components/form/FormSubmitButton";
 import { FormTextField } from "@/components/form/FormTextField";
 import { useAppForm } from "@/components/form/form-hooks";
 import { Button } from "@/components/ui/button";
@@ -342,7 +341,7 @@ export function PlexServers() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     {status?.isScanning
                       ? status.progress !== null
-                        ? `Scanning ${Math.round(status.progress * 100)}%`
+                        ? `Scanning ${Math.round((status.progress ?? 0) * 100)}%`
                         : "Scanning..."
                       : "Starting..."}
                   </>

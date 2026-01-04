@@ -9,7 +9,7 @@ use crate::entities;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 use crate::plex_rs::all_tracks::{find_music_section_id, get_library_sections};
-use crate::plex_rs::library_refresh::{get_activities, get_library_scan_status};
+use crate::plex_rs::library_refresh::get_library_scan_status;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct LibraryScanStatus {
@@ -51,7 +51,7 @@ pub async fn music_library_scan_status(
 
     // Check scan status
     let activity =
-        get_library_scan_status(&client, &server_url, access_token, &music_section_id).await?;
+        get_library_scan_status(&client, &server_url, access_token, music_section_id).await?;
 
     Ok(match activity {
         Some(activity) => {

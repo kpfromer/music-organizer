@@ -154,7 +154,7 @@ export function Playlists() {
       });
       return result.syncPlaylistToPlex;
     },
-    onSuccess: (data, playlistId) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["playlists"] });
       setSyncingPlaylistId(null);
       alert(

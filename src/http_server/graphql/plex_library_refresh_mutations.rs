@@ -55,7 +55,7 @@ impl PlexLibraryRefreshMutation {
             .ok_or_eyre("No music library section found on Plex server")?;
 
         // Trigger refresh
-        refresh_library_section(&client, &server_url, access_token, &music_section_id).await?;
+        refresh_library_section(&client, &server_url, access_token, music_section_id).await?;
 
         Ok(RefreshLibraryResult {
             success: true,

@@ -214,6 +214,7 @@ export type Query = {
   __typename?: 'Query';
   errorExample: Scalars['String']['output'];
   howdy: Scalars['String']['output'];
+  /** Get the current scan status for the music library on a Plex server */
   musicLibraryScanStatus: LibraryScanStatus;
   playlist?: Maybe<Playlist>;
   playlistTracks: TracksResponse;

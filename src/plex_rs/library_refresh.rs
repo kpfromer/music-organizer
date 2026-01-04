@@ -1,4 +1,5 @@
-use color_eyre::eyre::{OptionExt, Result, WrapErr};
+#![allow(dead_code)]
+use color_eyre::eyre::{Result, WrapErr};
 use reqwest::Client;
 use serde::Deserialize;
 use url::Url;

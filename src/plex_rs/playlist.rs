@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use reqwest::Client;
 use serde::Deserialize;

@@ -5,11 +5,11 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Page } from "./components/page";
 import { Download } from "./pages/download";
 import { Home } from "./pages/home";
+import { Playlist } from "./pages/playlist";
+import { Playlists } from "./pages/playlists";
 import { PlexAuthCallback } from "./pages/plex-auth-callback";
 import { PlexServers } from "./pages/plex-servers";
 import { PlexTracks } from "./pages/plex-tracks";
-import { Playlist } from "./pages/playlist";
-import { Playlists } from "./pages/playlists";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 

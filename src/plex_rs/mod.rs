@@ -10,19 +10,9 @@ pub mod sync_playlist;
 
 // Re-export authentication items for backward compatibility
 pub use auth::{
-    APP_IDENTIFIER, APP_NAME, PlexAuthResponse, PlexPinResponse, PlexResource,
-    construct_auth_app_url, create_plex_pin, get_plex_resources, poll_for_plex_auth,
+    PlexAuthResponse, construct_auth_app_url, create_plex_pin, get_plex_resources,
+    poll_for_plex_auth,
 };
-
-/// Docs:
-/// https://developer.plex.tv/pms/#section/API-Info/Authenticating-with-Plex
-struct PlexConfig {
-    server_url: Url,
-}
-
-struct PlexClient {
-    client: Client,
-}
 
 /// Fetches Plex playlists (type=15) from a running Plex Media Server instance using a user's Plex token.
 ///

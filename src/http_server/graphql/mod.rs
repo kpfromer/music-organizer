@@ -12,6 +12,7 @@ use sea_orm::{
 };
 
 use crate::entities;
+use crate::http_server::graphql::plex_library_refresh_queries::PlexLibraryRefreshQuery;
 use crate::http_server::graphql::query_builder::{
     PaginationInput, SortInput, SortableField, TextSearchInput, TrackSortField, TrackSortInput,
     apply_multi_column_text_search, apply_pagination, apply_sort,
@@ -46,10 +47,12 @@ use soulseek_mutations::SoulseekMutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
-pub struct Query;
+// TODO: Remove this once we have a proper query object.
+#[derive(Default)]
+pub struct LegacyQuery;
 
 #[Object]
-impl Query {
+impl LegacyQuery {
     async fn howdy(&self) -> &'static str {
         "partner"
     }
@@ -503,6 +506,9 @@ impl Query {
 }
 
 #[derive(Default, MergedObject)]
+pub struct Query(LegacyQuery, PlexLibraryRefreshQuery);
+
+#[derive(Default, MergedObject)]
 pub struct Mutation(
     PlaylistMutation,
     SoulseekMutation,
@@ -516,7 +522,7 @@ pub async fn graphql() -> impl IntoResponse {
 }
 
 pub fn create_schema(app_state: Arc<AppState>) -> Schema<Query, Mutation, EmptySubscription> {
-    Schema::build(Query, Mutation::default(), EmptySubscription)
+    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
         .data(app_state)
         .finish()
 }

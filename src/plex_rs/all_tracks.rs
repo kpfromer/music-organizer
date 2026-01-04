@@ -1,21 +1,8 @@
+#![allow(dead_code)]
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
-
-/* ---------- Shared container ---------- */
-
-/// A minimal Plex JSON envelope for list style endpoints that return `MediaContainer.Metadata`.
-///
-/// Notes
-/// - Plex responses are wrapped in a top level `MediaContainer`.
-/// - Many fields are optional or omitted depending on endpoint and server version.
-/// - `metadata` defaults to an empty vec when missing.
-#[derive(Debug, Clone, Deserialize)]
-pub struct PlexResponse<T> {
-    #[serde(rename = "MediaContainer")]
-    pub media_container: PlexMediaContainer<T>,
-}
 
 /// The inner Plex MediaContainer payload.
 ///

@@ -67,7 +67,7 @@ pub async fn plex_playlists(ctx: &Context<'_>) -> GraphqlResult<PlexPlaylistsRes
 
     let music_playlists: Vec<PlexPlaylist> = plex_playlists
         .into_iter()
-        .filter(|p| is_music_playlist(p))
+        .filter(is_music_playlist)
         .map(|p| PlexPlaylist {
             rating_key: p.rating_key,
             title: p.title,
