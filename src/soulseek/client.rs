@@ -294,6 +294,7 @@ type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 struct SoulSeekClientContextInner {
     wrapper: SoulSeekClientWrapper,
+    logged_in: bool,
     // TODO: Note: A better long-term solution would be to move the rate_limiter
     // outside of the mutex-protected inner struct, since RateLimiter from governor is already thread-safe.
     rate_limiter: DirectRateLimiter,
@@ -309,8 +310,7 @@ impl SoulSeekClientContext {
     pub async fn new(config: SearchConfig) -> Result<Self> {
         log::debug!("Creating SoulSeek client context");
 
-        let mut wrapper = SoulSeekClientWrapper::new();
-        wrapper.login(&config.username, &config.password).await?;
+        let wrapper = SoulSeekClientWrapper::new();
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
@@ -331,6 +331,7 @@ impl SoulSeekClientContext {
 
         let inner = SoulSeekClientContextInner {
             wrapper,
+            logged_in: false,
             rate_limiter,
             config,
         };
@@ -341,12 +342,28 @@ impl SoulSeekClientContext {
         })
     }
 
+    async fn ensure_logged_in(&self) -> Result<()> {
+        let mut inner = self.inner.lock().await;
+        if inner.logged_in {
+            return Ok(());
+        }
+        log::debug!("Logging in to SoulSeek");
+        let username = inner.config.username.clone();
+        let password = inner.config.password.clone();
+        inner.wrapper.login(&username, &password).await?;
+        inner.logged_in = true;
+        log::info!("Successfully logged in to SoulSeek");
+        Ok(())
+    }
+
     /// Download a file from SoulSeek
     pub async fn download_file(
         &self,
         result: &SingleFileResult,
         download_folder: &Path,
     ) -> Result<mpsc::Receiver<soulseek_rs::DownloadStatus>> {
+        self.ensure_logged_in().await?;
+
         log::debug!(
             "Starting download: '{}' from user '{}' ({} bytes)",
             result.filename,
@@ -383,6 +400,7 @@ impl SoulSeekClientContext {
 
     /// Search for a track on SoulSeek
     pub async fn search_for_track(&self, track: &Track) -> Result<Vec<SingleFileResult>> {
+        self.ensure_logged_in().await?;
         log::debug!(
             "Starting search for track: '{}' by '{}'",
             track.title,
