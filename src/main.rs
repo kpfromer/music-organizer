@@ -16,12 +16,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
-use color_eyre::{
-    Result,
-    eyre::{Context, OptionExt},
-};
-use reqwest::Client;
-use url::Url;
+use color_eyre::{Result, eyre::Context};
 
 use crate::{
     config::Config,
@@ -29,13 +24,6 @@ use crate::{
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
     logging::setup_logging,
-    plex_rs::{
-        PlexAuthResponse,
-        all_tracks::{find_music_section_id, get_all_tracks_paginated, get_library_sections},
-        construct_auth_app_url, create_plex_pin, get_plex_playlists, get_plex_resources,
-        playlist::{get_playlist_tracks, get_playlists, is_music_playlist},
-        poll_for_plex_auth,
-    },
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -139,16 +127,6 @@ enum Commands {
     },
     #[command(subcommand)]
     Config(ConfigCommands),
-    /// Test out plex authentication
-    Plex {
-        /// The name of the Plex server to use
-        #[arg(long, env = "PLEX_SERVER_NAME")]
-        plex_server_name: String,
-
-        /// The URL of the Plex server to use
-        #[arg(long, env = "PLEX_SERVER_URL")]
-        plex_server_url: Url,
-    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -262,121 +240,6 @@ async fn main() -> Result<()> {
                 base_url,
             })
             .await?;
-        }
-        Commands::Plex {
-            plex_server_name,
-            plex_server_url,
-        } => {
-            log::debug!("Starting plex command");
-            let client = Client::new();
-            let pin = create_plex_pin(&client).await?;
-            log::info!("Plex pin created: {}", pin.code);
-            let url =
-                construct_auth_app_url(&pin.code, "http://localhost:3001/plex-auth/callback")?;
-            println!("Open this URL in your browser: {}", url);
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-            async fn poll_for_plex_auth_loop(client: &Client, pin_id: i32) -> Result<String> {
-                for _ in 0..10 {
-                    let auth_response = poll_for_plex_auth(client, pin_id).await;
-                    log::info!("Plex auth response: {:?}", auth_response);
-                    match auth_response {
-                        Ok(PlexAuthResponse {
-                            auth_token: Some(user_token),
-                        }) => {
-                            log::info!("User token: {}", user_token);
-                            return Ok(user_token);
-                        }
-                        Ok(PlexAuthResponse { auth_token: None }) => {
-                            log::info!("No user token found");
-                        }
-                        Err(_) => {
-                            // TODO: use thiserror
-                            log::error!("Error polling for plex auth");
-                        }
-                    }
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                }
-                Err(color_eyre::eyre::eyre!("Failed to poll for plex auth"))
-            }
-            let user_token = poll_for_plex_auth_loop(&client, pin.id).await?;
-            let plex_resources = get_plex_resources(&client, &user_token).await?;
-            let plex_server = plex_resources
-                .into_iter()
-                .find(|resource| resource.name == plex_server_name)
-                .ok_or_eyre("Plex server not found")?;
-            let access_token = plex_server
-                .access_token
-                .ok_or_eyre("No access token found")?;
-            let plex_playlists =
-                get_plex_playlists(&client, &plex_server_url, &access_token).await?;
-            println!("Plex playlists");
-            println!("{:#?}", plex_playlists);
-
-            // 1. Fetch all playlists
-            let playlists = get_playlists(&client, &plex_server_url, &access_token).await?;
-
-            // 2. Pick the first music playlist
-            let playlist = playlists
-                .iter()
-                .find(|p| is_music_playlist(p))
-                .ok_or_eyre("No music playlists found")?;
-
-            println!("Playlist: {} (id={})", playlist.title, playlist.rating_key);
-
-            // 3. Fetch tracks for that playlist
-            let tracks = get_playlist_tracks(
-                &client,
-                &plex_server_url,
-                &access_token,
-                &playlist.rating_key,
-            )
-            .await?;
-
-            // 4. Print tracks
-            for (idx, track) in tracks.iter().enumerate() {
-                println!(
-                    "{:>3}. {} – {} ({})",
-                    idx + 1,
-                    track.artist.as_deref().unwrap_or("Unknown Artist"),
-                    track.title,
-                    track.album.as_deref().unwrap_or("Unknown Album"),
-                );
-            }
-
-            // TODO
-            // all tracks
-
-            // 1. Fetch library sections
-            let sections = get_library_sections(&client, &plex_server_url, &access_token).await?;
-
-            // 2. Find the music library section
-            let music_section_id =
-                find_music_section_id(&sections).ok_or_eyre("No music library section found")?;
-
-            println!("Using music section id = {}", music_section_id);
-
-            // 3. Fetch all tracks (paged)
-            let tracks = get_all_tracks_paginated(
-                &client,
-                &plex_server_url,
-                &access_token,
-                music_section_id,
-                500, // page size
-            )
-            .await?;
-
-            println!("Fetched {} tracks", tracks.len());
-
-            // 4. Print first 20 tracks
-            for (i, track) in tracks.iter().take(20).enumerate() {
-                println!(
-                    "{:>4}. {} – {} ({})",
-                    i + 1,
-                    track.artist.as_deref().unwrap_or("Unknown Artist"),
-                    track.title,
-                    track.album.as_deref().unwrap_or("Unknown Album"),
-                );
-            }
         }
     }
 

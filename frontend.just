@@ -71,6 +71,8 @@ generate-graphql-types:
 
     import requests
 
+    exit_code = 1 # default to failure
+
     # 1. Start backend server in background
     print("Starting backend server...")
     backend_process = subprocess.Popen(

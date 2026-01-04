@@ -120,9 +120,7 @@ pub async fn get_library_scan_status(
         // Check if activity is related to library scanning/refreshing
         let is_scan_type = activity.activity_type == "library.update.section"
             || activity.activity_type == "library.refresh"
-            || activity.activity_type == "library.refresh.section"
-            || activity.title.to_lowercase().contains("scan")
-            || activity.title.to_lowercase().contains("refresh");
+            || activity.activity_type == "library.refresh.section";
 
         // Check if it's for our section
         let is_our_section = activity

@@ -12,6 +12,7 @@ use crate::http_server::state::AppState;
 use crate::plex_rs::{
     construct_auth_app_url, create_plex_pin, get_plex_resources, poll_for_plex_auth,
 };
+use sea_orm::ActiveModelBehavior;
 
 #[derive(Default)]
 pub struct PlexServerMutation;
@@ -36,7 +37,7 @@ impl PlexServerMutation {
         let server = entities::plex_server::ActiveModel {
             name: Set(name),
             server_url: Set(server_url),
-            ..Default::default()
+            ..entities::plex_server::ActiveModel::new()
         };
 
         let server_model = server
@@ -143,6 +144,7 @@ impl PlexServerMutation {
             .await
             .map_err(|e| color_eyre::eyre::eyre!("Failed to get plex resources: {}", e))?;
 
+        // TODO: match by server_url instead of name
         // Find matching resource by server name
         let matching_resource = resources
             .into_iter()
