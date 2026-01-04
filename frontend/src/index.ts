@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import index from "./index.html";
+import index from "./index.dev.html";
 
 console.log("process.env", process.env.PUBLIC_GRAPHQL_URL);
 
