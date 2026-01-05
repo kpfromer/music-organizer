@@ -149,18 +149,19 @@ impl SoulseekMutation {
             attrs: HashMap::new(),
         };
 
-        // Initiate download
-        let receiver = app_state
+        // Initiate download - now returns async receiver
+        let mut receiver = app_state
             .soulseek_context
             .download_file(&result, &app_state.download_directory)
             .await?;
 
         let filename = result.filename.clone();
         let filename_for_path = result.filename.clone();
+        let soulseek_context = app_state.soulseek_context.clone();
 
-        // Spawn a blocking task to iterate the receiver and return the final result
-        let download_result = tokio::task::spawn_blocking(move || {
-            for status in receiver {
+        // Consume the async receiver and wait for final result
+        let download_result: Result<DownloadStatus, color_eyre::Report> = async {
+            while let Some(status) = receiver.recv().await {
                 match status {
                     soulseek_rs::DownloadStatus::Queued => {
                         log::info!("Download queued: {}", filename);
@@ -186,19 +187,20 @@ impl SoulseekMutation {
                     }
                     soulseek_rs::DownloadStatus::Failed => {
                         log::error!("Download failed: {}", filename);
+                        soulseek_context.report_session_error("Download failed").await;
                         return Err(color_eyre::eyre::eyre!("Download failed: {}", filename));
                     }
                     soulseek_rs::DownloadStatus::TimedOut => {
                         log::error!("Download timed out: {}", filename);
+                        soulseek_context.report_session_error("Download timed out").await;
                         return Err(color_eyre::eyre::eyre!("Download timed out: {}", filename));
                     }
                 }
             }
             // If the loop ends without a terminal status, return an error
             Err(color_eyre::eyre::eyre!("Download failed: {}", filename))
-        })
-        .await
-        .map_err(|e| color_eyre::eyre::eyre!("Blocking task panicked: {}", e))?;
+        }
+        .await;
 
         match download_result {
             Ok(status) => {

@@ -408,16 +408,6 @@ export type SearchSoulseekMutationVariables = Exact<{
 
 export type SearchSoulseekMutation = { __typename?: 'Mutation', searchSoulseek: Array<{ __typename?: 'SoulSeekSearchResult', username: string, token: string, filename: string, size: number, avgSpeed: number, queueLength: number, slotsFree: boolean, attributes: Array<{ __typename?: 'SoulSeekFileAttributeValue', attribute: SoulSeekFileAttribute, value: number }> }> };
 
-export type DownloadFromSoulseekMutationVariables = Exact<{
-  username: Scalars['String']['input'];
-  filename: Scalars['String']['input'];
-  size: Scalars['Int']['input'];
-  token: Scalars['String']['input'];
-}>;
-
-
-export type DownloadFromSoulseekMutation = { __typename?: 'Mutation', downloadSoulseekFile: { __typename?: 'DownloadStatus', success: boolean, message: string } };
-
 export type TestQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -594,19 +584,6 @@ export const SearchSoulseekDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SearchSoulseekMutation, SearchSoulseekMutationVariables>;
-export const DownloadFromSoulseekDocument = new TypedDocumentString(`
-    mutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {
-  downloadSoulseekFile(
-    username: $username
-    filename: $filename
-    size: $size
-    token: $token
-  ) {
-    success
-    message
-  }
-}
-    `) as unknown as TypedDocumentString<DownloadFromSoulseekMutation, DownloadFromSoulseekMutationVariables>;
 export const TestDocument = new TypedDocumentString(`
     query Test {
   howdy
