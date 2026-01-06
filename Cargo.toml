@@ -30,7 +30,7 @@ async-trait = "0.1"
 ratatui = "0.30.0-beta"
 crossterm = "0.29"
 backon = "1.6.0"
-sea-orm = { version = "2.0.0-rc.17", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm = { version = "2.0.0-rc.27", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
 migration = { path = "migration" }
 log = "0.4"
 fern = { version = "0.7.1", features = ["colored"] }
