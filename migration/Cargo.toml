@@ -13,7 +13,7 @@ name = "migration"
 path = "src/main.rs"
 
 [dependencies.sea-orm-migration]
-version = "2.0.0-rc"
+version = "2.0.0-rc.27"
 features = [
   "sqlx-sqlite",
   "runtime-tokio-rustls",
