@@ -306,7 +306,9 @@ impl BackgroundThread {
                     break;
                 }
                 soulseek_rs::DownloadStatus::Failed => {
-                    self.soulseek_context.report_session_error("Download failed").await;
+                    self.soulseek_context
+                        .report_session_error("Download failed")
+                        .await;
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download failed".to_string()),
@@ -314,7 +316,9 @@ impl BackgroundThread {
                     break;
                 }
                 soulseek_rs::DownloadStatus::TimedOut => {
-                    self.soulseek_context.report_session_error("Download timed out").await;
+                    self.soulseek_context
+                        .report_session_error("Download timed out")
+                        .await;
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download timed out".to_string()),

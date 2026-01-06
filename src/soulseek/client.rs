@@ -361,22 +361,6 @@ impl SoulSeekClientContext {
         })
     }
 
-    /// Pragmatic error classifier: treat obvious connectivity issues as requiring reconnect+relogin.
-    fn is_session_error(err: &color_eyre::Report) -> bool {
-        // TODO: Remove this once we have a better error classifier
-        return true;
-        // TODO: better error classifier
-        let s = format!("{err:?}").to_lowercase();
-        s.contains("client not initialized")
-            || s.contains("not connected")
-            || s.contains("connection")
-            || s.contains("broken pipe")
-            || s.contains("reset")
-            || s.contains("eof")
-            || s.contains("timed out")
-            || s.contains("mutex poisoned")
-    }
-
     async fn set_backoff_state(&self, err_msg: String) {
         let mut b = self.backoff_secs.lock().await;
         let wait = Duration::from_secs((*b).min(60));
@@ -417,13 +401,13 @@ impl SoulSeekClientContext {
         // Fast-path check for backoff (before acquiring gate)
         {
             let st = self.state.lock().await.clone();
-            if let SessionState::Backoff { until, .. } = st {
-                if Instant::now() < until {
-                    return Err(color_eyre::eyre::eyre!(
-                        "Backoff in effect until {:?}",
-                        until
-                    ));
-                }
+            if let SessionState::Backoff { until, .. } = st
+                && Instant::now() < until
+            {
+                return Err(color_eyre::eyre::eyre!(
+                    "Backoff in effect until {:?}",
+                    until
+                ));
             }
         }
 
@@ -480,17 +464,17 @@ impl SoulSeekClientContext {
 
         match f().await {
             Ok(v) => Ok(v),
-            Err(e) if Self::is_session_error(&e) => {
+            Err(e) => {
                 log::warn!(
                     "{} failed due to session error; retrying once: {:?}",
                     op_name,
                     e
                 );
+                // We will always retry once, so we can invalidate the session and try again
                 self.invalidate(&format!("{e:?}")).await;
                 self.ensure_session().await?;
                 f().await
             }
-            Err(e) => Err(e),
         }
     }
 
@@ -813,7 +797,7 @@ mod tests {
             length: None,
         };
         let queries_no_album = build_search_queries(&track_no_album, false);
-        assert!(queries_no_album.len() >= 1);
+        assert!(!queries_no_album.is_empty());
     }
 
     #[test]
@@ -861,7 +845,7 @@ mod tests {
         assert_eq!(mp3_result.username, "test_user");
         assert_eq!(mp3_result.token, "token123");
         assert_eq!(mp3_result.size, 5000000);
-        assert_eq!(mp3_result.slots_free, true);
+        assert!(mp3_result.slots_free);
         assert_eq!(mp3_result.avg_speed, 100.0);
         assert_eq!(mp3_result.attrs.get(&FileAttribute::Bitrate), Some(&320));
         assert_eq!(mp3_result.attrs.get(&FileAttribute::Duration), Some(&180));

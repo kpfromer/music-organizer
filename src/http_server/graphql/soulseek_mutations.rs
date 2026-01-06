@@ -187,12 +187,16 @@ impl SoulseekMutation {
                     }
                     soulseek_rs::DownloadStatus::Failed => {
                         log::error!("Download failed: {}", filename);
-                        soulseek_context.report_session_error("Download failed").await;
+                        soulseek_context
+                            .report_session_error("Download failed")
+                            .await;
                         return Err(color_eyre::eyre::eyre!("Download failed: {}", filename));
                     }
                     soulseek_rs::DownloadStatus::TimedOut => {
                         log::error!("Download timed out: {}", filename);
-                        soulseek_context.report_session_error("Download timed out").await;
+                        soulseek_context
+                            .report_session_error("Download timed out")
+                            .await;
                         return Err(color_eyre::eyre::eyre!("Download timed out: {}", filename));
                     }
                 }

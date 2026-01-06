@@ -17,7 +17,7 @@ export default defineConfig({
     path: path.resolve(__dirname, "dist"),
     filename: "[name].[contenthash].js",
     clean: true,
-    publicPath: "/" // This makes all asset paths absolute
+    publicPath: "/", // This makes all asset paths absolute
   },
 
   resolve: {
