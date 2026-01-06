@@ -1,3 +1,6 @@
+// NOTE: `experimental_streamedQuery` is an experimental TanStack Query API (2025).
+// The maintainers are actively collecting feedback, and this API may change in future releases.
+// Use with caution and monitor TanStack Query changelogs when upgrading.
 import {
   queryOptions,
   experimental_streamedQuery as streamedQuery,
@@ -171,5 +174,7 @@ export function downloadFileQuery(input: DownloadFileInput) {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
+    // Never automatically start the download
+    enabled: false,
   });
 }

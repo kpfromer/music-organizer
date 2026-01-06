@@ -12,7 +12,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useState } from "react";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
 import { FormTextField } from "@/components/form/FormTextField";
 import { useAppForm } from "@/components/form/form-hooks";
@@ -73,15 +72,7 @@ type SearchFormData = {
   duration: string;
 };
 
-function DownloadButton({
-  result,
-  onDownload,
-  isActive,
-}: {
-  result: SoulSeekSearchResult;
-  onDownload: (result: SoulSeekSearchResult) => void;
-  isActive: boolean;
-}) {
+function DownloadButton({ result }: { result: SoulSeekSearchResult }) {
   const downloadInput: DownloadFileInput = {
     username: result.username,
     token: result.token,
@@ -90,13 +81,11 @@ function DownloadButton({
   };
 
   const {
+    refetch: download,
     data: downloadState,
     isLoading,
     error,
-  } = useQuery({
-    ...downloadFileQuery(downloadInput),
-    enabled: isActive,
-  });
+  } = useQuery(downloadFileQuery(downloadInput));
 
   const isDownloading = downloadState?.status === "downloading" || isLoading;
   const isCompleted = downloadState?.status === "completed";
@@ -107,7 +96,7 @@ function DownloadButton({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => onDownload(result)}
+        onClick={() => download()}
         disabled={isDownloading || isCompleted}
       >
         {isDownloading ? (
@@ -162,10 +151,6 @@ function DownloadButton({
 }
 
 export function Download() {
-  const [activeDownloads, setActiveDownloads] = useState<Set<string>>(
-    new Set(),
-  );
-
   const searchSoulseek = useMutation({
     mutationFn: async (variables: MutationSearchSoulseekArgs) =>
       execute(SearchSoulseekMutation, variables),
@@ -180,7 +165,6 @@ export function Download() {
       duration: "",
     },
     onSubmit: async ({ value }: { value: SearchFormData }) => {
-      console.log("onSubmit", value);
       const artistsArray =
         value.artists.trim() !== ""
           ? parseArtistsInput(value.artists)
@@ -198,11 +182,6 @@ export function Download() {
       await searchSoulseek.mutateAsync(variables);
     },
   });
-
-  const handleDownload = (result: SoulSeekSearchResult) => {
-    const downloadId = `${result.username}-${result.filename}`;
-    setActiveDownloads((prev) => new Set(prev).add(downloadId));
-  };
 
   const columns: ColumnDef<SoulSeekSearchResult>[] = [
     {
@@ -246,16 +225,7 @@ export function Download() {
       header: "",
       cell: ({ row }) => {
         const result = row.original;
-        const downloadId = `${result.username}-${result.filename}`;
-        const isActive = activeDownloads.has(downloadId);
-
-        return (
-          <DownloadButton
-            result={result}
-            onDownload={handleDownload}
-            isActive={isActive}
-          />
-        );
+        return <DownloadButton result={result} />;
       },
     },
   ];

@@ -72,6 +72,8 @@ pub async fn download_file(
 
     // Spawn async task to consume the download status receiver
     tokio::spawn(async move {
+        let mut has_finished = false;
+
         while let Some(status) = download_receiver.recv().await {
             let event = match status {
                 soulseek_rs::DownloadStatus::Queued => {
@@ -90,6 +92,7 @@ pub async fn download_file(
 
                 soulseek_rs::DownloadStatus::Completed => {
                     let _ = tx.send(DownloadEvent::Completed).await;
+                    has_finished = true;
                     break;
                 }
 
@@ -100,6 +103,7 @@ pub async fn download_file(
                             message: "Failed to download file".to_string(),
                         })
                         .await;
+                    has_finished = true;
                     break;
                 }
 
@@ -110,6 +114,7 @@ pub async fn download_file(
                             message: "Download timed out".to_string(),
                         })
                         .await;
+                    has_finished = true;
                     break;
                 }
             };
@@ -120,6 +125,13 @@ pub async fn download_file(
             }
         }
 
+        if !has_finished {
+            let _ = tx
+                .send(DownloadEvent::Failed {
+                    message: "Download timed out".to_string(),
+                })
+                .await;
+        }
         // When this function exits, tx is dropped, and the response stream ends cleanly.
     });
 
