@@ -1,0 +1,21 @@
+queue_rules:
+  - name: default
+    merge_method: rebase
+
+merge_queue:
+  max_parallel_checks: 1
+
+pull_request_rules:
+  - name: Automatic merge when ready
+    conditions:
+      - label~=merge
+      - -draft
+      # Backend CI (always runs)
+      - check-success=ci
+      # Frontend checks (only run when frontend files change, so use success-or-neutral)
+      - check-success-or-neutral=Biome Lint & Format
+      - check-success-or-neutral=TypeScript Type Check
+      - check-success-or-neutral=Build Check
+    actions:
+      queue:
+        name: default
