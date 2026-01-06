@@ -27,8 +27,8 @@ unaccent = "0.1"
 regex = { version = "1.10", features = ["unicode-perl"] }
 futures = "0.3"
 async-trait = "0.1"
-ratatui = "0.28"
-crossterm = "0.28"
+ratatui = "0.30.0-beta"
+crossterm = "0.29"
 backoff = { version = "0.4.0", features = ["tokio"] }
 sea-orm = { version = "2.0.0-rc", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
 migration = { path = "migration" }
