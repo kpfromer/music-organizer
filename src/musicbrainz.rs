@@ -1,7 +1,7 @@
 // TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
-use backoff::ExponentialBackoff;
+use backon::{ExponentialBuilder, Retryable};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
 use musicbrainz_rs::Fetch;
@@ -15,7 +15,7 @@ use musicbrainz_rs::entity::release_group::ReleaseGroupPrimaryType;
 pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recording> {
     log::debug!("Fetching recording from MusicBrainz: {}", recording_id);
 
-    let result = backoff::future::retry(ExponentialBackoff::default(), || async {
+    let result = (|| async {
         let recording = Recording::fetch()
             .id(recording_id)
             .with_artists()
@@ -26,6 +26,7 @@ pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recordin
             .wrap_err("Failed to fetch recording from MusicBrainz")?;
         Ok(recording)
     })
+    .retry(ExponentialBuilder::default())
     .await;
 
     match &result {
@@ -53,7 +54,7 @@ pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recordin
 pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
     log::debug!("Fetching release from MusicBrainz: {}", release_id);
 
-    let result = backoff::future::retry(ExponentialBackoff::default(), || async {
+    let result = (|| async {
         let release = Release::fetch()
             .id(release_id)
             .with_release_groups()
@@ -66,6 +67,7 @@ pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
             .wrap_err("Failed to fetch release from MusicBrainz")?;
         Ok(release)
     })
+    .retry(ExponentialBuilder::default())
     .await;
 
     match &result {
