@@ -36,7 +36,6 @@ interface AudioPlayerActions {
   setVolume: (volume: number) => void;
   seekTo: (time: number) => void;
   setCurrentTime: (time: number) => void;
-  setDuration: (duration: number) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   initializeAudio: () => () => void;
 }
@@ -143,7 +142,7 @@ export const useAudioPlayerStore = create<
       }
 
       // New track - load and play
-      set({ currentTrack: track });
+      set({ currentTrack: track, duration: track.duration ?? 0 });
       audio.src = audioUrl;
       audio.currentTime = 0;
       set({ currentTime: 0 });
@@ -219,10 +218,6 @@ export const useAudioPlayerStore = create<
 
     setCurrentTime: (time: number) => {
       set({ currentTime: time });
-    },
-
-    setDuration: (duration: number) => {
-      set({ duration });
     },
 
     setIsPlaying: (isPlaying: boolean) => {
