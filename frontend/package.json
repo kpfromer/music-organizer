@@ -10,8 +10,8 @@
     "start": "NODE_ENV=production bun src/index.ts",
     "build": "rspack build --mode production",
     "codegen": "graphql-codegen-generator --config codegen.ts",
-    "format": "biome format --write ./",
-    "check": "biome check ./",
+    "format": "biome format --write .",
+    "check": "biome check .",
     "check:typescript": "tsc --noEmit"
   },
   "dependencies": {

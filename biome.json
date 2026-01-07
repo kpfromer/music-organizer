@@ -6,7 +6,17 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist", "!src/graphql"]
+    "includes": [
+      "frontend/**",
+      "!**/dist",
+      "!frontend/src/graphql",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "**/*.css"
+    ]
   },
   "css": {
     "parser": {
