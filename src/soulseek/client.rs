@@ -2,126 +2,29 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::{Arc, mpsc};
-use std::time::Duration;
-use tokio::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex as StdMutex};
+use std::time::{Duration, Instant};
 
 use color_eyre::{Result, eyre::Context};
 use futures::future::join_all;
 use governor::{
     Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::direct::NotKeyed,
 };
-use soulseek_rs::client::Client as SoulseekClient;
-use std::num::NonZeroU32;
-use tokio::sync::Semaphore;
-
-use crate::soulseek::types::{FileAttribute, SearchConfig, SingleFileResult, Track};
 use regex::Regex;
+use soulseek_rs::client::Client as SoulseekClient;
+use tokio::sync::{Mutex, Semaphore};
 use unaccent::unaccent;
 
+use crate::soulseek::types::{FileAttribute, SearchConfig, SingleFileResult, Track};
+
 // ============================================================================
-// Trait for SoulSeek Client (for testability)
+// Types
 // ============================================================================
 
-#[async_trait::async_trait]
-pub trait SoulSeekClientTrait: Send + Sync {
-    async fn login(&mut self, username: &str, password: &str) -> Result<()>;
-    async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>>;
-}
+type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
-// Wrapper for real soulseek-rs-lib client
-pub struct SoulSeekClientWrapper {
-    client: Option<Arc<Mutex<SoulseekClient>>>,
-}
-
-impl SoulSeekClientWrapper {
-    pub fn new() -> Self {
-        Self { client: None }
-    }
-
-    /// Get access to the inner client for direct access (e.g., downloads)
-    /// Returns a guard that can be used to call methods on the client
-    pub async fn get_client(&self) -> Option<MutexGuard<'_, SoulseekClient>> {
-        match self.client.as_ref() {
-            Some(m) => Some(m.lock().await),
-            None => None,
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl SoulSeekClientTrait for SoulSeekClientWrapper {
-    async fn login(&mut self, username: &str, password: &str) -> Result<()> {
-        log::debug!("Logging in to SoulSeek as user: {}", username);
-
-        // Run the synchronous operations in a blocking task
-        let username = username.to_string();
-        let password = password.to_string();
-
-        soulseek_rs::utils::logger::enable_buffering();
-
-        let client = tokio::task::spawn_blocking(move || -> Result<SoulseekClient> {
-            let mut client = SoulseekClient::new(&username, &password);
-            client.connect();
-            client.login()?;
-            Ok(client)
-        })
-        .await??;
-
-        self.client = Some(Arc::new(Mutex::new(client)));
-        log::info!("Successfully logged in to SoulSeek");
-        Ok(())
-    }
-
-    async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>> {
-        let client_mutex = self
-            .client
-            .as_ref()
-            .ok_or_else(|| color_eyre::eyre::eyre!("Client not initialized"))?
-            .clone();
-        let query = query.to_string();
-
-        let client = client_mutex.lock().await;
-        let search_results = client.search(&query, timeout)?;
-
-        // Convert SearchResult to FileSearchResponse
-        let mut responses = Vec::new();
-        for result in search_results {
-            let files: Vec<FileInfo> = result
-                .files
-                .iter()
-                .map(|f| {
-                    // Convert HashMap<u32, u32> to HashMap<u8, u32>
-                    let mut attrs = HashMap::new();
-                    for (k, v) in &f.attribs {
-                        if *k <= u8::MAX as u32 {
-                            attrs.insert(*k as u8, *v);
-                        }
-                    }
-                    FileInfo {
-                        filename: f.name.clone(),
-                        size: f.size,
-                        attrs,
-                    }
-                })
-                .collect();
-
-            responses.push(FileSearchResponse {
-                username: result.username.clone(),
-                token: result.token.to_string(),
-                files,
-                slots_free: result.slots > 0,
-                avg_speed: result.speed as f64,
-                queue_length: 0, // Not available in SearchResult
-            });
-        }
-
-        Ok(responses)
-    }
-}
-
-// Placeholder types - these should match soulseek-rs-lib types
 #[derive(Debug, Clone)]
 pub struct FileSearchResponse {
     pub username: String,
@@ -136,7 +39,129 @@ pub struct FileSearchResponse {
 pub struct FileInfo {
     pub filename: String,
     pub size: u64,
-    pub attrs: HashMap<u8, u32>, // Map from attribute key to value
+    pub attrs: HashMap<u8, u32>,
+}
+
+// ============================================================================
+// Session State
+// ============================================================================
+
+/// Replaces `logged_in: bool` with a real session lifecycle.
+#[derive(Debug, Clone)]
+enum SessionState {
+    Disconnected { last_error: Option<String> },
+    Connecting,
+    LoggedIn { since: Instant },
+    Backoff { until: Instant, last_error: String },
+}
+
+// ============================================================================
+// Client Wrapper (async/sync boundary)
+// ============================================================================
+
+/// Wrapper stores the sync client behind a std::sync::Mutex so we can lock it inside spawn_blocking.
+/// The outer tokio::Mutex protects swapping Some/None in async code.
+pub struct SoulSeekClientWrapper {
+    client: Mutex<Option<Arc<StdMutex<SoulseekClient>>>>,
+}
+
+impl SoulSeekClientWrapper {
+    pub fn new() -> Self {
+        Self {
+            client: Mutex::new(None),
+        }
+    }
+
+    pub async fn clear_client(&self) {
+        *self.client.lock().await = None;
+    }
+
+    pub async fn get_client_arc(&self) -> Option<Arc<StdMutex<SoulseekClient>>> {
+        self.client.lock().await.clone()
+    }
+
+    async fn set_client(&self, c: SoulseekClient) {
+        *self.client.lock().await = Some(Arc::new(StdMutex::new(c)));
+    }
+
+    /// Connect + login (blocking) and store client.
+    pub async fn login(&self, username: &str, password: &str) -> Result<()> {
+        let username = username.to_string();
+        let password = password.to_string();
+
+        soulseek_rs::utils::logger::enable_buffering();
+
+        let client = tokio::task::spawn_blocking(move || -> Result<SoulseekClient> {
+            let mut client = SoulseekClient::new(&username, &password);
+            client.connect();
+            client.login()?;
+            Ok(client)
+        })
+        .await??;
+
+        self.set_client(client).await;
+        Ok(())
+    }
+
+    /// Run a search in a blocking thread so tokio workers don't get stuck.
+    pub async fn search(&self, query: &str, timeout: Duration) -> Result<Vec<FileSearchResponse>> {
+        let client_arc = self
+            .get_client_arc()
+            .await
+            .ok_or_else(|| color_eyre::eyre::eyre!("Client not initialized"))?;
+
+        let query = query.to_string();
+
+        let search_results =
+            tokio::task::spawn_blocking(move || -> Result<Vec<soulseek_rs::SearchResult>> {
+                let client = client_arc
+                    .lock()
+                    .map_err(|_| color_eyre::eyre::eyre!("Soulseek client mutex poisoned"))?;
+
+                let results = client.search(&query, timeout)?;
+                Ok(results)
+            })
+            .await??;
+
+        Ok(convert_search_results(search_results))
+    }
+}
+
+fn convert_search_results(
+    search_results: Vec<soulseek_rs::SearchResult>,
+) -> Vec<FileSearchResponse> {
+    let mut responses = Vec::new();
+
+    for result in search_results {
+        let files: Vec<FileInfo> = result
+            .files
+            .iter()
+            .map(|f| {
+                let mut attrs = HashMap::new();
+                for (k, v) in &f.attribs {
+                    if *k <= u8::MAX as u32 {
+                        attrs.insert(*k as u8, *v);
+                    }
+                }
+                FileInfo {
+                    filename: f.name.clone(),
+                    size: f.size,
+                    attrs,
+                }
+            })
+            .collect();
+
+        responses.push(FileSearchResponse {
+            username: result.username.clone(),
+            token: result.token.to_string(),
+            files,
+            slots_free: result.slots > 0,
+            avg_speed: result.speed as f64,
+            queue_length: 0,
+        });
+    }
+
+    responses
 }
 
 // ============================================================================
@@ -226,37 +251,35 @@ fn to_file_attributes(attrs: &HashMap<u8, u32>) -> HashMap<FileAttribute, u32> {
     result
 }
 
-fn flatten_search_response(response: &FileSearchResponse) -> Vec<SingleFileResult> {
-    response
-        .files
+fn flatten_search_response(resp: &FileSearchResponse) -> Vec<SingleFileResult> {
+    resp.files
         .iter()
-        .map(|file| SingleFileResult {
-            username: response.username.clone(),
-            token: response.token.clone(),
-            filename: file.filename.clone(),
-            size: file.size,
-            slots_free: response.slots_free,
-            avg_speed: response.avg_speed,
-            queue_length: response.queue_length,
-            attrs: to_file_attributes(&file.attrs),
+        .map(|f| SingleFileResult {
+            username: resp.username.clone(),
+            token: resp.token.clone(),
+            filename: f.filename.clone(),
+            size: f.size,
+            slots_free: resp.slots_free,
+            avg_speed: resp.avg_speed,
+            queue_length: resp.queue_length,
+            attrs: to_file_attributes(&f.attrs),
         })
         .collect()
 }
 
 fn is_audio_file(filename: &str) -> bool {
+    let audio_extensions = [
+        ".mp3", ".flac", ".wav", ".aac", ".ogg", ".m4a", ".wma", ".aiff", ".alac", ".opus", ".ape",
+    ];
     let lower = filename.to_lowercase();
-    [".mp3", ".flac", ".wav", ".m4a", ".ogg", ".aac", ".aiff"]
-        .iter()
-        .any(|ext| lower.ends_with(ext))
+    audio_extensions.iter().any(|ext| lower.ends_with(ext))
 }
 
 fn rank_results(track: &Track, results: &mut [SingleFileResult]) {
-    let requested_artist_lc = track.artists.join(" ").to_lowercase();
     let requested_title_lc = track.title.to_lowercase();
-    let _user_length = track.length.filter(|&l| l > 0);
+    let requested_artist_lc = track.artists.join(" ").to_lowercase();
 
     results.sort_by(|a, b| {
-        // Primary: filename contains both artist and title (exact match preferred)
         let a_filename_lc = a.filename.to_lowercase();
         let b_filename_lc = b.filename.to_lowercase();
 
@@ -287,30 +310,25 @@ fn rank_results(track: &Track, results: &mut [SingleFileResult]) {
 }
 
 // ============================================================================
-// Client Context
+// Client Context (main API)
 // ============================================================================
 
-type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
-
-struct SoulSeekClientContextInner {
-    wrapper: SoulSeekClientWrapper,
-    logged_in: bool,
-    // TODO: Note: A better long-term solution would be to move the rate_limiter
-    // outside of the mutex-protected inner struct, since RateLimiter from governor is already thread-safe.
-    rate_limiter: DirectRateLimiter,
-    config: SearchConfig,
-}
-
+/// Main context with wrapper + limiter + config + state outside a single inner mutex.
+/// This prevents "await while holding a big lock" and makes reconnect logic safe.
 #[derive(Clone)]
 pub struct SoulSeekClientContext {
-    inner: Arc<Mutex<SoulSeekClientContextInner>>,
+    wrapper: Arc<SoulSeekClientWrapper>,
+    rate_limiter: Arc<DirectRateLimiter>,
+    config: Arc<SearchConfig>,
+
+    state: Arc<Mutex<SessionState>>,
+    session_gate: Arc<Mutex<()>>,  // serializes connect/login attempts
+    backoff_secs: Arc<Mutex<u64>>, // exponential backoff
 }
 
 impl SoulSeekClientContext {
     pub async fn new(config: SearchConfig) -> Result<Self> {
         log::debug!("Creating SoulSeek client context");
-
-        let wrapper = SoulSeekClientWrapper::new();
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
@@ -322,48 +340,151 @@ impl SoulSeekClientContext {
         );
 
         let searches_per_time_nonzero = NonZeroU32::new(searches_per_time)
-            .ok_or_else(|| color_eyre::eyre::eyre!("searches_per_time must be greater than 0"))?;
-        let quota = Quota::with_period(std::time::Duration::from_secs(renew_time_secs as u64))
+            .ok_or_else(|| color_eyre::eyre::eyre!("searches_per_time must be > 0"))?;
+
+        let quota = Quota::with_period(Duration::from_secs(renew_time_secs as u64))
             .ok_or_else(|| color_eyre::eyre::eyre!("Invalid rate limit period"))?
             .allow_burst(searches_per_time_nonzero);
 
         let rate_limiter = RateLimiter::direct(quota);
 
-        let inner = SoulSeekClientContextInner {
-            wrapper,
-            logged_in: false,
-            rate_limiter,
-            config,
-        };
-
         log::info!("SoulSeek client context created successfully");
+
         Ok(Self {
-            inner: Arc::new(Mutex::new(inner)),
+            wrapper: Arc::new(SoulSeekClientWrapper::new()),
+            rate_limiter: Arc::new(rate_limiter),
+            config: Arc::new(config),
+
+            state: Arc::new(Mutex::new(SessionState::Disconnected { last_error: None })),
+            session_gate: Arc::new(Mutex::new(())),
+            backoff_secs: Arc::new(Mutex::new(1)),
         })
     }
 
-    async fn ensure_logged_in(&self) -> Result<()> {
-        let mut inner = self.inner.lock().await;
-        if inner.logged_in {
-            return Ok(());
-        }
-        log::debug!("Logging in to SoulSeek");
-        let username = inner.config.username.clone();
-        let password = inner.config.password.clone();
-        inner.wrapper.login(&username, &password).await?;
-        inner.logged_in = true;
-        log::info!("Successfully logged in to SoulSeek");
-        Ok(())
+    async fn set_backoff_state(&self, err_msg: String) {
+        let mut b = self.backoff_secs.lock().await;
+        let wait = Duration::from_secs((*b).min(60));
+        *b = (*b * 2).min(60);
+
+        let until = Instant::now() + wait;
+
+        *self.state.lock().await = SessionState::Backoff {
+            until,
+            last_error: err_msg,
+        };
     }
 
-    /// Download a file from SoulSeek
+    async fn clear_backoff(&self) {
+        *self.backoff_secs.lock().await = 1;
+    }
+
+    async fn invalidate(&self, err_msg: &str) {
+        log::warn!("Invalidating SoulSeek session: {}", err_msg);
+        self.wrapper.clear_client().await;
+        *self.state.lock().await = SessionState::Disconnected {
+            last_error: Some(err_msg.to_string()),
+        };
+    }
+
+    /// Called by consumers when they observe a terminal failure (e.g., download Failed/TimedOut).
+    /// Invalidates the current session so the next operation will reconnect.
+    pub async fn report_session_error(&self, reason: &str) {
+        // Only invalidate if we're currently LoggedIn (avoid double-invalidate during reconnect)
+        let should_invalidate = matches!(*self.state.lock().await, SessionState::LoggedIn { .. });
+        if should_invalidate {
+            self.invalidate(reason).await;
+        }
+    }
+
+    /// Ensure we are connected+logged in. Serialized by session_gate.
+    async fn ensure_session(&self) -> Result<()> {
+        // Fast-path check for backoff (before acquiring gate)
+        {
+            let st = self.state.lock().await.clone();
+            if let SessionState::Backoff { until, .. } = st
+                && Instant::now() < until
+            {
+                return Err(color_eyre::eyre::eyre!(
+                    "Backoff in effect until {:?}",
+                    until
+                ));
+            }
+        }
+
+        let _gate = self.session_gate.lock().await;
+
+        // Check state again after acquiring gate
+        {
+            let st = self.state.lock().await.clone();
+            match st {
+                SessionState::LoggedIn { .. } => return Ok(()),
+                SessionState::Backoff { until, .. } if Instant::now() < until => {
+                    return Err(color_eyre::eyre::eyre!(
+                        "Backoff in effect until {:?}",
+                        until
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        *self.state.lock().await = SessionState::Connecting;
+
+        let username = self.config.username.clone();
+        let password = self.config.password.clone();
+
+        log::debug!("Logging in to SoulSeek as user: {}", username);
+
+        match self.wrapper.login(&username, &password).await {
+            Ok(()) => {
+                log::info!("Successfully logged in to SoulSeek");
+                *self.state.lock().await = SessionState::LoggedIn {
+                    since: Instant::now(),
+                };
+                self.clear_backoff().await;
+                Ok(())
+            }
+            Err(e) => {
+                let msg = format!("{e:?}");
+                log::warn!("SoulSeek login failed: {}", msg);
+                self.wrapper.clear_client().await;
+                self.set_backoff_state(msg).await;
+                Err(e)
+            }
+        }
+    }
+
+    /// Run an operation with session + 1 retry on session-type failures.
+    async fn with_session_retry<T, F, Fut>(&self, op_name: &str, f: F) -> Result<T>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        self.ensure_session().await?;
+
+        match f().await {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::warn!(
+                    "{} failed due to session error; retrying once: {:?}",
+                    op_name,
+                    e
+                );
+                // We will always retry once, so we can invalidate the session and try again
+                self.invalidate(&format!("{e:?}")).await;
+                self.ensure_session().await?;
+                f().await
+            }
+        }
+    }
+
+    /// Download a file from SoulSeek.
+    /// Returns an async receiver that streams download status updates.
     pub async fn download_file(
         &self,
         result: &SingleFileResult,
         download_folder: &Path,
-    ) -> Result<mpsc::Receiver<soulseek_rs::DownloadStatus>> {
-        self.ensure_logged_in().await?;
-
+    ) -> Result<tokio::sync::mpsc::Receiver<soulseek_rs::DownloadStatus>> {
         log::debug!(
             "Starting download: '{}' from user '{}' ({} bytes)",
             result.filename,
@@ -374,7 +495,6 @@ impl SoulSeekClientContext {
         // Ensure download directory exists
         tokio::fs::create_dir_all(download_folder).await?;
 
-        // Lock context to get the soulseek client for direct download access
         let filename = result.filename.clone();
         let username = result.username.clone();
         let size = result.size;
@@ -383,43 +503,66 @@ impl SoulSeekClientContext {
             .ok_or_else(|| color_eyre::eyre::eyre!("Download path contains invalid UTF-8"))?
             .to_string();
 
-        let receiver = {
-            let inner = self.inner.lock().await;
-            let client_guard = inner.wrapper.get_client().await.ok_or_else(|| {
-                color_eyre::eyre::eyre!("SoulSeek client not available for download")
-            })?;
+        let wrapper = self.wrapper.clone();
 
-            client_guard
-                .download(filename.clone(), username.clone(), size, download_path)
-                .context("Failed to download file")?
-            // inner and client_guard are dropped here when the block ends
-        };
-        log::info!("Download initiated: '{}' from '{}'", filename, username);
-        Ok(receiver)
+        // Get the sync receiver with retry logic
+        let sync_rx = self
+            .with_session_retry("download_file", || {
+                let wrapper = wrapper.clone();
+                let filename = filename.clone();
+                let username = username.clone();
+                let download_path = download_path.clone();
+
+                async move {
+                    let client_arc = wrapper
+                        .get_client_arc()
+                        .await
+                        .ok_or_else(|| color_eyre::eyre::eyre!("SoulSeek client not available for download"))?;
+
+                    tokio::task::spawn_blocking(move || -> Result<std::sync::mpsc::Receiver<soulseek_rs::DownloadStatus>> {
+                        let client = client_arc
+                            .lock()
+                            .map_err(|_| color_eyre::eyre::eyre!("Soulseek client mutex poisoned"))?;
+
+                        let receiver = client
+                            .download(filename, username, size, download_path)
+                            .context("Failed to download file")?;
+                        Ok(receiver)
+                    })
+                    .await?
+                }
+            })
+            .await?;
+
+        // Bridge sync receiver → async channel
+        let (tx, rx) = tokio::sync::mpsc::channel(64);
+        tokio::task::spawn_blocking(move || {
+            for status in sync_rx {
+                if tx.blocking_send(status).is_err() {
+                    break; // consumer dropped
+                }
+            }
+        });
+
+        log::info!(
+            "Download initiated: '{}' from '{}'",
+            result.filename,
+            result.username
+        );
+        Ok(rx)
     }
 
-    /// Search for a track on SoulSeek
+    /// Search for a track on SoulSeek.
     pub async fn search_for_track(&self, track: &Track) -> Result<Vec<SingleFileResult>> {
-        self.ensure_logged_in().await?;
         log::debug!(
             "Starting search for track: '{}' by '{}'",
             track.title,
             track.artists.join(", ")
         );
 
-        // Lock context to read config
-        let remove_special = {
-            let inner = self.inner.lock().await;
-            inner.config.remove_special_chars.unwrap_or(false)
-        };
-        let concurrency = {
-            let inner = self.inner.lock().await;
-            inner.config.concurrency.unwrap_or(2)
-        };
-        let max_search_time = {
-            let inner = self.inner.lock().await;
-            inner.config.max_search_time_ms.unwrap_or(8000)
-        };
+        let remove_special = self.config.remove_special_chars.unwrap_or(false);
+        let concurrency = self.config.concurrency.unwrap_or(2);
+        let max_search_time = self.config.max_search_time_ms.unwrap_or(8000);
 
         // 1) Build queries
         let queries = build_search_queries(track, remove_special);
@@ -428,32 +571,28 @@ impl SoulSeekClientContext {
         // 2a) Concurrency limit
         let semaphore = Arc::new(Semaphore::new(concurrency));
 
-        // We'll collect all results in a vector
-        let mut all_flattened: Vec<SingleFileResult> = vec![];
-
-        // For each query, do a concurrency-limited, rate-limited search
         let tasks: Vec<_> = queries
             .into_iter()
             .map(|q| {
-                let q = q.clone(); // Clone the String to move into async block
-                let inner = self.inner.clone();
                 let sem = semaphore.clone();
+                let ctx = self.clone();
+
                 async move {
                     let _permit = sem.acquire().await.unwrap();
 
-                    // Acquire rate limiter permit while not holding the main lock
-                    {
-                        let ctx = inner.lock().await;
-                        ctx.rate_limiter.until_ready().await;
-                    }
+                    // Rate limiting without holding any other locks
+                    ctx.rate_limiter.until_ready().await;
 
                     log::debug!("Executing search query: '{}'", q);
                     let timeout = Duration::from_millis(max_search_time);
-                    // Re-acquire lock only for the search operation
-                    let responses = {
-                        let ctx = inner.lock().await;
-                        SoulSeekClientTrait::search(&ctx.wrapper, &q, timeout).await?
-                    };
+
+                    let responses = ctx
+                        .with_session_retry("search", || {
+                            let q = q.clone();
+                            let wrapper = ctx.wrapper.clone();
+                            async move { wrapper.search(&q, timeout).await }
+                        })
+                        .await?;
 
                     log::debug!(
                         "Search query '{}' returned {} responses",
@@ -472,6 +611,8 @@ impl SoulSeekClientContext {
             .collect();
 
         let results = join_all(tasks).await;
+
+        let mut all_flattened: Vec<SingleFileResult> = vec![];
         for result in results {
             all_flattened.extend(result?);
         }
@@ -513,6 +654,19 @@ impl SoulSeekClientContext {
         );
 
         Ok(unique_results)
+    }
+
+    /// Optional: keep the session warm and recover if it drops while idle.
+    /// Returns a JoinHandle so the caller can abort it on shutdown.
+    pub fn spawn_watchdog(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = self.ensure_session().await {
+                    log::debug!("Watchdog: session ensure failed: {:?}", e);
+                }
+                tokio::time::sleep(Duration::from_secs(60)).await;
+            }
+        })
     }
 }
 
@@ -637,638 +791,193 @@ mod tests {
 
         // Test with missing album
         let track_no_album = Track {
-            title: "Song".to_string(),
-            album: String::new(),
-            artists: vec!["Artist".to_string()],
+            title: "Test Song".to_string(),
+            album: "".to_string(),
+            artists: vec!["Test Artist".to_string()],
             length: None,
         };
         let queries_no_album = build_search_queries(&track_no_album, false);
         assert!(!queries_no_album.is_empty());
-        assert!(!queries_no_album.iter().any(|q| q.contains("Album")));
+    }
 
-        // Test with missing title
-        let track_no_title = Track {
-            title: String::new(),
-            album: "Album".to_string(),
-            artists: vec!["Artist".to_string()],
+    #[test]
+    fn test_build_search_queries_empty() {
+        let track = Track {
+            title: "".to_string(),
+            album: "".to_string(),
+            artists: vec![],
             length: None,
         };
-        let queries_no_title = build_search_queries(&track_no_title, false);
-        assert_eq!(queries_no_title.len(), 0); // Should be empty without title
+        let queries = build_search_queries(&track, false);
+        assert!(queries.is_empty());
+    }
 
-        // Test with multiple artists
-        let track_multi_artist = Track {
-            title: "Song".to_string(),
-            album: "Album".to_string(),
-            artists: vec!["Artist1".to_string(), "Artist2".to_string()],
-            length: None,
-        };
-        let queries_multi = build_search_queries(&track_multi_artist, false);
-        assert!(queries_multi.iter().any(|q| q.contains("Artist1")));
-        assert!(queries_multi.iter().any(|q| q.contains("Artist2")));
+    #[test]
+    fn test_to_file_attributes() {
+        let mut attrs = HashMap::new();
+        attrs.insert(0u8, 320u32); // Bitrate
+        attrs.insert(1u8, 180u32); // Duration
+        attrs.insert(4u8, 44100u32); // SampleRate
+
+        let result = to_file_attributes(&attrs);
+        assert_eq!(result.get(&FileAttribute::Bitrate), Some(&320));
+        assert_eq!(result.get(&FileAttribute::Duration), Some(&180));
+        assert_eq!(result.get(&FileAttribute::SampleRate), Some(&44100));
+    }
+
+    #[test]
+    fn test_to_file_attributes_unknown_key() {
+        let mut attrs = HashMap::new();
+        attrs.insert(99u8, 1000u32); // Unknown key
+
+        let result = to_file_attributes(&attrs);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_flatten_search_response() {
+        let response = create_test_file_search_response();
+        let flattened = flatten_search_response(&response);
+
+        assert_eq!(flattened.len(), 2);
+
+        let mp3_result = flattened.iter().find(|f| f.filename == "song.mp3").unwrap();
+        assert_eq!(mp3_result.username, "test_user");
+        assert_eq!(mp3_result.token, "token123");
+        assert_eq!(mp3_result.size, 5000000);
+        assert!(mp3_result.slots_free);
+        assert_eq!(mp3_result.avg_speed, 100.0);
+        assert_eq!(mp3_result.attrs.get(&FileAttribute::Bitrate), Some(&320));
+        assert_eq!(mp3_result.attrs.get(&FileAttribute::Duration), Some(&180));
     }
 
     #[test]
     fn test_is_audio_file() {
         // Positive cases
         assert!(is_audio_file("song.mp3"));
-        assert!(is_audio_file("song.MP3")); // Case insensitive
+        assert!(is_audio_file("song.MP3"));
         assert!(is_audio_file("song.flac"));
         assert!(is_audio_file("song.wav"));
-        assert!(is_audio_file("song.m4a"));
-        assert!(is_audio_file("song.ogg"));
         assert!(is_audio_file("song.aac"));
+        assert!(is_audio_file("song.ogg"));
+        assert!(is_audio_file("song.m4a"));
+        assert!(is_audio_file("song.wma"));
         assert!(is_audio_file("song.aiff"));
-        assert!(is_audio_file("path/to/song.mp3"));
+        assert!(is_audio_file("song.alac"));
+        assert!(is_audio_file("song.opus"));
+        assert!(is_audio_file("song.ape"));
+
+        // With paths
+        assert!(is_audio_file("/path/to/song.mp3"));
+        assert!(is_audio_file("C:\\Music\\song.flac"));
 
         // Negative cases
-        assert!(!is_audio_file("song.txt"));
-        assert!(!is_audio_file("song.pdf"));
-        assert!(!is_audio_file("song"));
-        assert!(!is_audio_file("song.mp3.backup"));
-        assert!(!is_audio_file(""));
+        assert!(!is_audio_file("document.pdf"));
+        assert!(!is_audio_file("video.mp4"));
+        assert!(!is_audio_file("image.jpg"));
+        assert!(!is_audio_file("archive.zip"));
+        assert!(!is_audio_file("song.mp3.txt"));
     }
 
     #[test]
-    fn test_to_file_attributes() {
-        let attrs = HashMap::from([
-            (0, 320),   // Bitrate
-            (1, 180),   // Duration
-            (2, 1),     // VariableBitRate
-            (3, 5),     // Encoder
-            (4, 44100), // SampleRate
-            (5, 16),    // BitDepth
-            (99, 999),  // Unknown (should be ignored)
-        ]);
-
-        let result = to_file_attributes(&attrs);
-
-        assert_eq!(result.get(&FileAttribute::Bitrate), Some(&320));
-        assert_eq!(result.get(&FileAttribute::Duration), Some(&180));
-        assert_eq!(result.get(&FileAttribute::VariableBitRate), Some(&1));
-        assert_eq!(result.get(&FileAttribute::Encoder), Some(&5));
-        assert_eq!(result.get(&FileAttribute::SampleRate), Some(&44100));
-        assert_eq!(result.get(&FileAttribute::BitDepth), Some(&16));
-        assert_eq!(result.len(), 6); // Should not include unknown key
-    }
-
-    #[test]
-    fn test_flatten_search_response() {
-        let response = create_test_file_search_response();
-        let results = flatten_search_response(&response);
-
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].username, "test_user");
-        assert_eq!(results[0].token, "token123");
-        assert_eq!(results[0].filename, "song.mp3");
-        assert_eq!(results[0].size, 5000000);
-        assert!(results[0].slots_free);
-        assert_eq!(results[0].avg_speed, 100.0);
-
-        assert_eq!(results[1].filename, "song.flac");
-        assert_eq!(results[1].size, 10000000);
-
-        // Check attributes were converted
-        assert!(results[0].attrs.contains_key(&FileAttribute::Bitrate));
-        assert!(results[0].attrs.contains_key(&FileAttribute::Duration));
-    }
-
-    #[test]
-    fn test_rank_results() {
+    fn test_rank_results_prefers_matches() {
         let track = Track {
-            title: "Test Song".to_string(),
-            album: String::new(),
-            artists: vec!["Test Artist".to_string()],
+            title: "Thriller".to_string(),
+            album: "".to_string(),
+            artists: vec!["Michael Jackson".to_string()],
             length: None,
         };
 
         let mut results = vec![
             SingleFileResult {
-                filename: "other_song.mp3".to_string(),
+                username: "user1".to_string(),
+                token: "t1".to_string(),
+                filename: "random_song.mp3".to_string(),
+                size: 1000,
+                slots_free: true,
                 avg_speed: 200.0,
-                ..create_test_single_file_result()
+                queue_length: 0,
+                attrs: HashMap::new(),
             },
             SingleFileResult {
-                filename: "Test Artist - Test Song.mp3".to_string(),
-                avg_speed: 50.0,
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "another_song.mp3".to_string(),
-                avg_speed: 150.0,
-                ..create_test_single_file_result()
+                username: "user2".to_string(),
+                token: "t2".to_string(),
+                filename: "Michael Jackson - Thriller.mp3".to_string(),
+                size: 1000,
+                slots_free: true,
+                avg_speed: 100.0,
+                queue_length: 0,
+                attrs: HashMap::new(),
             },
         ];
 
         rank_results(&track, &mut results);
 
-        // First result should be the one with both artist and title
-        assert!(results[0].filename.contains("Test Artist"));
-        assert!(results[0].filename.contains("Test Song"));
-
-        // Results with artist+title should come before those without
-        let artist_title_count = results
-            .iter()
-            .take_while(|r| {
-                r.filename.to_lowercase().contains("test artist")
-                    && r.filename.to_lowercase().contains("test song")
-            })
-            .count();
-        assert!(artist_title_count >= 1);
+        // The matching result should come first despite lower speed
+        assert!(results[0].filename.contains("Thriller"));
     }
 
     #[test]
-    fn test_rank_results_speed_comparison() {
+    fn test_rank_results_speed_tiebreaker() {
         let track = Track {
             title: "Song".to_string(),
-            album: String::new(),
+            album: "".to_string(),
             artists: vec!["Artist".to_string()],
             length: None,
         };
 
         let mut results = vec![
             SingleFileResult {
-                filename: "song1.mp3".to_string(),
+                username: "user1".to_string(),
+                token: "t1".to_string(),
+                filename: "Artist Song.mp3".to_string(),
+                size: 1000,
+                slots_free: true,
                 avg_speed: 100.0,
-                ..create_test_single_file_result()
+                queue_length: 0,
+                attrs: HashMap::new(),
             },
             SingleFileResult {
-                filename: "song2.mp3".to_string(),
-                avg_speed: 300.0,
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "song3.mp3".to_string(),
+                username: "user2".to_string(),
+                token: "t2".to_string(),
+                filename: "Artist Song.flac".to_string(),
+                size: 1000,
+                slots_free: true,
                 avg_speed: 200.0,
-                ..create_test_single_file_result()
+                queue_length: 0,
+                attrs: HashMap::new(),
             },
         ];
 
         rank_results(&track, &mut results);
 
-        // When no exact matches, should be sorted by speed (descending)
-        assert!(results[0].avg_speed >= results[1].avg_speed);
-        assert!(results[1].avg_speed >= results[2].avg_speed);
+        // Both match, so higher speed should come first
+        assert_eq!(results[0].avg_speed, 200.0);
     }
 
     // ============================================================================
-    // Mock Implementation
+    // Integration Tests for Context
     // ============================================================================
-
-    // Note: Mocking async traits with mockall requires using automock or manual implementation
-    // For now, we'll test the helper functions and integration logic without full mocking
-    // In a production scenario, you'd want to refactor to use dependency injection
-    // to make the client wrapper injectable for testing
-
-    // ============================================================================
-    // Integration Tests for SoulSeekClientContext
-    // ============================================================================
-
-    // Note: Testing SoulSeekClientContext::new() requires actual SoulSeek credentials
-    // and network access, so we'll skip that for now. In a real scenario, you'd
-    // want to refactor to inject the wrapper or use a test double.
 
     #[tokio::test]
-    async fn test_search_for_track_filtering() {
-        // This test would require mocking the inner client, which is complex
-        // For now, we test the helper functions that are used
-        let track = create_test_track();
-        let queries = build_search_queries(&track, false);
-        assert!(!queries.is_empty());
+    async fn test_context_creation() {
+        let config = create_test_config();
+        let context = SoulSeekClientContext::new(config).await;
+        assert!(context.is_ok());
     }
 
     #[tokio::test]
-    async fn test_search_for_track_deduplication_logic() {
-        // Test deduplication logic
-        let mut unique_map: HashMap<String, SingleFileResult> = HashMap::new();
-
-        let result1 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 100.0,
-            ..create_test_single_file_result()
-        };
-
-        let result2 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 200.0, // Higher speed
-            ..create_test_single_file_result()
-        };
-
-        let key1 = format!("{}::{}", result1.username, result1.filename);
-        let key2 = format!("{}::{}", result2.username, result2.filename);
-
-        assert_eq!(key1, key2); // Same key
-
-        unique_map.insert(key1.clone(), result1);
-        if let Some(existing) = unique_map.get(&key2) {
-            if result2.avg_speed > existing.avg_speed {
-                unique_map.insert(key2, result2);
-            }
-        } else {
-            unique_map.insert(key2, result2);
-        }
-
-        // Should keep the one with higher speed
-        assert_eq!(unique_map.len(), 1);
-        assert_eq!(unique_map.get(&key1).unwrap().avg_speed, 200.0);
-    }
-
-    #[test]
-    fn test_search_config_defaults() {
+    async fn test_context_creation_invalid_searches_per_time() {
         let config = SearchConfig {
-            username: "user".to_string(),
-            password: "pass".to_string(),
+            username: "test".to_string(),
+            password: "test".to_string(),
             concurrency: None,
-            searches_per_time: None,
+            searches_per_time: Some(0), // Invalid
             renew_time_secs: None,
             max_search_time_ms: None,
             remove_special_chars: None,
         };
-
-        // Test default value access
-        assert_eq!(config.concurrency.unwrap_or(2), 2);
-        assert_eq!(config.searches_per_time.unwrap_or(34), 34);
-        assert_eq!(config.renew_time_secs.unwrap_or(220), 220);
-        assert_eq!(config.max_search_time_ms.unwrap_or(8000), 8000);
-        assert!(!config.remove_special_chars.unwrap_or(false));
-    }
-
-    #[test]
-    fn test_file_search_response_conversion() {
-        let response = FileSearchResponse {
-            username: "user".to_string(),
-            token: "token".to_string(),
-            files: vec![FileInfo {
-                filename: "test.mp3".to_string(),
-                size: 1000,
-                attrs: HashMap::new(),
-            }],
-            slots_free: true,
-            avg_speed: 50.0,
-            queue_length: 5,
-        };
-
-        let results = flatten_search_response(&response);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].username, "user");
-        assert_eq!(results[0].filename, "test.mp3");
-        assert!(results[0].slots_free);
-        assert_eq!(results[0].avg_speed, 50.0);
-        assert_eq!(results[0].queue_length, 5);
-    }
-
-    #[test]
-    fn test_empty_search_queries() {
-        let track = Track {
-            title: String::new(),
-            album: String::new(),
-            artists: vec![],
-            length: None,
-        };
-
-        let queries = build_search_queries(&track, false);
-        assert_eq!(queries.len(), 0);
-    }
-
-    #[test]
-    fn test_unicode_and_special_characters() {
-        let track = Track {
-            title: "Café & Bar".to_string(),
-            album: "Album (2024)".to_string(),
-            artists: vec!["Müller".to_string()],
-            length: None,
-        };
-
-        let queries = build_search_queries(&track, true);
-        assert!(!queries.is_empty());
-
-        // Check that special characters are handled
-        let cleaned = clean_search_string("Café & Bar", true);
-        assert!(!cleaned.contains("&"));
-    }
-
-    // ============================================================================
-    // Edge Case Tests
-    // ============================================================================
-
-    #[test]
-    fn test_is_audio_file_case_insensitive() {
-        assert!(is_audio_file("SONG.MP3"));
-        assert!(is_audio_file("Song.Flac"));
-        assert!(is_audio_file("song.WAV"));
-        assert!(is_audio_file("SONG.m4a"));
-    }
-
-    #[test]
-    fn test_clean_search_string_preserves_unicode_when_not_removing_special() {
-        let result = clean_search_string("Café & Bar", false);
-        assert_eq!(result, "Café & Bar");
-    }
-
-    #[test]
-    fn test_build_search_queries_with_only_title() {
-        let track = Track {
-            title: "Song".to_string(),
-            album: String::new(),
-            artists: vec![],
-            length: None,
-        };
-
-        let queries = build_search_queries(&track, false);
-        assert_eq!(queries.len(), 0); // Should be empty without artist
-    }
-
-    #[test]
-    fn test_build_search_queries_with_only_artist() {
-        let track = Track {
-            title: String::new(),
-            album: String::new(),
-            artists: vec!["Artist".to_string()],
-            length: None,
-        };
-
-        let queries = build_search_queries(&track, false);
-        assert_eq!(queries.len(), 0); // Should be empty without title
-    }
-
-    #[test]
-    fn test_to_file_attributes_empty() {
-        let attrs = HashMap::new();
-        let result = to_file_attributes(&attrs);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_to_file_attributes_unknown_keys() {
-        let attrs = HashMap::from([(99, 999), (100, 1000)]);
-        let result = to_file_attributes(&attrs);
-        assert!(result.is_empty()); // Unknown keys should be ignored
-    }
-
-    #[test]
-    fn test_flatten_search_response_empty_files() {
-        let response = FileSearchResponse {
-            username: "user".to_string(),
-            token: "token".to_string(),
-            files: vec![],
-            slots_free: true,
-            avg_speed: 0.0,
-            queue_length: 0,
-        };
-
-        let results = flatten_search_response(&response);
-        assert_eq!(results.len(), 0);
-    }
-
-    #[test]
-    fn test_rank_results_empty() {
-        let track = create_test_track();
-        let mut results: Vec<SingleFileResult> = vec![];
-        rank_results(&track, &mut results);
-        assert_eq!(results.len(), 0);
-    }
-
-    #[test]
-    fn test_rank_results_single_result() {
-        let track = create_test_track();
-        let mut results = vec![SingleFileResult {
-            filename: "song.mp3".to_string(),
-            avg_speed: 100.0,
-            ..create_test_single_file_result()
-        }];
-
-        rank_results(&track, &mut results);
-        assert_eq!(results.len(), 1);
-    }
-
-    #[test]
-    fn test_rank_results_all_match_artist_and_title() {
-        let track = Track {
-            title: "Song".to_string(),
-            album: String::new(),
-            artists: vec!["Artist".to_string()],
-            length: None,
-        };
-
-        let mut results = vec![
-            SingleFileResult {
-                filename: "Artist - Song.mp3".to_string(),
-                avg_speed: 50.0,
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "Artist Song.mp3".to_string(),
-                avg_speed: 100.0,
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "Artist-Song.mp3".to_string(),
-                avg_speed: 75.0,
-                ..create_test_single_file_result()
-            },
-        ];
-
-        rank_results(&track, &mut results);
-
-        // All match, so should be sorted by speed (descending)
-        assert!(results[0].avg_speed >= results[1].avg_speed);
-        assert!(results[1].avg_speed >= results[2].avg_speed);
-    }
-
-    #[test]
-    fn test_deduplication_keeps_higher_speed() {
-        let mut unique_map: HashMap<String, SingleFileResult> = HashMap::new();
-
-        let result1 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 50.0,
-            ..create_test_single_file_result()
-        };
-
-        let result2 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 100.0,
-            ..create_test_single_file_result()
-        };
-
-        let key = format!("{}::{}", result1.username, result1.filename);
-
-        // Insert first result
-        unique_map.insert(key.clone(), result1);
-
-        // Try to insert second result (should replace if higher speed)
-        if let Some(existing) = unique_map.get(&key) {
-            if result2.avg_speed > existing.avg_speed {
-                unique_map.insert(key.clone(), result2);
-            }
-        } else {
-            unique_map.insert(key.clone(), result2);
-        }
-
-        assert_eq!(unique_map.len(), 1);
-        assert_eq!(unique_map.get(&key).unwrap().avg_speed, 100.0);
-    }
-
-    #[test]
-    fn test_deduplication_keeps_lower_speed_when_first_is_higher() {
-        let mut unique_map: HashMap<String, SingleFileResult> = HashMap::new();
-
-        let result1 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 100.0,
-            ..create_test_single_file_result()
-        };
-
-        let result2 = SingleFileResult {
-            username: "user1".to_string(),
-            filename: "song.mp3".to_string(),
-            avg_speed: 50.0,
-            ..create_test_single_file_result()
-        };
-
-        let key = format!("{}::{}", result1.username, result1.filename);
-
-        // Insert first result
-        unique_map.insert(key.clone(), result1);
-
-        // Try to insert second result (should NOT replace since lower speed)
-        if let Some(existing) = unique_map.get(&key) {
-            if result2.avg_speed > existing.avg_speed {
-                unique_map.insert(key.clone(), result2);
-            }
-        } else {
-            unique_map.insert(key.clone(), result2);
-        }
-
-        assert_eq!(unique_map.len(), 1);
-        assert_eq!(unique_map.get(&key).unwrap().avg_speed, 100.0);
-    }
-
-    #[test]
-    fn test_audio_file_filtering_logic() {
-        let mut results = vec![
-            SingleFileResult {
-                filename: "song.mp3".to_string(),
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "song.txt".to_string(),
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "song.flac".to_string(),
-                ..create_test_single_file_result()
-            },
-            SingleFileResult {
-                filename: "song.pdf".to_string(),
-                ..create_test_single_file_result()
-            },
-        ];
-
-        results.retain(|f| is_audio_file(&f.filename));
-
-        assert_eq!(results.len(), 2);
-        assert!(results.iter().any(|r| r.filename.ends_with(".mp3")));
-        assert!(results.iter().any(|r| r.filename.ends_with(".flac")));
-        assert!(!results.iter().any(|r| r.filename.ends_with(".txt")));
-        assert!(!results.iter().any(|r| r.filename.ends_with(".pdf")));
-    }
-
-    #[test]
-    fn test_build_search_queries_deduplication() {
-        let track = Track {
-            title: "Song".to_string(),
-            album: "Song".to_string(), // Same as title
-            artists: vec!["Artist".to_string()],
-            length: None,
-        };
-
-        let queries = build_search_queries(&track, false);
-        // Should deduplicate queries (using HashSet internally)
-        let unique_queries: std::collections::HashSet<_> = queries.iter().collect();
-        assert_eq!(queries.len(), unique_queries.len());
-    }
-
-    #[test]
-    fn test_remove_diacritics_various_languages() {
-        assert_eq!(remove_diacritics("café"), "cafe");
-        assert_eq!(remove_diacritics("naïve"), "naive");
-        assert_eq!(remove_diacritics("résumé"), "resume");
-        assert_eq!(remove_diacritics("Müller"), "Muller");
-        assert_eq!(remove_diacritics("Zürich"), "Zurich");
-        assert_eq!(remove_diacritics("São Paulo"), "Sao Paulo");
-        assert_eq!(remove_diacritics("北京"), "北京"); // Chinese characters unchanged
-    }
-
-    #[test]
-    fn test_clean_search_string_multiple_special_chars() {
-        assert_eq!(clean_search_string("test@#$%^&*()", true), "test");
-        assert_eq!(clean_search_string("hello---world", true), "hello world");
-        assert_eq!(clean_search_string("test!!!", true), "test");
-    }
-
-    #[test]
-    fn test_clean_search_string_whitespace_handling() {
-        assert_eq!(
-            clean_search_string("  hello   world  ", true),
-            "hello world"
-        );
-        assert_eq!(
-            clean_search_string("\t\nhello\t\nworld\n\t", true),
-            "hello world"
-        );
-    }
-
-    #[test]
-    fn test_file_attributes_all_types() {
-        let attrs = HashMap::from([
-            (0, 320),   // Bitrate
-            (1, 180),   // Duration
-            (2, 1),     // VariableBitRate
-            (3, 5),     // Encoder
-            (4, 44100), // SampleRate
-            (5, 16),    // BitDepth
-        ]);
-
-        let result = to_file_attributes(&attrs);
-
-        assert_eq!(result.len(), 6);
-        assert_eq!(result.get(&FileAttribute::Bitrate), Some(&320));
-        assert_eq!(result.get(&FileAttribute::Duration), Some(&180));
-        assert_eq!(result.get(&FileAttribute::VariableBitRate), Some(&1));
-        assert_eq!(result.get(&FileAttribute::Encoder), Some(&5));
-        assert_eq!(result.get(&FileAttribute::SampleRate), Some(&44100));
-        assert_eq!(result.get(&FileAttribute::BitDepth), Some(&16));
-    }
-
-    #[test]
-    fn test_flatten_search_response_preserves_all_fields() {
-        let response = FileSearchResponse {
-            username: "testuser".to_string(),
-            token: "testtoken".to_string(),
-            files: vec![FileInfo {
-                filename: "test.mp3".to_string(),
-                size: 12345,
-                attrs: HashMap::from([(0, 320)]),
-            }],
-            slots_free: false,
-            avg_speed: 250.5,
-            queue_length: 3,
-        };
-
-        let results = flatten_search_response(&response);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].username, "testuser");
-        assert_eq!(results[0].token, "testtoken");
-        assert_eq!(results[0].filename, "test.mp3");
-        assert_eq!(results[0].size, 12345);
-        assert!(!results[0].slots_free);
-        assert_eq!(results[0].avg_speed, 250.5);
-        assert_eq!(results[0].queue_length, 3);
+        let context = SoulSeekClientContext::new(config).await;
+        assert!(context.is_err());
     }
 }

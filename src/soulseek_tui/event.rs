@@ -271,12 +271,12 @@ impl BackgroundThread {
         result: &SingleFileResult,
         download_folder: &Path,
     ) -> color_eyre::Result<()> {
-        let receiver = self
+        let mut receiver = self
             .soulseek_context
             .download_file(result, download_folder)
             .await?;
 
-        for status in receiver {
+        while let Some(status) = receiver.recv().await {
             match status {
                 soulseek_rs::DownloadStatus::Queued => {
                     self.sender
@@ -306,6 +306,9 @@ impl BackgroundThread {
                     break;
                 }
                 soulseek_rs::DownloadStatus::Failed => {
+                    self.soulseek_context
+                        .report_session_error("Download failed")
+                        .await;
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download failed".to_string()),
@@ -313,6 +316,9 @@ impl BackgroundThread {
                     break;
                 }
                 soulseek_rs::DownloadStatus::TimedOut => {
+                    self.soulseek_context
+                        .report_session_error("Download timed out")
+                        .await;
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download timed out".to_string()),

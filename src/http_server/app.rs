@@ -6,7 +6,7 @@ use axum::{
     Router,
     http::StatusCode,
     response::{Html, IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use color_eyre::eyre::{Context, eyre};
 use tower::ServiceBuilder;
@@ -17,7 +17,10 @@ use crate::{
     database::Database,
     http_server::{
         graphql,
-        http_routes::{album_art_image::get_track_album_art_image, audio_file::audio_file},
+        http_routes::{
+            album_art_image::get_track_album_art_image, audio_file::audio_file,
+            download_file::download_file,
+        },
         state::AppState,
     },
     import_track::watch_directory,
@@ -154,6 +157,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
             get(get_track_album_art_image),
         )
         .route("/audio-file/{track_id}", get(audio_file))
+        .route("/download-file", post(download_file))
         .layer(ServiceBuilder::new().layer(cors_layer))
         .with_state(app_state.clone());
 

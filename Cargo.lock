@@ -324,6 +324,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "base64",
  "bytes",
  "form_urlencoded",
@@ -2454,6 +2455,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "async-graphql-axum",
+ "async-stream",
  "async-trait",
  "audiotags",
  "axum",
@@ -2468,6 +2470,7 @@ dependencies = [
  "dirs",
  "fern",
  "futures",
+ "futures-util",
  "governor 0.6.3",
  "humantime",
  "infer",
@@ -2485,6 +2488,7 @@ dependencies = [
  "soulseek-rs-lib",
  "thiserror 2.0.17",
  "tokio",
+ "tokio-stream",
  "tokio-test",
  "toml",
  "tower",

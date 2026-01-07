@@ -1,12 +1,17 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Download as DownloadIcon, Loader2, Search } from "lucide-react";
-import { useState } from "react";
+import {
+  Check,
+  Download as DownloadIcon,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
 import { FormTextField } from "@/components/form/FormTextField";
 import { useAppForm } from "@/components/form/form-hooks";
@@ -23,10 +28,13 @@ import {
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
 import type {
-  MutationDownloadSoulseekFileArgs,
   MutationSearchSoulseekArgs,
   SoulSeekSearchResult,
 } from "@/graphql/graphql";
+import {
+  type DownloadFileInput,
+  downloadFileQuery,
+} from "@/lib/download-file-query";
 import { execute } from "@/lib/execute-graphql";
 import {
   formatAttributes,
@@ -57,20 +65,6 @@ const SearchSoulseekMutation = graphql(`
 	}
 `);
 
-const DownloadSoulseekFileMutation = graphql(`
-	mutation DownloadFromSoulseek($username: String!, $filename: String!, $size: Int!, $token: String!) {
-		downloadSoulseekFile(
-			username: $username
-			filename: $filename
-			size: $size
-			token: $token
-		) {
-			success
-			message
-		}
-	}
-`);
-
 type SearchFormData = {
   trackTitle: string;
   albumName: string;
@@ -78,19 +72,90 @@ type SearchFormData = {
   duration: string;
 };
 
-export function Download() {
-  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+function DownloadButton({ result }: { result: SoulSeekSearchResult }) {
+  const downloadInput: DownloadFileInput = {
+    username: result.username,
+    token: result.token,
+    filename: result.filename,
+    size: result.size,
+  };
 
+  const {
+    refetch: download,
+    data: downloadState,
+    isLoading,
+    error,
+  } = useQuery(downloadFileQuery(downloadInput));
+
+  const isDownloading = downloadState?.status === "downloading" || isLoading;
+  const isCompleted = downloadState?.status === "completed";
+  const isFailed = downloadState?.status === "failed" || error !== null;
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => download()}
+        disabled={isDownloading || isCompleted}
+      >
+        {isDownloading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Downloading...
+          </>
+        ) : isCompleted ? (
+          <>
+            <Check className="mr-2 h-4 w-4" />
+            Completed
+          </>
+        ) : isFailed ? (
+          <>
+            <X className="mr-2 h-4 w-4" />
+            Failed
+          </>
+        ) : (
+          <>
+            <DownloadIcon className="mr-2 h-4 w-4" />
+            Download
+          </>
+        )}
+      </Button>
+      {downloadState && downloadState.status === "downloading" && (
+        <div className="w-32">
+          <div className="text-xs text-muted-foreground mb-1">
+            {downloadState.progress}% (
+            {formatFileSize(downloadState.bytesDownloaded)} /{" "}
+            {formatFileSize(downloadState.totalBytes)})
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${downloadState.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {downloadState?.error && (
+        <div className="text-xs text-destructive max-w-32 text-right">
+          {downloadState.error}
+        </div>
+      )}
+      {error && (
+        <div className="text-xs text-destructive max-w-32 text-right">
+          {error instanceof Error ? error.message : "Download failed"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Download() {
   const searchSoulseek = useMutation({
     mutationFn: async (variables: MutationSearchSoulseekArgs) =>
       execute(SearchSoulseekMutation, variables),
   });
   const searchResults = searchSoulseek.data?.searchSoulseek ?? [];
-
-  const downloadSoulseekFile = useMutation({
-    mutationFn: async (variables: MutationDownloadSoulseekFileArgs) =>
-      execute(DownloadSoulseekFileMutation, variables),
-  });
 
   const form = useAppForm({
     defaultValues: {
@@ -100,7 +165,6 @@ export function Download() {
       duration: "",
     },
     onSubmit: async ({ value }: { value: SearchFormData }) => {
-      console.log("onSubmit", value);
       const artistsArray =
         value.artists.trim() !== ""
           ? parseArtistsInput(value.artists)
@@ -118,30 +182,6 @@ export function Download() {
       await searchSoulseek.mutateAsync(variables);
     },
   });
-
-  const handleDownload = async (result: SoulSeekSearchResult) => {
-    const downloadId = `${result.username}-${result.filename}`;
-    setDownloadingIds((prev) => new Set(prev).add(downloadId));
-
-    try {
-      const variables: MutationDownloadSoulseekFileArgs = {
-        username: result.username,
-        filename: result.filename,
-        size: result.size,
-        token: result.token,
-      };
-
-      await downloadSoulseekFile.mutateAsync(variables);
-    } catch (error) {
-      console.error("Download failed:", error);
-    } finally {
-      setDownloadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(downloadId);
-        return next;
-      });
-    }
-  };
 
   const columns: ColumnDef<SoulSeekSearchResult>[] = [
     {
@@ -185,31 +225,7 @@ export function Download() {
       header: "",
       cell: ({ row }) => {
         const result = row.original;
-        const downloadId = `${result.username}-${result.filename}`;
-        const isDownloading = downloadingIds.has(downloadId);
-
-        return (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownload(result)}
-              disabled={isDownloading}
-            >
-              {isDownloading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Downloading...
-                </>
-              ) : (
-                <>
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Download
-                </>
-              )}
-            </Button>
-          </div>
-        );
+        return <DownloadButton result={result} />;
       },
     },
   ];
