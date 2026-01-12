@@ -13,6 +13,8 @@ pub struct Model {
     pub musicbrainz_id: Option<String>,
     pub file_path: String,
     pub sha256: String,
+    pub isrcs: Option<String>, // JSON array of ISRCs: ["USRC11234567", ...]
+    pub barcode: Option<String>, // EAN or UPC barcode
     pub created_at: i64,
     pub updated_at: i64,
 

@@ -12,6 +12,9 @@ path = "src/lib.rs"
 name = "migration"
 path = "src/main.rs"
 
+[dependencies]
+tokio = { version = "1.48.0", features = ["full"] }
+
 [dependencies.sea-orm-migration]
 version = "2.0.0-rc.27"
 features = [
