@@ -11,6 +11,7 @@ mod musicbrainz;
 mod plex_rs;
 mod soulseek;
 mod soulseek_tui;
+mod spotify_rs;
 
 use std::path::PathBuf;
 use std::sync::Arc;
