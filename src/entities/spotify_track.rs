@@ -1,25 +1,28 @@
 use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveModelBehavior, ActiveValue::Set};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct StringVec(pub Vec<String>);
 
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "spotify_playlist")]
+#[sea_orm(table_name = "spotify_track")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i64,
-    pub account_id: i64,
-    #[sea_orm(unique)]
-    pub spotify_id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub snapshot_id: String,
-    pub track_count: i32,
+    pub spotify_track_id: i64,
+    pub title: String,
+    pub duration: Option<i32>,
+    pub artists: StringVec,
+    pub album: String,
+    pub isrc: Option<String>,    // ISRC
+    pub barcode: Option<String>, // EAN or UPC barcode
     pub created_at: i64,
     pub updated_at: i64,
 
     #[sea_orm(has_many, via = "spotify_track_playlist")]
-    pub spotify_tracks: HasMany<super::spotify_track::Entity>,
+    pub spotify_playlists: HasMany<super::spotify_playlist::Entity>,
 }
 
 #[async_trait]

@@ -7,6 +7,7 @@ mod m20251230_165711_create_plex_servers_table;
 mod m20260107_000001_add_track_identifiers;
 mod m20260107_000002_create_spotify_tables;
 mod m20260109_194726_add_irscs_to_tracks;
+mod m20260113_012025_create_spotify_track;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260107_000001_add_track_identifiers::Migration),
             Box::new(m20260107_000002_create_spotify_tables::Migration),
             Box::new(m20260109_194726_add_irscs_to_tracks::Migration),
+            Box::new(m20260113_012025_create_spotify_track::Migration),
         ]
     }
 }
