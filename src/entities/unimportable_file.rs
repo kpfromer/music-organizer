@@ -34,6 +34,8 @@ pub enum UnimportableReason {
     MusicBrainzError,
     #[sea_orm(string_value = "database_error")]
     DatabaseError,
+    #[sea_orm(string_value = "already_tried_to_import")]
+    AlreadyTriedToImport,
 }
 
 // Conversion from ImportError to UnimportableReason
@@ -49,6 +51,7 @@ impl From<&crate::import_track::ImportError> for UnimportableReason {
             ImportError::AcoustIdError { .. } => UnimportableReason::AcoustIdError,
             ImportError::MusicBrainzError { .. } => UnimportableReason::MusicBrainzError,
             ImportError::DatabaseError { .. } => UnimportableReason::DatabaseError,
+            ImportError::AlreadyTriedToImport => UnimportableReason::AlreadyTriedToImport,
         }
     }
 }

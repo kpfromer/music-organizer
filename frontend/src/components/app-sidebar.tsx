@@ -55,6 +55,16 @@ const items = [
     url: "/plex-tracks",
     icon: Music,
   },
+  {
+    title: "Spotify",
+    url: "/spotify",
+    icon: Music,
+  },
+  {
+    title: "Matched Tracks",
+    url: "/spotify/matched-tracks",
+    icon: Music,
+  },
 ];
 
 export function AppSidebar() {

@@ -489,6 +489,9 @@ impl Database {
             sha256: ActiveValue::Set(sha256.to_string()),
             created_at: ActiveValue::Set(now),
             updated_at: ActiveValue::Set(now),
+            // TODO: add barcode and isrcs
+            barcode: ActiveValue::Set(None),
+            isrcs: ActiveValue::Set(None),
         };
 
         let result = new_track

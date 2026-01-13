@@ -49,6 +49,13 @@ futures-util = "0.3.31"
 async-stream = "0.3.6"
 tokio-stream = "0.1.18"
 
+spotify-rs = { path = "./spotify-rs/spotify-rs" }
+# spotify-rs = "0.4.1"
+tempfile = "3.24.0"
+ollama-native = "1.0.2"
+schemars = "1.2.0"
+jaro_winkler = "0.1.0"
+
 [dev-dependencies]
 mockall = "0.12"
 tokio-test = "0.4"

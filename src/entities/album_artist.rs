@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::*;
 
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "album_artists")]
+#[sea_orm(table_name = "album_artist")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub album_id: i64,

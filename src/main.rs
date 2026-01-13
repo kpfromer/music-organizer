@@ -9,7 +9,9 @@ mod import_track;
 mod logging;
 mod migrator;
 mod musicbrainz;
+mod ollama;
 mod plex_rs;
+mod services;
 mod soulseek;
 mod soulseek_tui;
 
@@ -18,6 +20,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::Context};
+use spotify_rs::RedirectUrl;
 
 use crate::{
     config::Config,
@@ -25,6 +28,7 @@ use crate::{
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
     logging::setup_logging,
+    services::spotify::client::SpotifyApiCredentials,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -125,6 +129,14 @@ enum Commands {
         /// Base URL for the service (used for auth redirects)
         #[arg(long, env = "BASE_URL")]
         base_url: Option<String>,
+
+        /// Spotify client ID
+        #[arg(long, env = "SPOTIFY_CLIENT_ID")]
+        spotify_client_id: Option<String>,
+
+        /// Spotify client secret
+        #[arg(long, env = "SPOTIFY_CLIENT_SECRET")]
+        spotify_client_secret: Option<String>,
     },
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -217,16 +229,40 @@ async fn main() -> Result<()> {
             soulseek_password,
             download_directory,
             base_url,
+            spotify_client_id,
+            spotify_client_secret,
         } => {
             // Set default base_url in debug mode, require it in release mode
             let base_url = if let Some(url) = base_url {
                 url
             } else if cfg!(debug_assertions) {
-                "http://localhost:3001".to_string()
+                "http://127.0.0.1:3001".to_string()
             } else {
                 return Err(color_eyre::eyre::eyre!(
                     "BASE_URL is required in release mode. Set it via --base-url or BASE_URL environment variable"
                 ));
+            };
+            let base_url_as_url =
+                url::Url::parse(&base_url).wrap_err("Failed to parse base URL")?;
+
+            let spotify_credentials = match (spotify_client_id, spotify_client_secret) {
+                (Some(client_id), Some(client_secret)) => Some(SpotifyApiCredentials::new(
+                    client_id,
+                    client_secret,
+                    RedirectUrl::new(
+                        base_url_as_url
+                            .join("spotify-auth/callback-frontend")
+                            .wrap_err("Failed to join base URL and callback path")?
+                            .to_string(),
+                    )
+                    .wrap_err("Failed to create spotify redirect URL")?,
+                )),
+                (Some(_), None) | (None, Some(_)) => {
+                    return Err(color_eyre::eyre::eyre!(
+                        "SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are required to be set together"
+                    ));
+                }
+                (None, None) => None,
             };
             log::info!("Starting HTTP server on port: {}", port);
             http_server::app::start(HttpServerConfig {
@@ -239,6 +275,7 @@ async fn main() -> Result<()> {
                 soulseek_password,
                 download_directory,
                 base_url,
+                spotify_credentials,
             })
             .await?;
         }

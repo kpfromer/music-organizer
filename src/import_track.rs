@@ -2,14 +2,16 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use color_eyre::Result;
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use tokio::time::interval;
-
 use crate::acoustid::{AcoustIdRecording, lookup_fingerprint};
 use crate::musicbrainz::{fetch_recording_with_details, fetch_release_with_details};
 use crate::{chromaprint, file_hash};
+use color_eyre::Result;
+use reqwest::Client;
+use sea_orm::ColumnTrait;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use serde::{Deserialize, Serialize};
+use tokio::time::interval;
 
 use crate::{config::Config, database::Database};
 
@@ -18,6 +20,9 @@ pub const SUPPORTED_FILE_TYPES: &[&str] = &["mp3", "flac", "m4a", "aac", "ogg", 
 #[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ImportError {
+    #[error("Already tried to import this file and failed originally")]
+    AlreadyTriedToImport,
+
     #[error("Unsupported file type: {extension}")]
     UnsupportedFileType { extension: String },
 
@@ -287,7 +292,7 @@ pub async fn import_track(
     api_key: &str,
     config: &Config,
     database: &Database,
-) -> Result<(), ImportError> {
+) -> Result<crate::entities::track::Model, ImportError> {
     log::debug!("Starting import for file: {}", file_path.display());
 
     let extension = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -310,7 +315,7 @@ pub async fn import_track(
             "Track {} already exists in unimportable database skipping",
             file_path.display()
         );
-        return Ok(());
+        return Err(ImportError::AlreadyTriedToImport);
     }
 
     // Gather all metadata
@@ -515,7 +520,20 @@ pub async fn import_track(
     );
 
     println!("Successfully imported: {}", organized_path.display());
-    Ok(())
+    let track = crate::entities::track::Entity::find()
+        .filter(crate::entities::track::Column::FilePath.eq(organized_path.to_str().unwrap()))
+        .one(&database.conn)
+        .await
+        .map_err(|e| ImportError::DatabaseError {
+            operation: "get track by file path".to_string(),
+            error_message: e.to_string(),
+        })?
+        .ok_or_else(|| ImportError::DatabaseError {
+            operation: "get track by file path".to_string(),
+            error_message: "Track not found".to_string(),
+        })?;
+
+    Ok(track)
 }
 
 pub async fn import_folder(
@@ -545,8 +563,12 @@ pub async fn import_folder(
 
         let result = import_track(path, api_key, config, database).await;
         match result {
-            Ok(()) => {
+            Ok(_) => {
                 success_count += 1;
+            }
+            Err(ImportError::AlreadyTriedToImport) => {
+                // We already tried to import this file and failed originally, so we don't need to do anything
+                // or log anything
             }
             Err(e) => {
                 error_count += 1;

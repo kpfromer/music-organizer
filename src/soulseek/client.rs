@@ -552,6 +552,7 @@ impl SoulSeekClientContext {
         Ok(rx)
     }
 
+
     /// Search for a track on SoulSeek.
     pub async fn search_for_track(&self, track: &Track) -> Result<Vec<SingleFileResult>> {
         log::debug!(

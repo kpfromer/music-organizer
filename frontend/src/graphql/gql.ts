@@ -31,6 +31,15 @@ type Documents = {
     "\n  mutation RefreshMusicLibrary($plexServerId: Int!) {\n    refreshMusicLibrary(plexServerId: $plexServerId) {\n      success\n      message\n      sectionId\n    }\n  }\n": typeof types.RefreshMusicLibraryDocument,
     "\n  query MusicLibraryScanStatus($plexServerId: Int!) {\n    musicLibraryScanStatus(plexServerId: $plexServerId) {\n      isScanning\n      progress\n      title\n      subtitle\n    }\n  }\n": typeof types.MusicLibraryScanStatusDocument,
     "\n  query PlexTracks {\n    plexTracks {\n      ... on PlexTracksSuccess {\n        tracks {\n          title\n          album\n          artist\n        }\n      }\n      ... on NoPlexServerError {\n        message\n      }\n      ... on MultiplePlexServersError {\n        message\n        serverCount\n      }\n      ... on PlexTracksError {\n        message\n      }\n    }\n  }\n": typeof types.PlexTracksDocument,
+    "\n  mutation CompleteSpotifyAuth($authCode: String!, $csrfState: String!) {\n    completeSpotifyAuth(authCode: $authCode, csrfState: $csrfState) {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.CompleteSpotifyAuthDocument,
+    "\n  query SpotifyMatchedTracks($page: Int, $pageSize: Int, $search: String) {\n    spotifyMatchedTracks(page: $page, pageSize: $pageSize, search: $search) {\n      matchedTracks {\n        spotifyTrackId\n        spotifyTitle\n        spotifyArtists\n        spotifyAlbum\n        spotifyIsrc\n        spotifyDuration\n        spotifyCreatedAt\n        spotifyUpdatedAt\n        localTrack {\n          id\n          title\n          trackNumber\n          duration\n          createdAt\n          album {\n            id\n            title\n            year\n            artworkUrl\n          }\n          artists {\n            id\n            name\n          }\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.SpotifyMatchedTracksDocument,
+    "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyAccountsDocument,
+    "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyPlaylistsDocument,
+    "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n": typeof types.SpotifyPlaylistSyncStateDocument,
+    "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyTrackDownloadFailuresDocument,
+    "\n  mutation SyncSpotifyPlaylists($accountId: Int!) {\n    syncSpotifyAccountPlaylistsToDb(accountId: $accountId)\n  }\n": typeof types.SyncSpotifyPlaylistsDocument,
+    "\n  mutation MatchTracks {\n    matchExistingSpotifyTracksWithLocalTracks\n  }\n": typeof types.MatchTracksDocument,
+    "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": typeof types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
 };
@@ -51,6 +60,15 @@ const documents: Documents = {
     "\n  mutation RefreshMusicLibrary($plexServerId: Int!) {\n    refreshMusicLibrary(plexServerId: $plexServerId) {\n      success\n      message\n      sectionId\n    }\n  }\n": types.RefreshMusicLibraryDocument,
     "\n  query MusicLibraryScanStatus($plexServerId: Int!) {\n    musicLibraryScanStatus(plexServerId: $plexServerId) {\n      isScanning\n      progress\n      title\n      subtitle\n    }\n  }\n": types.MusicLibraryScanStatusDocument,
     "\n  query PlexTracks {\n    plexTracks {\n      ... on PlexTracksSuccess {\n        tracks {\n          title\n          album\n          artist\n        }\n      }\n      ... on NoPlexServerError {\n        message\n      }\n      ... on MultiplePlexServersError {\n        message\n        serverCount\n      }\n      ... on PlexTracksError {\n        message\n      }\n    }\n  }\n": types.PlexTracksDocument,
+    "\n  mutation CompleteSpotifyAuth($authCode: String!, $csrfState: String!) {\n    completeSpotifyAuth(authCode: $authCode, csrfState: $csrfState) {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": types.CompleteSpotifyAuthDocument,
+    "\n  query SpotifyMatchedTracks($page: Int, $pageSize: Int, $search: String) {\n    spotifyMatchedTracks(page: $page, pageSize: $pageSize, search: $search) {\n      matchedTracks {\n        spotifyTrackId\n        spotifyTitle\n        spotifyArtists\n        spotifyAlbum\n        spotifyIsrc\n        spotifyDuration\n        spotifyCreatedAt\n        spotifyUpdatedAt\n        localTrack {\n          id\n          title\n          trackNumber\n          duration\n          createdAt\n          album {\n            id\n            title\n            year\n            artworkUrl\n          }\n          artists {\n            id\n            name\n          }\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.SpotifyMatchedTracksDocument,
+    "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyAccountsDocument,
+    "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyPlaylistsDocument,
+    "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n": types.SpotifyPlaylistSyncStateDocument,
+    "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyTrackDownloadFailuresDocument,
+    "\n  mutation SyncSpotifyPlaylists($accountId: Int!) {\n    syncSpotifyAccountPlaylistsToDb(accountId: $accountId)\n  }\n": types.SyncSpotifyPlaylistsDocument,
+    "\n  mutation MatchTracks {\n    matchExistingSpotifyTracksWithLocalTracks\n  }\n": types.MatchTracksDocument,
+    "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
 };
@@ -119,6 +137,42 @@ export function graphql(source: "\n  query MusicLibraryScanStatus($plexServerId:
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query PlexTracks {\n    plexTracks {\n      ... on PlexTracksSuccess {\n        tracks {\n          title\n          album\n          artist\n        }\n      }\n      ... on NoPlexServerError {\n        message\n      }\n      ... on MultiplePlexServersError {\n        message\n        serverCount\n      }\n      ... on PlexTracksError {\n        message\n      }\n    }\n  }\n"): typeof import('./graphql').PlexTracksDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CompleteSpotifyAuth($authCode: String!, $csrfState: String!) {\n    completeSpotifyAuth(authCode: $authCode, csrfState: $csrfState) {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').CompleteSpotifyAuthDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SpotifyMatchedTracks($page: Int, $pageSize: Int, $search: String) {\n    spotifyMatchedTracks(page: $page, pageSize: $pageSize, search: $search) {\n      matchedTracks {\n        spotifyTrackId\n        spotifyTitle\n        spotifyArtists\n        spotifyAlbum\n        spotifyIsrc\n        spotifyDuration\n        spotifyCreatedAt\n        spotifyUpdatedAt\n        localTrack {\n          id\n          title\n          trackNumber\n          duration\n          createdAt\n          album {\n            id\n            title\n            year\n            artworkUrl\n          }\n          artists {\n            id\n            name\n          }\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').SpotifyMatchedTracksDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyAccountsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyPlaylistsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n"): typeof import('./graphql').SpotifyPlaylistSyncStateDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyTrackDownloadFailuresDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SyncSpotifyPlaylists($accountId: Int!) {\n    syncSpotifyAccountPlaylistsToDb(accountId: $accountId)\n  }\n"): typeof import('./graphql').SyncSpotifyPlaylistsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation MatchTracks {\n    matchExistingSpotifyTracksWithLocalTracks\n  }\n"): typeof import('./graphql').MatchTracksDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n"): typeof import('./graphql').SyncPlaylistToLocalLibraryDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

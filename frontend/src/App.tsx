@@ -10,6 +10,9 @@ import { Playlists } from "./pages/playlists";
 import { PlexAuthCallback } from "./pages/plex-auth-callback";
 import { PlexServers } from "./pages/plex-servers";
 import { PlexTracks } from "./pages/plex-tracks";
+import { Spotify } from "./pages/spotify";
+import { SpotifyAuthCallback } from "./pages/spotify-auth-callback";
+import { SpotifyMatchedTracks } from "./pages/spotify-matched-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 
@@ -36,8 +39,17 @@ export function App() {
             <Route path="/unimportable-files" element={<UnimportableFiles />} />
             <Route path="/plex-servers" element={<PlexServers />} />
             <Route path="/plex-tracks" element={<PlexTracks />} />
+            <Route path="/spotify" element={<Spotify />} />
+            <Route
+              path="/spotify/matched-tracks"
+              element={<SpotifyMatchedTracks />}
+            />
           </Route>
           <Route path="/plex-auth/callback" element={<PlexAuthCallback />} />
+          <Route
+            path="/spotify-auth/callback-frontend"
+            element={<SpotifyAuthCallback />}
+          />
         </Routes>
       </Providers>
     </BrowserRouter>

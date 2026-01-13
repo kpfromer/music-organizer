@@ -23,6 +23,11 @@ pub enum MigrationError {
 /// Runs all pending migrations against the given database path.
 /// Returns an error if the migrations directory or database path cannot be found, or if the atlas command fails.
 pub fn run_migrations(database_path: &Path) -> Result<(), MigrationError> {
+    if cfg!(debug_assertions) {
+        // In debug mode, we don't want to run migrations, let the developer run them manually
+        return Ok(());
+    }
+
     let migrations_path = Path::new("./migrations")
         .canonicalize()
         .map_err(|_| MigrationError::FailedToFindMigrationsDirectory)?;

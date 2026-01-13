@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::sync::Arc;
+use std::path::PathBuf;
 
 use async_graphql_axum::GraphQL;
 use axum::{
@@ -24,6 +24,7 @@ use crate::{
         state::AppState,
     },
     import_track::watch_directory,
+    services::spotify::client::SpotifyApiCredentials,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -46,6 +47,7 @@ pub struct HttpServerConfig {
     pub soulseek_password: String,
     pub download_directory: PathBuf,
     pub base_url: String,
+    pub spotify_credentials: Option<SpotifyApiCredentials>,
 }
 
 pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
@@ -59,6 +61,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         soulseek_password,
         download_directory,
         base_url,
+        spotify_credentials,
     } = config;
     log::info!("Initializing SoulSeek client context");
     let soulseek_context = SoulSeekClientContext::new(SearchConfig {
@@ -74,12 +77,14 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
     .wrap_err("Failed to initialize SoulSeek client context")?;
 
     let app_state = Arc::new(AppState {
-        db: database,
-        soulseek_context,
+        db: Arc::new(database),
+        soulseek_context: Arc::new(soulseek_context),
         download_directory,
         api_key: acoustid_api_key.clone(),
         config: config.clone(),
         base_url: base_url.clone(),
+        spotify_credentials,
+        spotify_oauth_session: tokio::sync::Mutex::new(None),
     });
 
     let schema = graphql::create_schema(app_state.clone());
