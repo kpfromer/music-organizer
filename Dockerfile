@@ -55,15 +55,21 @@ RUN cargo build --release --locked
 FROM alpine:latest
 ENV MUSIC_MANAGER_HTTP_PORT=3000
 
-# Install runtime dependencies (chromaprint for fpcalc)
+# Install runtime dependencies (chromaprint for fpcalc, curl for atlas installation)
 RUN apk add --no-cache \
     chromaprint \
-    ca-certificates
+    ca-certificates \
+    curl
+
+# Install Atlas CLI
+RUN curl -sSf https://atlasgo.sh | sh -s -- --community
+ENV PATH="/root/.atlas/bin:${PATH}"
 
 WORKDIR /app
 
 COPY --from=builder /app/target/release/music-manager /usr/local/bin/music-manager
 COPY --from=builder /app/frontend/dist /app/frontend/dist
+COPY migrations /app/migrations
 
 ENTRYPOINT ["music-manager"]
 CMD ["serve"]
