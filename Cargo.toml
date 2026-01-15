@@ -4,8 +4,6 @@ name = "music-manager"
 version = "0.1.0"
 edition = "2024"
 
-[workspace]
-members = [".", "migration"]
 
 [dependencies]
 color-eyre = "0.6.5"
@@ -31,7 +29,6 @@ ratatui = "0.30.0-beta"
 crossterm = "0.29"
 backon = "1.6.0"
 sea-orm = { version = "2.0.0-rc.27", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-migration = { path = "migration" }
 log = "0.4"
 fern = { version = "0.7.1", features = ["colored"] }
 humantime = "2.3.0"

@@ -7,6 +7,7 @@ mod file_hash;
 mod http_server;
 mod import_track;
 mod logging;
+mod migrator;
 mod musicbrainz;
 mod plex_rs;
 mod soulseek;
