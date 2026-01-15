@@ -1,7 +1,11 @@
 /target
 /downloads
 
+*.db
+**/*.db
+
 # Exclude media files (in music directory)
+music/
 music/**/*.mp3
 music/**/*.flac
 music/**/*.wav
