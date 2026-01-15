@@ -1,0 +1,36 @@
+name: Atlas Schema Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  atlas-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Atlas
+        run: curl -sSf https://atlasgo.sh | sh
+
+      - name: Add Atlas to PATH
+        run: echo "$HOME/.atlas/bin" >> $GITHUB_PATH
+
+      - name: Check schema sync
+        id: schema-check
+        run: |
+          OUTPUT=$(atlas schema diff --from "file://migrations" --to "file://schema.sql" --dev-url "sqlite://dev?mode=memory" 2>&1)
+          echo "diff_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          if [ "$OUTPUT" != "Schemas are synced, no changes to be made." ]; then
+            echo "❌ Schema differences detected:"
+            echo "$OUTPUT"
+            exit 1
+          else
+            echo "✅ Schemas are synced, no changes to be made."
+          fi
