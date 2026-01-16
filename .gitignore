@@ -45,3 +45,6 @@ music/**/*.db
 **/*.env
 .DS_Store
 **/.DS_Store
+
+# Docker test directory
+.docker-test/

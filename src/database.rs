@@ -83,7 +83,7 @@ impl Database {
         );
 
         log::debug!("Running database migrations");
-        run_migrations(&path)?;
+        run_migrations(path)?;
 
         log::info!("Database ready at: {}", path.display());
         Ok(Database { conn })

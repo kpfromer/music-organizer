@@ -36,7 +36,7 @@ struct Args {
     config: Option<PathBuf>,
 
     /// Console log level (default: off)
-    #[arg(long, default_value = "off", global = true)]
+    #[arg(long, default_value = "off", global = true, env = "LOG_LEVEL")]
     log_level: log::LevelFilter,
 
     /// File log level (default: debug)
