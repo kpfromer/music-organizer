@@ -13,7 +13,7 @@ pub enum MigrationError {
     #[error(
         "Atlas command not found. Please install Atlas CLI: https://atlasgo.io/cli/installation"
     )]
-    AltasCommandNotFound,
+    AtlasCommandNotFound,
     #[error("Failed to execute atlas process:\nstdout:\n{stdout}\nstderr:\n{stderr}")]
     AtlasCommandFailed { stdout: String, stderr: String },
     #[error("Unknown error: {0}")]
@@ -34,9 +34,18 @@ pub fn run_migrations(database_path: &Path) -> Result<(), MigrationError> {
         .ok_or(MigrationError::FailedToFindMigrationsDirectory)?;
     let migrations_option = format!("file://{}", migrations_path_str);
 
-    let database_path = database_path
+    // Canonicalize parent directory (must exist) and append filename
+    // This allows the database file to not exist yet (Atlas/SQLite will create it)
+    let db_parent = database_path
+        .parent()
+        .ok_or_else(|| MigrationError::FailedToFindDatabasePath(database_path.to_path_buf()))?
         .canonicalize()
-        .map_err(|_| MigrationError::FailedToFindDatabasePath(database_path.to_path_buf()))?
+        .map_err(|_| MigrationError::FailedToFindDatabasePath(database_path.to_path_buf()))?;
+    let db_filename = database_path
+        .file_name()
+        .ok_or_else(|| MigrationError::FailedToFindDatabasePath(database_path.to_path_buf()))?;
+    let database_path = db_parent
+        .join(db_filename)
         .to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| MigrationError::FailedToFindDatabasePath(database_path.to_path_buf()))?;
@@ -68,7 +77,7 @@ pub fn run_migrations(database_path: &Path) -> Result<(), MigrationError> {
         }
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                Err(MigrationError::AltasCommandNotFound)
+                Err(MigrationError::AtlasCommandNotFound)
             } else {
                 Err(MigrationError::UnknownError(e))
             }
