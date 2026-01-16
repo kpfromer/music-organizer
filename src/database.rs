@@ -1,9 +1,7 @@
-// TODO: Remove this once we have a proper API
 #![allow(dead_code)]
 
 use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
-use migration::MigratorTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database as SeaDatabase,
     DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect,
@@ -15,6 +13,7 @@ use std::time::Duration;
 use crate::entities;
 use crate::entities::unimportable_file::UnimportableReason;
 use crate::import_track::ImportError;
+use crate::migrator::run_migrations;
 
 pub struct Database {
     pub conn: DatabaseConnection,
@@ -83,11 +82,8 @@ impl Database {
             "PRAGMA foreign_keys = ON".to_owned(),
         );
 
-        // Run migrations
         log::debug!("Running database migrations");
-        migration::Migrator::up(&conn, None)
-            .await
-            .context("Failed to run database migrations")?;
+        run_migrations(path)?;
 
         log::info!("Database ready at: {}", path.display());
         Ok(Database { conn })

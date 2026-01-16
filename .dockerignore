@@ -43,4 +43,6 @@ downloads/
 .github
 music/
 
+*.just
+
 # Don't ignore Cargo.lock - we need it for reproducible builds
