@@ -27,7 +27,7 @@ use crate::{
     database::Database,
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
-    logging::{init_tracing, setup_logging},
+    logging::init_tracing,
     services::spotify::client::SpotifyApiCredentials,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
@@ -39,17 +39,13 @@ struct Args {
     #[arg(short, long, env = "MUSIC_MANAGER_CONFIG")]
     config: Option<PathBuf>,
 
-    /// Console log level (default: off)
-    #[arg(long, default_value = "off", global = true, env = "LOG_LEVEL")]
-    log_level: log::LevelFilter,
+    /// Tracing level
+    #[arg(long, default_value = "info", global = true, env = "RUST_LOG")]
+    tracing_level: String,
 
-    /// File log level (default: debug)
-    #[arg(long, default_value = "debug", global = true)]
-    log_file_level: log::LevelFilter,
-
-    /// Path to log file
-    #[arg(long, env = "MUSIC_MANAGER_LOG_FILE", global = true)]
-    log_file: Option<PathBuf>,
+    /// Jaeger endpoint for tracing
+    #[arg(long, env = "JAEGER_ENDPOINT", global = true)]
+    jaeger_endpoint: Option<String>,
 
     #[command(subcommand)]
     command: Commands,
@@ -154,10 +150,14 @@ enum ConfigCommands {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    init_tracing("music-manager").wrap_err("Failed to initialize tracing")?;
-
     let args = Args::parse();
-    // setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
+
+    init_tracing(
+        "music-manager",
+        args.jaeger_endpoint.as_deref(),
+        args.tracing_level.as_str(),
+    )
+    .wrap_err("Failed to initialize tracing")?;
 
     log::debug!("Music manager starting");
     log::debug!("Loading configuration");
