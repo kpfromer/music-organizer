@@ -27,7 +27,7 @@ use crate::{
     database::Database,
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
-    logging::setup_logging,
+    logging::{init_tracing, setup_logging},
     services::spotify::client::SpotifyApiCredentials,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
@@ -154,8 +154,10 @@ enum ConfigCommands {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
+    init_tracing("music-manager").wrap_err("Failed to initialize tracing")?;
+
     let args = Args::parse();
-    setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
+    // setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
 
     log::debug!("Music manager starting");
     log::debug!("Loading configuration");

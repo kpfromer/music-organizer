@@ -10,6 +10,7 @@ use axum::{
 };
 use color_eyre::eyre::{Context, eyre};
 use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
@@ -164,6 +165,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         .route("/audio-file/{track_id}", get(audio_file))
         .route("/download-file", post(download_file))
         .layer(ServiceBuilder::new().layer(cors_layer))
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state.clone());
 
     // Start watch directory in background

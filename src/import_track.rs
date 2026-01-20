@@ -12,6 +12,7 @@ use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use serde::{Deserialize, Serialize};
 use tokio::time::interval;
+use tracing::instrument;
 
 use crate::{config::Config, database::Database};
 
@@ -287,6 +288,7 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 /// Import a track: check for duplicates, move file, and update database
+#[instrument(skip(api_key, config, database))]
 pub async fn import_track(
     file_path: &Path,
     api_key: &str,
@@ -536,6 +538,7 @@ pub async fn import_track(
     Ok(track)
 }
 
+#[instrument(skip(api_key, config, database))]
 pub async fn import_folder(
     folder_path: &Path,
     api_key: &str,
@@ -591,6 +594,7 @@ pub async fn import_folder(
 
 // TODO: I need to way to get rejected files and save them
 /// Watch a directory for new music files and import them automatically
+#[instrument(skip(api_key, config, database))]
 pub async fn watch_directory(
     directory: &Path,
     api_key: &str,
