@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use color_eyre::eyre::{Context, OptionExt, Result};
 use ollama_native::Ollama;
 use schemars::{JsonSchema, schema_for};
@@ -37,8 +38,8 @@ pub async fn pick_best_file_for_track(
             file_id: i as i32,
             file_size: f.size,
             filename: f.filename.clone(),
-            bitrate: f.attrs.get(&FileAttribute::Bitrate).map(|b| *b),
-            duration: f.attrs.get(&FileAttribute::Duration).map(|d| *d),
+            bitrate: f.attrs.get(&FileAttribute::Bitrate).copied(),
+            duration: f.attrs.get(&FileAttribute::Duration).copied(),
         })
         .collect::<Vec<_>>();
     let file_search_responses_str = serde_json::to_string_pretty(&file_searches)

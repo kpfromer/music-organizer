@@ -231,26 +231,26 @@ impl SpotifyQuery {
             .filter(entities::spotify_track::Column::LocalTrackId.is_not_null());
 
         // Apply search filter if provided
-        if let Some(search_term) = &search {
-            if !search_term.is_empty() {
-                let condition = Condition::any()
-                    .add(entities::spotify_track::Column::Title.contains(search_term))
-                    .add(entities::spotify_track::Column::Album.contains(search_term));
-                base_query = base_query.filter(condition);
-            }
+        if let Some(search_term) = &search
+            && !search_term.is_empty()
+        {
+            let condition = Condition::any()
+                .add(entities::spotify_track::Column::Title.contains(search_term))
+                .add(entities::spotify_track::Column::Album.contains(search_term));
+            base_query = base_query.filter(condition);
         }
 
         // Get total count (build count query separately with same filters)
         let mut count_query = entities::spotify_track::Entity::find()
             .filter(entities::spotify_track::Column::LocalTrackId.is_not_null());
 
-        if let Some(search_term) = &search {
-            if !search_term.is_empty() {
-                let condition = Condition::any()
-                    .add(entities::spotify_track::Column::Title.contains(search_term))
-                    .add(entities::spotify_track::Column::Album.contains(search_term));
-                count_query = count_query.filter(condition);
-            }
+        if let Some(search_term) = &search
+            && !search_term.is_empty()
+        {
+            let condition = Condition::any()
+                .add(entities::spotify_track::Column::Title.contains(search_term))
+                .add(entities::spotify_track::Column::Album.contains(search_term));
+            count_query = count_query.filter(condition);
         }
 
         let total_count = count_query.count(&db.conn).await.map_err(|e| {

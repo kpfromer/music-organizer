@@ -299,7 +299,7 @@ export function SpotifyMatchedTracks() {
               </Table>
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {totalPages > 1 && data && (
                 <div className="flex items-center justify-between">
                   <div className="text-muted-foreground text-sm">
                     Showing {(data.page - 1) * data.pageSize + 1} to{" "}

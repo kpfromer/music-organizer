@@ -286,8 +286,8 @@ impl SpotifyMutation {
         sync_spotify_playlist_to_local_library_task(
             db,
             soulseek_context,
-            &api_key,
-            &config,
+            api_key,
+            config,
             spotify_account_id,
             spotify_playlist_id,
             local_playlist_name,

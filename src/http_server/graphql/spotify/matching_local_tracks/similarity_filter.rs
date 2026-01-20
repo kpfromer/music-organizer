@@ -4,7 +4,6 @@ use super::types::Candidate;
 use crate::{database::Database, entities};
 use color_eyre::eyre::{Context, OptionExt, Result};
 use regex::Regex;
-use sea_orm::ActiveModelTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{ColumnTrait, EntityTrait};
 

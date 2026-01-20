@@ -46,13 +46,11 @@ import {
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
 import type {
-  MutationMatchExistingSpotifyTracksWithLocalTracksArgs,
-  MutationSyncSpotifyPlaylistsArgs,
   MutationSyncSpotifyPlaylistToLocalLibraryArgs,
   SpotifyAccount,
   SpotifyPlaylist,
-  SpotifyPlaylistSyncState,
   SpotifyTrackDownloadFailure,
+  SyncSpotifyPlaylistsMutationVariables,
 } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
 
@@ -263,7 +261,7 @@ export function Spotify() {
   });
 
   const syncPlaylists = useMutation({
-    mutationFn: async (variables: MutationSyncSpotifyPlaylistsArgs) =>
+    mutationFn: async (variables: SyncSpotifyPlaylistsMutationVariables) =>
       execute(SyncSpotifyPlaylistsMutation, variables),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["spotifyPlaylists"] });
