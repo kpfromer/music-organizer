@@ -33,7 +33,17 @@ test: backend-test
 # Fix frontend biome issues
 fix-frontend: frontend-fix
 
-
+# Run codemod to replace log:: with tracing::
+codemod-log-to-tracing:
+    #!/usr/bin/env bash
+    if ! command -v ast-grep > /dev/null; then
+        echo "ast-grep is not installed. Install it with:"
+        echo "  cargo install ast-grep --locked"
+        echo "  or: brew install ast-grep"
+        echo "  or: npm install --global @ast-grep/cli"
+        exit 1
+    fi
+    ast-grep scan --rule log-to-tracing.yml --rewrite src/
 
 just: watch
 
