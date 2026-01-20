@@ -2,6 +2,7 @@
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use reqwest::Client;
 use serde::Deserialize;
+use tracing;
 use url::Url;
 
 use crate::plex_rs::auth::APP_IDENTIFIER;
@@ -178,7 +179,7 @@ pub async fn create_music_playlist_with_uri(
     url.query_pairs_mut()
         .append_pair("X-Plex-Token", user_token);
 
-    log::info!(
+    tracing::info!(
         "Creating Plex playlist: title='{}', url={}, has_uri={}",
         title,
         url,

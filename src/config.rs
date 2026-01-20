@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use tracing;
 
 use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
@@ -13,16 +14,16 @@ pub struct Config {
 
 impl Config {
     pub fn create_default() -> Result<Self> {
-        log::debug!("Creating default config");
+        tracing::debug!("Creating default config");
 
         let path = Self::config_path().ok_or(color_eyre::eyre::eyre!("Config file not found"))?;
 
         if path.exists() {
-            log::error!("Config file already exists at: {}", path.display());
+            tracing::error!("Config file already exists at: {}", path.display());
             return Err(color_eyre::eyre::eyre!("Config file already exists"));
         }
 
-        log::debug!("Creating config directory: {:?}", path.parent());
+        tracing::debug!("Creating config directory: {:?}", path.parent());
         std::fs::create_dir_all(
             path.parent()
                 .ok_or(color_eyre::eyre::eyre!("Config file not found"))?,
@@ -48,20 +49,20 @@ impl Config {
             })?,
         )?;
 
-        log::info!("Default config created at: {}", path.display());
+        tracing::info!("Default config created at: {}", path.display());
         Self::load()
     }
 
     /// Load config from a TOML file
     pub fn from_file(path: &PathBuf) -> Result<Self> {
-        log::debug!("Loading config from: {}", path.display());
+        tracing::debug!("Loading config from: {}", path.display());
 
         let contents = std::fs::read_to_string(path)
             .context(format!("Failed to read config file: {}", path.display()))?;
         let config: Config = toml::from_str(&contents)
             .context(format!("Failed to parse config file: {}", path.display()))?;
 
-        log::info!("Config loaded successfully from: {}", path.display());
+        tracing::info!("Config loaded successfully from: {}", path.display());
         Ok(config)
     }
 
@@ -72,7 +73,7 @@ impl Config {
 
     /// Load config with default fallback
     pub fn load() -> Result<Self> {
-        log::debug!("Loading config from default location");
+        tracing::debug!("Loading config from default location");
 
         let config_path =
             Self::config_path().ok_or(color_eyre::eyre::eyre!("Config file not found"))?;

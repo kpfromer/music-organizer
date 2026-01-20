@@ -5,6 +5,7 @@ use crate::import_track::import_track;
 use crate::soulseek::SoulSeekClientContext;
 use color_eyre::eyre::Result;
 use sea_orm::{EntityTrait, Set};
+use tracing;
 
 /// Result of processing a single Spotify track.
 #[derive(Debug)]
@@ -37,7 +38,7 @@ pub async fn process_spotify_track(
     let local_track = spotify_track.local_track.clone().into_option();
 
     if let Some(local_track) = local_track {
-        log::info!("Track already exists in local library: {:?}", &local_track);
+        tracing::info!("Track already exists in local library: {:?}", &local_track);
         return Ok(ProcessTrackResult {
             local_track_id: Some(local_track.id),
             success: true,
@@ -45,7 +46,7 @@ pub async fn process_spotify_track(
     }
 
     // Track doesn't exist in local library - need to download and match it
-    log::info!(
+    tracing::info!(
         "Downloading and matching spotify track: {:?}",
         &spotify_track
     );
@@ -55,7 +56,7 @@ pub async fn process_spotify_track(
 
     match output {
         Ok(Some((_temp_dir, temp_file))) => {
-            log::info!("Found best match for spotify track: {:?}", &spotify_track);
+            tracing::info!("Found best match for spotify track: {:?}", &spotify_track);
 
             // Import the downloaded track into the local library
             let local_track = import_track(&temp_file, api_key, config, db).await?;
@@ -76,7 +77,7 @@ pub async fn process_spotify_track(
             })
         }
         Ok(None) => {
-            log::info!(
+            tracing::info!(
                 "No best match found for spotify track: {:?}",
                 &spotify_track
             );
@@ -95,7 +96,7 @@ pub async fn process_spotify_track(
             })
         }
         Err(e) => {
-            log::error!(
+            tracing::error!(
                 "Failed to download best match for spotify track: {:?}: {}",
                 &spotify_track,
                 e

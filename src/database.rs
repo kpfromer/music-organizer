@@ -9,6 +9,7 @@ use sea_orm::{
 use serde::Serialize;
 use std::path::Path;
 use std::time::Duration;
+use tracing;
 
 use crate::entities;
 use crate::entities::unimportable_file::UnimportableReason;
@@ -49,7 +50,7 @@ pub struct Track {
 impl Database {
     /// Open or create a database at the given path
     pub async fn open(path: &Path) -> Result<Self> {
-        log::debug!("Opening database at: {}", path.display());
+        tracing::debug!("Opening database at: {}", path.display());
 
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
@@ -82,10 +83,10 @@ impl Database {
             "PRAGMA foreign_keys = ON".to_owned(),
         );
 
-        log::debug!("Running database migrations");
+        tracing::debug!("Running database migrations");
         run_migrations(path)?;
 
-        log::info!("Database ready at: {}", path.display());
+        tracing::info!("Database ready at: {}", path.display());
         Ok(Database { conn })
     }
 
@@ -114,7 +115,7 @@ impl Database {
 
     /// Create or get an artist by name and MusicBrainz ID
     pub async fn upsert_artist(&self, name: &str, musicbrainz_id: Option<&str>) -> Result<i64> {
-        log::debug!(
+        tracing::debug!(
             "Upserting artist: '{}' (MusicBrainz ID: {:?})",
             name,
             musicbrainz_id
@@ -123,7 +124,7 @@ impl Database {
         if let Some(mbid) = musicbrainz_id {
             // Try to find by MusicBrainz ID first
             if let Ok(Some(id)) = self.get_artist_id_by_musicbrainz_id(mbid).await {
-                log::debug!("Found existing artist by MusicBrainz ID (ID: {})", id);
+                tracing::debug!("Found existing artist by MusicBrainz ID (ID: {})", id);
                 // Update name if it changed
                 let artist = entities::artist::Entity::find_by_id(id)
                     .one(&self.conn)
@@ -143,14 +144,14 @@ impl Database {
                     .update(&self.conn)
                     .await
                     .context("Failed to update artist name")?;
-                log::info!("Artist updated: '{}' (ID: {})", name, id);
+                tracing::info!("Artist updated: '{}' (ID: {})", name, id);
                 return Ok(id);
             }
         }
 
         // Try to find by name
         if let Ok(Some(id)) = self.get_artist_id_by_name(name).await {
-            log::debug!("Found existing artist by name (ID: {})", id);
+            tracing::debug!("Found existing artist by name (ID: {})", id);
             // Update MusicBrainz ID if provided
             if let Some(mbid) = musicbrainz_id {
                 let artist = entities::artist::Entity::find_by_id(id)
@@ -172,12 +173,12 @@ impl Database {
                     .await
                     .context("Failed to update artist MusicBrainz ID")?;
             }
-            log::info!("Artist updated: '{}' (ID: {})", name, id);
+            tracing::info!("Artist updated: '{}' (ID: {})", name, id);
             return Ok(id);
         }
 
         // Create new artist
-        log::debug!("Creating new artist: '{}'", name);
+        tracing::debug!("Creating new artist: '{}'", name);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -196,7 +197,7 @@ impl Database {
             .await
             .context("Failed to insert artist")?;
 
-        log::info!("Artist created: '{}' (ID: {})", name, result.id);
+        tracing::info!("Artist created: '{}' (ID: {})", name, result.id);
         Ok(result.id)
     }
 
@@ -245,7 +246,7 @@ impl Database {
         musicbrainz_id: Option<&str>,
         year: Option<i32>,
     ) -> Result<i64> {
-        log::debug!(
+        tracing::debug!(
             "Upserting album: '{}' (MusicBrainz ID: {:?}, year: {:?})",
             title,
             musicbrainz_id,
@@ -255,7 +256,7 @@ impl Database {
         if let Some(mbid) = musicbrainz_id {
             // Try to find by MusicBrainz ID first
             if let Ok(Some(id)) = self.get_album_id_by_musicbrainz_id(mbid).await {
-                log::debug!("Found existing album by MusicBrainz ID (ID: {})", id);
+                tracing::debug!("Found existing album by MusicBrainz ID (ID: {})", id);
                 // Update title and year if changed
                 let album = entities::album::Entity::find_by_id(id)
                     .one(&self.conn)
@@ -276,14 +277,14 @@ impl Database {
                     .update(&self.conn)
                     .await
                     .context("Failed to update album")?;
-                log::info!("Album updated: '{}' (ID: {})", title, id);
+                tracing::info!("Album updated: '{}' (ID: {})", title, id);
                 return Ok(id);
             }
         }
 
         // Try to find by title
         if let Ok(Some(id)) = self.get_album_id_by_title(title).await {
-            log::debug!("Found existing album by title (ID: {})", id);
+            tracing::debug!("Found existing album by title (ID: {})", id);
             // Update MusicBrainz ID and year if provided
             if musicbrainz_id.is_some() || year.is_some() {
                 let album = entities::album::Entity::find_by_id(id)
@@ -310,12 +311,12 @@ impl Database {
                     .await
                     .context("Failed to update album")?;
             }
-            log::info!("Album updated: '{}' (ID: {})", title, id);
+            tracing::info!("Album updated: '{}' (ID: {})", title, id);
             return Ok(id);
         }
 
         // Create new album
-        log::debug!("Creating new album: '{}'", title);
+        tracing::debug!("Creating new album: '{}'", title);
         // TODO: Use a better timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -336,7 +337,7 @@ impl Database {
             .await
             .context("Failed to insert album")?;
 
-        log::info!("Album created: '{}' (ID: {})", title, result.id);
+        tracing::info!("Album created: '{}' (ID: {})", title, result.id);
         Ok(result.id)
     }
 
@@ -391,7 +392,7 @@ impl Database {
         file_path: &Path,
         sha256: &str,
     ) -> Result<i64> {
-        log::debug!(
+        tracing::debug!(
             "Upserting track: '{}' (MusicBrainz ID: {:?})",
             title,
             musicbrainz_id
@@ -404,7 +405,7 @@ impl Database {
 
         // Check if track exists by SHA-256 (duplicate file)
         if let Ok(Some(existing_id)) = self.get_track_id_by_sha256(sha256).await {
-            log::debug!("Found existing track by SHA-256 (ID: {})", existing_id);
+            tracing::debug!("Found existing track by SHA-256 (ID: {})", existing_id);
             // Update track metadata
             let track = entities::track::Entity::find_by_id(existing_id)
                 .one(&self.conn)
@@ -431,7 +432,7 @@ impl Database {
                 .update(&self.conn)
                 .await
                 .context("Failed to update track")?;
-            log::info!("Track updated: '{}' (ID: {})", title, existing_id);
+            tracing::info!("Track updated: '{}' (ID: {})", title, existing_id);
             return Ok(existing_id);
         }
 
@@ -439,7 +440,7 @@ impl Database {
         if let Some(mbid) = musicbrainz_id
             && let Ok(Some(existing_id)) = self.get_track_id_by_musicbrainz_id(mbid).await
         {
-            log::debug!(
+            tracing::debug!(
                 "Found existing track by MusicBrainz ID (ID: {})",
                 existing_id
             );
@@ -467,12 +468,12 @@ impl Database {
                 .update(&self.conn)
                 .await
                 .context("Failed to update track")?;
-            log::info!("Track updated: '{}' (ID: {})", title, existing_id);
+            tracing::info!("Track updated: '{}' (ID: {})", title, existing_id);
             return Ok(existing_id);
         }
 
         // Create new track
-        log::debug!("Creating new track: '{}'", title);
+        tracing::debug!("Creating new track: '{}'", title);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -499,7 +500,7 @@ impl Database {
             .await
             .context("Failed to insert track")?;
 
-        log::info!("Track created: '{}' (ID: {})", title, result.id);
+        tracing::info!("Track created: '{}' (ID: {})", title, result.id);
         Ok(result.id)
     }
 
@@ -563,7 +564,7 @@ impl Database {
         artist_id: i64,
         is_primary: bool,
     ) -> Result<()> {
-        log::debug!(
+        tracing::debug!(
             "Adding album artist relationship: album_id={}, artist_id={}, is_primary={}",
             album_id,
             artist_id,
@@ -599,7 +600,7 @@ impl Database {
         artist_id: i64,
         is_primary: bool,
     ) -> Result<()> {
-        log::debug!(
+        tracing::debug!(
             "Adding track artist relationship: track_id={}, artist_id={}, is_primary={}",
             track_id,
             artist_id,
@@ -742,7 +743,7 @@ impl Database {
 
     /// Check if a file is a duplicate by SHA-256 hash
     pub async fn is_duplicate_by_sha256(&self, sha256: &str) -> Result<bool> {
-        log::debug!("Checking for duplicate by SHA-256: {}", sha256);
+        tracing::debug!("Checking for duplicate by SHA-256: {}", sha256);
         let track = entities::track::Entity::find()
             .filter(entities::track::Column::Sha256.eq(sha256))
             .one(&self.conn)
@@ -750,7 +751,7 @@ impl Database {
             .context("Failed to check duplicate by SHA-256")?;
 
         let is_duplicate = track.is_some();
-        log::debug!(
+        tracing::debug!(
             "Duplicate check by SHA-256: {}",
             if is_duplicate { "found" } else { "not found" }
         );
@@ -759,7 +760,7 @@ impl Database {
 
     /// Check if a track already exists by MusicBrainz ID
     pub async fn is_duplicate_by_musicbrainz_id(&self, musicbrainz_id: &str) -> Result<bool> {
-        log::debug!(
+        tracing::debug!(
             "Checking for duplicate by MusicBrainz ID: {}",
             musicbrainz_id
         );
@@ -770,7 +771,7 @@ impl Database {
             .context("Failed to check duplicate by MusicBrainz ID")?;
 
         let is_duplicate = track.is_some();
-        log::debug!(
+        tracing::debug!(
             "Duplicate check by MusicBrainz ID: {}",
             if is_duplicate { "found" } else { "not found" }
         );

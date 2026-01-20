@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+use tracing;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MigrationError {
@@ -65,7 +66,7 @@ pub fn run_migrations(database_path: &Path) -> Result<(), MigrationError> {
         &database_option,
     ];
 
-    log::info!("Running migrations `atlas` with arguments: {:?}", args);
+    tracing::info!("Running migrations `atlas` with arguments: {:?}", args);
 
     // By default, atlas migrate apply executes all pending migration files.
     // atlas migrate apply

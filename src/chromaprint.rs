@@ -1,12 +1,13 @@
 use color_eyre::Result;
 use std::path::Path;
 use std::process::Command;
+use tracing;
 
 pub fn chromaprint_from_file(path: &Path) -> Result<(String, u32)> {
-    log::debug!("Computing chromaprint fingerprint for: {}", path.display());
+    tracing::debug!("Computing chromaprint fingerprint for: {}", path.display());
 
     if which::which("fpcalc").is_err() {
-        log::error!("fpcalc not found in PATH");
+        tracing::error!("fpcalc not found in PATH");
         return Err(color_eyre::eyre::eyre!(
             "fpcalc not found in PATH. Please install Chromaprint (fpcalc) and ensure it's available."
         ));
@@ -26,6 +27,6 @@ pub fn chromaprint_from_file(path: &Path) -> Result<(String, u32)> {
         }
     }
 
-    log::info!("Fingerprint computed: duration={}s", duration);
+    tracing::info!("Fingerprint computed: duration={}s", duration);
     Ok((fingerprint, duration))
 }

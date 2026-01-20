@@ -2571,7 +2571,6 @@ dependencies = [
  "governor 0.6.3",
  "infer",
  "jaro_winkler",
- "log",
  "mockall",
  "musicbrainz_rs",
  "ollama-native",

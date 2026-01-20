@@ -8,6 +8,7 @@ use color_eyre::eyre::WrapErr;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{EntityTrait, Set};
+use tracing;
 
 use super::add_tracks_to_playlist::add_tracks_to_local_playlist;
 use super::process_track::process_spotify_track;
@@ -33,7 +34,7 @@ pub async fn sync_spotify_playlist_to_local_library(
     spotify_playlist: entities::spotify_playlist::Model,
     local_playlist: entities::playlist::Model,
 ) -> Result<()> {
-    log::info!(
+    tracing::info!(
         "Starting sync of spotify playlist to local library: {:?}",
         &spotify_playlist
     );
@@ -53,7 +54,7 @@ pub async fn sync_spotify_playlist_to_local_library(
         .wrap_err("Failed to fetch spotify tracks for spotify playlist")?
         .ok_or_eyre("Spotify playlist not found")?;
 
-    log::info!(
+    tracing::info!(
         "Found {} tracks in spotify playlist: {:?}",
         spotify_playlist_with_tracks.spotify_tracks.len(),
         &spotify_playlist
@@ -97,7 +98,7 @@ pub async fn sync_spotify_playlist_to_local_library(
     add_tracks_to_local_playlist(db, &local_playlist, local_tracks_for_local_playlist).await?;
 
     // Mark sync as completed
-    log::info!(
+    tracing::info!(
         "Completed sync of spotify playlist to local library: {:?}",
         &spotify_playlist
     );

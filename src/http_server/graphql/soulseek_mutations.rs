@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing;
 
 use async_graphql::{Context, Object, SimpleObject};
 
@@ -112,7 +113,7 @@ impl SoulseekMutation {
             .search_for_track(&track)
             .await
             .map_err(|e| {
-                log::error!("SoulSeek search error: {}", e);
+                tracing::error!("SoulSeek search error: {}", e);
                 color_eyre::eyre::eyre!("SoulSeek search failed: {}", e)
             })?;
 
@@ -164,14 +165,14 @@ impl SoulseekMutation {
             while let Some(status) = receiver.recv().await {
                 match status {
                     soulseek_rs::DownloadStatus::Queued => {
-                        log::info!("Download queued: {}", filename);
+                        tracing::info!("Download queued: {}", filename);
                     }
                     soulseek_rs::DownloadStatus::InProgress {
                         bytes_downloaded,
                         total_bytes,
                         speed_bytes_per_sec: _,
                     } => {
-                        log::info!(
+                        tracing::info!(
                             "Download in progress: {} ({} bytes downloaded, {} bytes total)",
                             filename,
                             bytes_downloaded,
@@ -179,21 +180,21 @@ impl SoulseekMutation {
                         );
                     }
                     soulseek_rs::DownloadStatus::Completed => {
-                        log::info!("Download completed: {}", filename);
+                        tracing::info!("Download completed: {}", filename);
                         return Ok(DownloadStatus {
                             success: true,
                             message: format!("Download completed: {}", filename),
                         });
                     }
                     soulseek_rs::DownloadStatus::Failed => {
-                        log::error!("Download failed: {}", filename);
+                        tracing::error!("Download failed: {}", filename);
                         soulseek_context
                             .report_session_error("Download failed")
                             .await;
                         return Err(color_eyre::eyre::eyre!("Download failed: {}", filename));
                     }
                     soulseek_rs::DownloadStatus::TimedOut => {
-                        log::error!("Download timed out: {}", filename);
+                        tracing::error!("Download timed out: {}", filename);
                         soulseek_context
                             .report_session_error("Download timed out")
                             .await;

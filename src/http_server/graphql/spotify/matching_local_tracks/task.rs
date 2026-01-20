@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing;
 
 use super::llm_reranker::pick_best_local_match;
 use super::similarity_filter::filter_for_best_local_matches;
@@ -39,7 +40,7 @@ async fn match_existing_spotify_tracks_with_local(
         .collect::<Vec<_>>();
 
     let values = filter_for_best_local_matches(db, &unmatched_spotify_tracks[..]).await?;
-    log::debug!("Best local matches: {:?}", values);
+    tracing::debug!("Best local matches: {:?}", values);
     for (spotify_track, local_tracks) in values {
         let best_local_match = pick_best_local_match(spotify_track, local_tracks).await?;
 
@@ -50,7 +51,7 @@ async fn match_existing_spotify_tracks_with_local(
                 .await?
                 .ok_or_eyre("No local track found for best local match")?;
 
-            log::info!(
+            tracing::info!(
                 "Best local match found for spotify track: {:?}",
                 best_local_match
             );
@@ -58,7 +59,7 @@ async fn match_existing_spotify_tracks_with_local(
             update_database_spotify_track_with_local_track(db, spotify_track, &best_local_match)
                 .await?;
         } else {
-            log::error!(
+            tracing::error!(
                 "No best local match found for spotify track: {:?}",
                 spotify_track
             );
@@ -76,10 +77,10 @@ pub async fn match_existing_spotify_tracks_with_local_task(
     tokio::task::spawn(async move {
         match match_existing_spotify_tracks_with_local(&db, spotify_tracks).await {
             Ok(()) => {
-                log::info!("Successfully matched existing spotify tracks with local");
+                tracing::info!("Successfully matched existing spotify tracks with local");
             }
             Err(e) => {
-                log::error!(
+                tracing::error!(
                     "Failed to match existing spotify tracks with local: {:?}",
                     e
                 );

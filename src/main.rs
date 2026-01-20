@@ -17,6 +17,7 @@ mod soulseek_tui;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing;
 
 use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::Context};
@@ -159,8 +160,8 @@ async fn main() -> Result<()> {
     )
     .wrap_err("Failed to initialize tracing")?;
 
-    log::debug!("Music manager starting");
-    log::debug!("Loading configuration");
+    tracing::debug!("Music manager starting");
+    tracing::debug!("Loading configuration");
 
     let config = {
         if let Some(config) = args.config {
@@ -171,25 +172,25 @@ async fn main() -> Result<()> {
     }
     .with_context(|| "Failed to load music-manager config")?;
 
-    log::debug!("Opening database at: {}", config.database_path().display());
+    tracing::debug!("Opening database at: {}", config.database_path().display());
     let database = Database::open(&config.database_path()).await?;
 
     match args.command {
         Commands::Import { input, api_key } => {
-            log::debug!("Starting import command for: {}", input.display());
+            tracing::debug!("Starting import command for: {}", input.display());
             if input.is_file() {
                 import_track(&input, &api_key, &config, &database).await?;
             } else {
                 import_folder(&input, &api_key, &config, &database).await?;
             }
-            log::info!("Import command completed successfully");
+            tracing::info!("Import command completed successfully");
         }
         Commands::Download {
             username,
             password,
             output_directory,
         } => {
-            log::debug!("Starting download command with username: {}", username);
+            tracing::debug!("Starting download command with username: {}", username);
             let soulseek_context = Arc::new(
                 SoulSeekClientContext::new(SearchConfig {
                     username,
@@ -203,10 +204,10 @@ async fn main() -> Result<()> {
                 .await?,
             );
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
-            log::info!("Download command completed successfully");
+            tracing::info!("Download command completed successfully");
         }
         Commands::Watch { directory, api_key } => {
-            log::debug!(
+            tracing::debug!(
                 "Starting watch command for directory: {}",
                 directory.display()
             );
@@ -214,9 +215,9 @@ async fn main() -> Result<()> {
         }
         Commands::Config(config_commands) => match config_commands {
             ConfigCommands::CreateDefault => {
-                log::debug!("Creating default config");
+                tracing::debug!("Creating default config");
                 Config::create_default()?;
-                log::info!("Default config created successfully");
+                tracing::info!("Default config created successfully");
             }
             ConfigCommands::Path => match Config::config_path() {
                 Some(path) => println!("{}", path.display()),
@@ -266,7 +267,7 @@ async fn main() -> Result<()> {
                 }
                 (None, None) => None,
             };
-            log::info!("Starting HTTP server on port: {}", port);
+            tracing::info!("Starting HTTP server on port: {}", port);
             http_server::app::start(HttpServerConfig {
                 port,
                 database,

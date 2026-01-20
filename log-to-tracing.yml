@@ -1,6 +1,0 @@
-id: log-to-tracing
-language: rust
-rule:
-  pattern: log::$M
-fix: tracing::$M
-

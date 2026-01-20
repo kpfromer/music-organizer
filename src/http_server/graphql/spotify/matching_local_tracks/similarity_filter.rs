@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use tracing;
 
 use super::types::Candidate;
 use crate::{database::Database, entities};
@@ -45,7 +46,7 @@ async fn get_local_tracks_and_candidates(db: &Database) -> Result<Vec<(i64, Cand
     let mut candidates = Vec::new();
 
     for (track, album) in all_local_tracks {
-        log::debug!("Processing local track: {:?}", track);
+        tracing::debug!("Processing local track: {:?}", track);
         let album = album.ok_or_eyre("No album found for track")?;
         // TODO: fix this n+1 query
         let primary_artist = entities::album_artist::Entity::find()
@@ -95,7 +96,7 @@ pub async fn filter_for_best_local_matches<'a>(
             duration: spotify_track.duration,
         };
 
-        log::debug!(
+        tracing::debug!(
             "Computing similarity scores for spotify track: {:?}",
             spotify_track_candidate
         );
@@ -113,7 +114,7 @@ pub async fn filter_for_best_local_matches<'a>(
             .take(10)
             .collect::<Vec<_>>();
 
-        log::debug!(
+        tracing::debug!(
             "Best local track id matches: {:?}",
             best_local_track_id_matches
         );

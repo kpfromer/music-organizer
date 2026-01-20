@@ -10,6 +10,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::num::NonZeroU32;
 use std::sync::Arc;
+use tracing;
 
 type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
@@ -61,7 +62,7 @@ pub async fn lookup_fingerprint(
     duration: u32,
 ) -> Result<AcoustIdResponse> {
     // Wait for rate limit before making request
-    log::debug!("Waiting for AcoustID rate limiter");
+    tracing::debug!("Waiting for AcoustID rate limiter");
     get_rate_limiter().until_ready().await;
 
     let url = format!(
@@ -69,7 +70,7 @@ pub async fn lookup_fingerprint(
         api_key, duration, fingerprint
     );
 
-    log::debug!(
+    tracing::debug!(
         "Making AcoustID API request (duration: {}s)\n\tURL:{}",
         duration,
         url
@@ -84,13 +85,13 @@ pub async fn lookup_fingerprint(
         .await
         .wrap_err_with(|| format!("Failed to parse AcoustID API response from {}", url))?;
 
-    log::debug!(
+    tracing::debug!(
         "AcoustID response received: status={}, {} results",
         resp.status,
         resp.results.len()
     );
 
-    log::info!(
+    tracing::info!(
         "AcoustID lookup complete: {} results found",
         resp.results.len()
     );

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing;
 
 use async_graphql_axum::GraphQL;
 use axum::{
@@ -64,7 +65,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         base_url,
         spotify_credentials,
     } = config;
-    log::info!("Initializing SoulSeek client context");
+    tracing::info!("Initializing SoulSeek client context");
     let soulseek_context = SoulSeekClientContext::new(SearchConfig {
         username: soulseek_username.to_string(),
         password: soulseek_password.to_string(),
@@ -134,7 +135,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
             ));
         }
 
-        log::info!(
+        tracing::info!(
             "Release mode: Serving static files from: {}",
             frontend_dist.display()
         );
@@ -170,7 +171,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
 
     // Start watch directory in background
     {
-        log::info!("Watching directory in background");
+        tracing::info!("Watching directory in background");
         let watch_directory_path = watch_directory_path.clone();
         let app_state_clone = app_state.clone();
         let _r = tokio::spawn(async move {
@@ -187,7 +188,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
             {
                 Ok(_) => {}
                 Err(e) => {
-                    log::error!("Error watching directory: {}", e);
+                    tracing::error!("Error watching directory: {}", e);
                 }
             }
         });

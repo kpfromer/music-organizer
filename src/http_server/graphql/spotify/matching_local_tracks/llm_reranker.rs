@@ -4,6 +4,7 @@ use color_eyre::eyre::{Context, Result};
 use ollama_native::Ollama;
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
+use tracing;
 
 pub async fn pick_best_local_match(
     spotify_track: &entities::spotify_track::Model,
@@ -25,7 +26,7 @@ pub async fn pick_best_local_match(
     }
 
     // TODO: use ollama url argument
-    log::debug!("Using ollama at http://10.4.0.20:7869 to pick best local track");
+    tracing::debug!("Using ollama at http://10.4.0.20:7869 to pick best local track");
     let ollama = Ollama::new("http://10.4.0.20:7869");
     let json_schema = schema_for!(LocalTrackSelectionResponse);
     let json_schema_str = serde_json::to_string_pretty(&json_schema)
@@ -115,7 +116,7 @@ Pre-filtered candidate local tracks (already identified as potential matches):
     let response_json = serde_json::from_str::<LocalTrackSelectionResponse>(&response.response)?;
 
     if response_json.best_local_track_id.is_none() {
-        log::error!(
+        tracing::error!(
             "No best local track found for spotify track: {:?}. Reason: {}",
             spotify_track,
             response_json.reason
