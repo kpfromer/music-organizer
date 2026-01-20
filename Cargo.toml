@@ -55,6 +55,11 @@ tempfile = "3.24.0"
 ollama-native = "1.0.2"
 schemars = "1.2.0"
 jaro_winkler = "0.1.0"
+opentelemetry-otlp = { version = "0.31.0", features = ["tonic", "metrics"] }
+opentelemetry-semantic-conventions = "0.31.0"
+tracing = "0.1.44"
+tracing-opentelemetry = "0.32.0"
+tracing-subscriber = "0.3.22"
 
 [dev-dependencies]
 mockall = "0.12"
