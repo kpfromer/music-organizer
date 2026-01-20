@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::llm_reranker::pick_best_local_match;
 use super::similarity_filter::filter_for_best_local_matches;
 use crate::{database::Database, entities};
-use color_eyre::eyre::{Context, OptionExt, Result};
+use color_eyre::eyre::{OptionExt, Result};
 use sea_orm::ActiveModelTrait;
 use sea_orm::{ColumnTrait, EntityTrait};
 use sea_orm::{QueryFilter, Set};

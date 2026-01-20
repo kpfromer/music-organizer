@@ -4327,6 +4327,7 @@ dependencies = [
 [[package]]
 name = "spotify-rs"
 version = "0.4.1"
+source = "git+https://github.com/kpfromer/spotify-rs?branch=fix-for-unknown-tracks#9e584c78be4bc91a17fceb96084ab7b7b2fb338b"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -4346,6 +4347,7 @@ dependencies = [
 [[package]]
 name = "spotify-rs-macros"
 version = "0.1.0"
+source = "git+https://github.com/kpfromer/spotify-rs?branch=fix-for-unknown-tracks#9e584c78be4bc91a17fceb96084ab7b7b2fb338b"
 dependencies = [
  "proc-macro2",
  "quote",

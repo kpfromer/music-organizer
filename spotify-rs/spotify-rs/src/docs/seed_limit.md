@@ -1,1 +1,0 @@
-Note: a combination of seed artists, seed tracks and seed genres may be used, but the *total* must **not** exceed 5 seeds.

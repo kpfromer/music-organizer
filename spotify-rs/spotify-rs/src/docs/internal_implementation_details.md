@@ -1,1 +1,0 @@
-Internal implementation details (typestate pattern), may change without warning.

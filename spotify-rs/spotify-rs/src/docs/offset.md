@@ -1,1 +1,0 @@
-The index of the first item to return.
