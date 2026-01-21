@@ -4,6 +4,8 @@ use async_graphql::{Error, ErrorExtensions};
 pub enum GraphqlError {
     #[error("Server error: {0}")]
     ServerError(String),
+    #[error("Failed to get app state")]
+    FailedToGetAppState,
 }
 
 impl Default for GraphqlError {
@@ -15,7 +17,7 @@ impl Default for GraphqlError {
 impl From<color_eyre::Report> for GraphqlError {
     fn from(report: color_eyre::Report) -> Self {
         // Log the full error report with trace chain for debugging
-        log::error!("GraphQL error: {}", report);
+        log::error!("GraphQL error: {:#?}", report);
         Self::ServerError(report.to_string())
     }
 }
@@ -24,6 +26,9 @@ impl ErrorExtensions for GraphqlError {
     fn extend(&self) -> Error {
         Error::new(format!("{}", self)).extend_with(|_err, e| match self {
             GraphqlError::ServerError(reason) => e.set("reason", reason.clone()),
+            GraphqlError::FailedToGetAppState => {
+                e.set("reason", "Failed to get app state".to_string())
+            }
         })
     }
 }

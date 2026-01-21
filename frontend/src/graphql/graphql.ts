@@ -74,14 +74,22 @@ export type Mutation = {
   addTrackToPlaylist: Scalars['Boolean']['output'];
   authenticatePlexServer: AuthResponse;
   completePlexServerAuthentication: PlexServer;
+  /** Complete Spotify OAuth by exchanging code for access token */
+  completeSpotifyAuth: SpotifyAccount;
   createPlaylist: Playlist;
   createPlexServer: PlexServer;
+  deleteSpotifyAccount: Scalars['Boolean']['output'];
   downloadSoulseekFile: DownloadStatus;
+  /** Initiate Spotify OAuth flow */
+  initiateSpotifyAuth: SpotifyAuthResponse;
+  matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
   /** Trigger a refresh/rescan of the music library on a Plex server */
   refreshMusicLibrary: RefreshLibraryResult;
   searchSoulseek: Array<SoulSeekSearchResult>;
   /** Sync a database playlist to Plex */
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
+  syncSpotifyAccountPlaylistsToDb: Scalars['Boolean']['output'];
+  syncSpotifyPlaylistToLocalLibrary: Scalars['Boolean']['output'];
 };
 
 
@@ -102,6 +110,12 @@ export type MutationCompletePlexServerAuthenticationArgs = {
 };
 
 
+export type MutationCompleteSpotifyAuthArgs = {
+  authCode: Scalars['String']['input'];
+  csrfState: Scalars['String']['input'];
+};
+
+
 export type MutationCreatePlaylistArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -111,6 +125,11 @@ export type MutationCreatePlaylistArgs = {
 export type MutationCreatePlexServerArgs = {
   name: Scalars['String']['input'];
   serverUrl: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteSpotifyAccountArgs = {
+  accountId: Scalars['Int']['input'];
 };
 
 
@@ -137,6 +156,18 @@ export type MutationSearchSoulseekArgs = {
 
 export type MutationSyncPlaylistToPlexArgs = {
   playlistId: Scalars['Int']['input'];
+};
+
+
+export type MutationSyncSpotifyAccountPlaylistsToDbArgs = {
+  accountId: Scalars['Int']['input'];
+};
+
+
+export type MutationSyncSpotifyPlaylistToLocalLibraryArgs = {
+  localPlaylistName: Scalars['String']['input'];
+  spotifyAccountId: Scalars['Int']['input'];
+  spotifyPlaylistId: Scalars['Int']['input'];
 };
 
 export type NoPlexServerError = {
@@ -222,6 +253,16 @@ export type Query = {
   plexPlaylists: PlexPlaylistsResponse;
   plexServers: Array<PlexServer>;
   plexTracks: PlexTracksResult;
+  /** Get all Spotify accounts */
+  spotifyAccounts: Array<SpotifyAccount>;
+  /** Get matched Spotify tracks with their local track information */
+  spotifyMatchedTracks: SpotifyMatchedTracksResponse;
+  /** Get sync state for a Spotify playlist */
+  spotifyPlaylistSyncState?: Maybe<SpotifyPlaylistSyncState>;
+  /** Get playlists for a Spotify account */
+  spotifyPlaylists: Array<SpotifyPlaylist>;
+  /** Get download failures for a Spotify playlist */
+  spotifyTrackDownloadFailures: Array<SpotifyTrackDownloadFailure>;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
 };
@@ -250,6 +291,28 @@ export type QueryPlaylistsArgs = {
   search?: InputMaybe<Scalars['String']['input']>;
   sortBy?: InputMaybe<Scalars['String']['input']>;
   sortOrder?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QuerySpotifyMatchedTracksArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QuerySpotifyPlaylistSyncStateArgs = {
+  spotifyPlaylistId: Scalars['Int']['input'];
+};
+
+
+export type QuerySpotifyPlaylistsArgs = {
+  accountId: Scalars['Int']['input'];
+};
+
+
+export type QuerySpotifyTrackDownloadFailuresArgs = {
+  spotifyPlaylistId: Scalars['Int']['input'];
 };
 
 
@@ -302,6 +365,79 @@ export type SoulSeekSearchResult = {
   slotsFree: Scalars['Boolean']['output'];
   token: Scalars['String']['output'];
   username: Scalars['String']['output'];
+};
+
+export type SpotifyAccount = {
+  __typename?: 'SpotifyAccount';
+  createdAt: Scalars['DateTime']['output'];
+  displayName?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  userId: Scalars['String']['output'];
+};
+
+export type SpotifyAuthResponse = {
+  __typename?: 'SpotifyAuthResponse';
+  redirectUrl: Scalars['String']['output'];
+};
+
+export type SpotifyMatchedTrack = {
+  __typename?: 'SpotifyMatchedTrack';
+  localTrack: Track;
+  spotifyAlbum: Scalars['String']['output'];
+  spotifyArtists: Array<Scalars['String']['output']>;
+  spotifyCreatedAt: Scalars['DateTime']['output'];
+  spotifyDuration?: Maybe<Scalars['Int']['output']>;
+  spotifyIsrc?: Maybe<Scalars['String']['output']>;
+  spotifyTitle: Scalars['String']['output'];
+  spotifyTrackId: Scalars['String']['output'];
+  spotifyUpdatedAt: Scalars['DateTime']['output'];
+};
+
+export type SpotifyMatchedTracksResponse = {
+  __typename?: 'SpotifyMatchedTracksResponse';
+  matchedTracks: Array<SpotifyMatchedTrack>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type SpotifyPlaylist = {
+  __typename?: 'SpotifyPlaylist';
+  createdAt: Scalars['DateTime']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  spotifyId: Scalars['String']['output'];
+  trackCount: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type SpotifyPlaylistSyncState = {
+  __typename?: 'SpotifyPlaylistSyncState';
+  errorLog?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  lastSyncAt?: Maybe<Scalars['Int']['output']>;
+  localPlaylistId?: Maybe<Scalars['Int']['output']>;
+  spotifyPlaylistId: Scalars['Int']['output'];
+  syncStatus: Scalars['String']['output'];
+  tracksDownloaded: Scalars['Int']['output'];
+  tracksFailed: Scalars['Int']['output'];
+};
+
+export type SpotifyTrackDownloadFailure = {
+  __typename?: 'SpotifyTrackDownloadFailure';
+  albumName?: Maybe<Scalars['String']['output']>;
+  artistName: Scalars['String']['output'];
+  attemptsCount: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['Int']['output'];
+  isrc?: Maybe<Scalars['String']['output']>;
+  reason: Scalars['String']['output'];
+  spotifyPlaylistId: Scalars['Int']['output'];
+  spotifyTrackId: Scalars['String']['output'];
+  trackName: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type SyncPlaylistToPlexResult = {
@@ -368,6 +504,7 @@ export type UnimportableFilesResponse = {
 
 export enum UnimportableReason {
   AcoustIdError = 'ACOUST_ID_ERROR',
+  AlreadyTriedToImport = 'ALREADY_TRIED_TO_IMPORT',
   ChromaprintError = 'CHROMAPRINT_ERROR',
   DatabaseError = 'DATABASE_ERROR',
   DuplicateTrack = 'DUPLICATE_TRACK',
@@ -498,6 +635,70 @@ export type PlexTracksQuery = { __typename?: 'Query', plexTracks:
     | { __typename?: 'PlexTracksError', message: string }
     | { __typename?: 'PlexTracksSuccess', tracks: Array<{ __typename?: 'PlexTrack', title: string, album?: string | null, artist?: string | null }> }
    };
+
+export type CompleteSpotifyAuthMutationVariables = Exact<{
+  authCode: Scalars['String']['input'];
+  csrfState: Scalars['String']['input'];
+}>;
+
+
+export type CompleteSpotifyAuthMutation = { __typename?: 'Mutation', completeSpotifyAuth: { __typename?: 'SpotifyAccount', id: number, userId: string, displayName?: string | null, createdAt: any, updatedAt: any } };
+
+export type SpotifyMatchedTracksQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type SpotifyMatchedTracksQuery = { __typename?: 'Query', spotifyMatchedTracks: { __typename?: 'SpotifyMatchedTracksResponse', totalCount: number, page: number, pageSize: number, matchedTracks: Array<{ __typename?: 'SpotifyMatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, spotifyCreatedAt: any, spotifyUpdatedAt: any, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> } };
+
+export type SpotifyAccountsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SpotifyAccountsQuery = { __typename?: 'Query', spotifyAccounts: Array<{ __typename?: 'SpotifyAccount', id: number, userId: string, displayName?: string | null, createdAt: any, updatedAt: any }> };
+
+export type SpotifyPlaylistsQueryVariables = Exact<{
+  accountId: Scalars['Int']['input'];
+}>;
+
+
+export type SpotifyPlaylistsQuery = { __typename?: 'Query', spotifyPlaylists: Array<{ __typename?: 'SpotifyPlaylist', id: number, spotifyId: string, name: string, description?: string | null, trackCount: number, createdAt: any, updatedAt: any }> };
+
+export type SpotifyPlaylistSyncStateQueryVariables = Exact<{
+  spotifyPlaylistId: Scalars['Int']['input'];
+}>;
+
+
+export type SpotifyPlaylistSyncStateQuery = { __typename?: 'Query', spotifyPlaylistSyncState?: { __typename?: 'SpotifyPlaylistSyncState', id: number, spotifyPlaylistId: number, localPlaylistId?: number | null, lastSyncAt?: number | null, syncStatus: string, tracksDownloaded: number, tracksFailed: number, errorLog?: string | null } | null };
+
+export type SpotifyTrackDownloadFailuresQueryVariables = Exact<{
+  spotifyPlaylistId: Scalars['Int']['input'];
+}>;
+
+
+export type SpotifyTrackDownloadFailuresQuery = { __typename?: 'Query', spotifyTrackDownloadFailures: Array<{ __typename?: 'SpotifyTrackDownloadFailure', id: number, spotifyPlaylistId: number, spotifyTrackId: string, trackName: string, artistName: string, albumName?: string | null, isrc?: string | null, reason: string, attemptsCount: number, createdAt: any, updatedAt: any }> };
+
+export type SyncSpotifyPlaylistsMutationVariables = Exact<{
+  accountId: Scalars['Int']['input'];
+}>;
+
+
+export type SyncSpotifyPlaylistsMutation = { __typename?: 'Mutation', syncSpotifyAccountPlaylistsToDb: boolean };
+
+export type MatchTracksMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MatchTracksMutation = { __typename?: 'Mutation', matchExistingSpotifyTracksWithLocalTracks: boolean };
+
+export type SyncPlaylistToLocalLibraryMutationVariables = Exact<{
+  spotifyAccountId: Scalars['Int']['input'];
+  spotifyPlaylistId: Scalars['Int']['input'];
+  localPlaylistName: Scalars['String']['input'];
+}>;
+
+
+export type SyncPlaylistToLocalLibraryMutation = { __typename?: 'Mutation', syncSpotifyPlaylistToLocalLibrary: boolean };
 
 export type TracksQueryVariables = Exact<{
   pagination?: InputMaybe<PaginationInput>;
@@ -748,6 +949,127 @@ export const PlexTracksDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<PlexTracksQuery, PlexTracksQueryVariables>;
+export const CompleteSpotifyAuthDocument = new TypedDocumentString(`
+    mutation CompleteSpotifyAuth($authCode: String!, $csrfState: String!) {
+  completeSpotifyAuth(authCode: $authCode, csrfState: $csrfState) {
+    id
+    userId
+    displayName
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<CompleteSpotifyAuthMutation, CompleteSpotifyAuthMutationVariables>;
+export const SpotifyMatchedTracksDocument = new TypedDocumentString(`
+    query SpotifyMatchedTracks($page: Int, $pageSize: Int, $search: String) {
+  spotifyMatchedTracks(page: $page, pageSize: $pageSize, search: $search) {
+    matchedTracks {
+      spotifyTrackId
+      spotifyTitle
+      spotifyArtists
+      spotifyAlbum
+      spotifyIsrc
+      spotifyDuration
+      spotifyCreatedAt
+      spotifyUpdatedAt
+      localTrack {
+        id
+        title
+        trackNumber
+        duration
+        createdAt
+        album {
+          id
+          title
+          year
+          artworkUrl
+        }
+        artists {
+          id
+          name
+        }
+      }
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyMatchedTracksQuery, SpotifyMatchedTracksQueryVariables>;
+export const SpotifyAccountsDocument = new TypedDocumentString(`
+    query SpotifyAccounts {
+  spotifyAccounts {
+    id
+    userId
+    displayName
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyAccountsQuery, SpotifyAccountsQueryVariables>;
+export const SpotifyPlaylistsDocument = new TypedDocumentString(`
+    query SpotifyPlaylists($accountId: Int!) {
+  spotifyPlaylists(accountId: $accountId) {
+    id
+    spotifyId
+    name
+    description
+    trackCount
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyPlaylistsQuery, SpotifyPlaylistsQueryVariables>;
+export const SpotifyPlaylistSyncStateDocument = new TypedDocumentString(`
+    query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {
+  spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {
+    id
+    spotifyPlaylistId
+    localPlaylistId
+    lastSyncAt
+    syncStatus
+    tracksDownloaded
+    tracksFailed
+    errorLog
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyPlaylistSyncStateQuery, SpotifyPlaylistSyncStateQueryVariables>;
+export const SpotifyTrackDownloadFailuresDocument = new TypedDocumentString(`
+    query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {
+  spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {
+    id
+    spotifyPlaylistId
+    spotifyTrackId
+    trackName
+    artistName
+    albumName
+    isrc
+    reason
+    attemptsCount
+    createdAt
+    updatedAt
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyTrackDownloadFailuresQuery, SpotifyTrackDownloadFailuresQueryVariables>;
+export const SyncSpotifyPlaylistsDocument = new TypedDocumentString(`
+    mutation SyncSpotifyPlaylists($accountId: Int!) {
+  syncSpotifyAccountPlaylistsToDb(accountId: $accountId)
+}
+    `) as unknown as TypedDocumentString<SyncSpotifyPlaylistsMutation, SyncSpotifyPlaylistsMutationVariables>;
+export const MatchTracksDocument = new TypedDocumentString(`
+    mutation MatchTracks {
+  matchExistingSpotifyTracksWithLocalTracks
+}
+    `) as unknown as TypedDocumentString<MatchTracksMutation, MatchTracksMutationVariables>;
+export const SyncPlaylistToLocalLibraryDocument = new TypedDocumentString(`
+    mutation SyncPlaylistToLocalLibrary($spotifyAccountId: Int!, $spotifyPlaylistId: Int!, $localPlaylistName: String!) {
+  syncSpotifyPlaylistToLocalLibrary(
+    spotifyAccountId: $spotifyAccountId
+    spotifyPlaylistId: $spotifyPlaylistId
+    localPlaylistName: $localPlaylistName
+  )
+}
+    `) as unknown as TypedDocumentString<SyncPlaylistToLocalLibraryMutation, SyncPlaylistToLocalLibraryMutationVariables>;
 export const TracksDocument = new TypedDocumentString(`
     query Tracks($pagination: PaginationInput, $search: TextSearchInput, $sort: [TrackSortInput!]) {
   tracks(pagination: $pagination, search: $search, sort: $sort) {

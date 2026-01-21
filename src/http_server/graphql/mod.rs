@@ -17,9 +17,12 @@ use crate::http_server::graphql::query_builder::{
     PaginationInput, SortInput, SortableField, TextSearchInput, TrackSortField, TrackSortInput,
     apply_multi_column_text_search, apply_pagination, apply_sort,
 };
+use crate::http_server::graphql::spotify::spotify_mutations::SpotifyMutation;
+use crate::http_server::graphql::spotify::spotify_queries::SpotifyQuery;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 
+mod context;
 pub mod playlist_mutations;
 pub mod playlist_queries;
 pub mod plex_library_refresh_mutations;
@@ -31,6 +34,7 @@ pub mod plex_server_queries;
 pub mod plex_track_queries;
 pub mod query_builder;
 pub mod soulseek_mutations;
+mod spotify;
 pub mod track_queries;
 pub mod unimportable_file_queries;
 
@@ -497,7 +501,7 @@ impl LegacyQuery {
 }
 
 #[derive(Default, MergedObject)]
-pub struct Query(LegacyQuery, PlexLibraryRefreshQuery);
+pub struct Query(LegacyQuery, PlexLibraryRefreshQuery, SpotifyQuery);
 
 #[derive(Default, MergedObject)]
 pub struct Mutation(
@@ -506,6 +510,7 @@ pub struct Mutation(
     PlexServerMutation,
     PlexPlaylistMutation,
     PlexLibraryRefreshMutation,
+    SpotifyMutation,
 );
 
 pub async fn graphql() -> impl IntoResponse {
