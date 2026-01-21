@@ -211,26 +211,44 @@ impl SpotifyMutation {
                         artists: Set(entities::spotify_track::StringVec(
                             track.artists.iter().map(|a| a.name.clone()).collect(),
                         )),
-                        album: Set(track.album.name),
-                        isrc: Set(track.external_ids.isrc),
-                        barcode: Set(track.external_ids.upc),
+                        album: Set(track.album.name.clone()),
+                        isrc: Set(track.external_ids.isrc.clone()),
+                        barcode: Set(track.external_ids.upc.clone()),
                         created_at: Set(chrono::Utc::now().timestamp()),
                         updated_at: Set(chrono::Utc::now().timestamp()),
                         local_track_id: Set(None),
                     };
-                    // TODO: upsert
-                    if entities::spotify_track::Entity::find()
+                    // Upsert spotify track details
+                    match entities::spotify_track::Entity::find()
                         .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&track.id))
                         .one(&txn)
                         .await
                         .wrap_err("Failed to fetch saved spotify track")?
-                        .is_none()
                     {
-                        entities::spotify_track::Entity::insert(track_model)
-                            .exec(&txn)
-                            .await
-                            .wrap_err("Failed to save spotify track")?;
-                        log::info!("Saved spotify track",);
+                        Some(existing_track) => {
+                            let mut existing_track_model: entities::spotify_track::ActiveModel =
+                                existing_track.into();
+                            existing_track_model.updated_at = Set(chrono::Utc::now().timestamp());
+                            existing_track_model.duration = Set(Some(track.duration_ms as i32));
+                            existing_track_model.artists = Set(entities::spotify_track::StringVec(
+                                track.artists.iter().map(|a| a.name.clone()).collect(),
+                            ));
+                            existing_track_model.album = Set(track.album.name.clone());
+                            existing_track_model.isrc = Set(track.external_ids.isrc.clone());
+                            existing_track_model.barcode = Set(track.external_ids.upc.clone());
+                            log::info!("Updated spotify track in db: {:?}", existing_track_model);
+                            entities::spotify_track::Entity::update(existing_track_model)
+                                .exec(&txn)
+                                .await
+                                .wrap_err("Failed to update spotify track")?;
+                        }
+                        None => {
+                            entities::spotify_track::Entity::insert(track_model)
+                                .exec(&txn)
+                                .await
+                                .wrap_err("Failed to save spotify track")?;
+                            log::info!("Saved new spotify track to db",);
+                        }
                     }
                     track.id.clone()
                 } else {

@@ -222,6 +222,7 @@ impl SpotifyQuery {
         search: Option<String>,
     ) -> GraphqlResult<SpotifyMatchedTracksResponse> {
         let db = &get_app_state(ctx)?.db;
+        let base_url = &get_app_state(ctx)?.base_url;
 
         let page = page.unwrap_or(1).max(1) as usize;
         let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
@@ -300,11 +301,6 @@ impl SpotifyQuery {
                     name: artist.name,
                 })
                 .collect();
-
-            #[cfg(debug_assertions)]
-            let base_url = "http://localhost:3000".to_string();
-            #[cfg(not(debug_assertions))]
-            let base_url = "";
 
             let local_track = Track {
                 id: local_track_model.id,

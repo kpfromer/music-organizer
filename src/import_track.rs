@@ -627,6 +627,11 @@ pub async fn watch_directory(
                 println!("New file detected: {}", path.display());
                 let result = import_track(path, api_key, config, database).await;
                 if let Err(e) = result {
+                    // Skip files we've already tried to import
+                    if matches!(e, ImportError::AlreadyTriedToImport) {
+                        continue;
+                    }
+
                     log::warn!("Error importing track {}: {}", path.display(), e);
                     println!("Error importing track {}: {}", path.display(), e);
 

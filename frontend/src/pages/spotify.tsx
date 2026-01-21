@@ -211,7 +211,7 @@ export function Spotify() {
     enabled: !!selectedAccountId,
   });
 
-  const { data: syncStateData } = useQuery({
+  const { data: syncState } = useQuery({
     queryKey: ["spotifyPlaylistSyncState", selectedPlaylistId],
     queryFn: async () => {
       if (!selectedPlaylistId) return null;
@@ -221,25 +221,15 @@ export function Spotify() {
       return result.spotifyPlaylistSyncState;
     },
     enabled: !!selectedPlaylistId,
-  });
-
-  const syncState = syncStateData;
-  const shouldPoll =
-    syncState?.syncStatus === "pending" ||
-    syncState?.syncStatus === "in_progress";
-
-  // Poll for sync state when active
-  useQuery({
-    queryKey: ["spotifyPlaylistSyncState", selectedPlaylistId, "poll"],
-    queryFn: async () => {
-      if (!selectedPlaylistId) return null;
-      const result = await execute(SpotifyPlaylistSyncStateQuery, {
-        spotifyPlaylistId: selectedPlaylistId,
-      });
-      return result.spotifyPlaylistSyncState;
+    refetchInterval: (query) => {
+      if (
+        query.state.data?.syncStatus === "pending" ||
+        query.state.data?.syncStatus === "in_progress"
+      ) {
+        return 2000;
+      }
+      return false;
     },
-    enabled: !!selectedPlaylistId && shouldPoll,
-    refetchInterval: shouldPoll ? 2000 : false,
   });
 
   const { data: failuresData } = useQuery({
@@ -619,7 +609,7 @@ export function Spotify() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
               <span className="font-medium">Status:</span>
-              {getStatusBadge(syncState.syncStatus)}
+              {getStatusBadge(syncState.syncStatus)} {syncState.lastSyncAt}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

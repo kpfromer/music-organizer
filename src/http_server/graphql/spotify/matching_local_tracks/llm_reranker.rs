@@ -94,7 +94,12 @@ Pre-filtered candidate local tracks (already identified as potential matches):
 {local_tracks}
     "#,
         title = spotify_track.title,
-        artist = spotify_track.artists.0.first().unwrap().clone(),
+        artist = spotify_track
+            .artists
+            .0
+            .first()
+            .cloned()
+            .unwrap_or("Unknown Artist".to_string()),
         album = spotify_track.album,
         duration = spotify_track
             .duration
