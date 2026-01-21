@@ -85,7 +85,6 @@ File search responses:
         .await?;
     let response_json = serde_json::from_str::<Response>(&response.response)?;
 
-    println!("structured JSON output:\n{}\n", response.response);
     let best_file_id = response_json.best_file_id;
     let best_file = file_searches
         .iter()

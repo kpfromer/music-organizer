@@ -521,7 +521,6 @@ pub async fn import_track(
         organized_path.display()
     );
 
-    println!("Successfully imported: {}", organized_path.display());
     let track = crate::entities::track::Entity::find()
         .filter(crate::entities::track::Column::FilePath.eq(organized_path.to_str().unwrap()))
         .one(&database.conn)
@@ -576,7 +575,6 @@ pub async fn import_folder(
             Err(e) => {
                 error_count += 1;
                 tracing::warn!("Error importing track {}: {}", path.display(), e);
-                println!("Error importing track {}: {}", path.display(), e);
                 // Optionally save to unimportable_files here if desired
             }
         }
@@ -602,8 +600,6 @@ pub async fn watch_directory(
     database: &Database,
 ) -> Result<()> {
     tracing::info!("Starting watch mode for directory: {}", directory.display());
-    println!("Watching directory: {}", directory.display());
-    println!("Press Ctrl+C to stop watching...");
 
     let mut seen_files = HashSet::new();
     let mut interval = interval(Duration::from_secs(5));
@@ -628,7 +624,6 @@ pub async fn watch_directory(
             {
                 seen_files.insert(canonical.clone());
                 tracing::info!("New file detected: {}", path.display());
-                println!("New file detected: {}", path.display());
                 let result = import_track(path, api_key, config, database).await;
                 if let Err(e) = result {
                     // Skip files we've already tried to import
@@ -637,7 +632,6 @@ pub async fn watch_directory(
                     }
 
                     tracing::warn!("Error importing track {}: {}", path.display(), e);
-                    println!("Error importing track {}: {}", path.display(), e);
 
                     // Compute SHA-256 for the unimportable file record
                     let sha256 = match file_hash::compute_sha256(path) {
