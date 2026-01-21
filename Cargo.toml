@@ -57,6 +57,8 @@ opentelemetry-semantic-conventions = "0.31.0"
 tracing = "0.1.44"
 tracing-opentelemetry = "0.32.0"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "ansi"] }
+rayon = "1.11.0"
+unicode-normalization = "0.1.25"
 
 [profile.dev]
 opt-level = 1

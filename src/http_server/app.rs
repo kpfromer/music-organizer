@@ -18,6 +18,7 @@ use crate::{
     config::Config,
     database::Database,
     http_server::{
+        cleanup_tasks::cleanup_tasks,
         graphql,
         http_routes::{
             album_art_image::get_track_album_art_image, audio_file::audio_file,
@@ -200,6 +201,14 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
             }
         });
     };
+
+    {
+        tokio::task::spawn(async move {
+            if let Err(e) = cleanup_tasks(&app_state.db).await {
+                tracing::error!(error = ?e, "Error cleaning up tasks");
+            }
+        });
+    }
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await

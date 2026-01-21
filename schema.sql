@@ -199,3 +199,14 @@ CREATE TABLE `spotify_track_playlist` (
   CONSTRAINT `0` FOREIGN KEY (`spotify_playlist_id`) REFERENCES `spotify_playlist` (`id`) ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT `1` FOREIGN KEY (`spotify_track_id`) REFERENCES `spotify_track` (`spotify_track_id`) ON UPDATE CASCADE ON DELETE CASCADE
 );
+-- Create "spotify_to_local_matcher_tasks" table
+CREATE TABLE `spotify_to_local_matcher_tasks` (
+  `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+  `status` varchar NOT NULL,
+  `matched_tracks` integer NOT NULL,
+  `failed_tracks` integer NOT NULL,
+  `total_tracks` integer NOT NULL,
+  `error_message` text NULL,
+  `created_at` integer NOT NULL,
+  `updated_at` integer NOT NULL
+);

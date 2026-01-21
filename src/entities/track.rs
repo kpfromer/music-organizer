@@ -9,6 +9,7 @@ pub struct Model {
     pub album_id: i64,
     pub title: String,
     pub track_number: Option<i32>,
+    /// Duration in seconds
     pub duration: Option<i32>,
     pub musicbrainz_id: Option<String>,
     pub file_path: String,

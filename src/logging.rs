@@ -1,9 +1,10 @@
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use opentelemetry::KeyValue;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry_sdk::{Resource, trace::Sampler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub fn init_tracing(
@@ -28,16 +29,15 @@ pub fn init_tracing(
 
         // Create a tracer provider with the exporter
         let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+            // every span is recorded
+            // no events are dropped due to sampling
+            .with_sampler(Sampler::AlwaysOn)
             .with_batch_exporter(otlp_exporter)
             .with_resource(resource)
             .build();
 
-        // Set it as the global provider
-        opentelemetry::global::set_tracer_provider(tracer_provider.clone());
+        let tracer = tracer_provider.tracer("music-manager");
 
-        let tracer = opentelemetry::global::tracer("music-manager");
-
-        // Get a tracer from the global provider
         (
             Some(tracing_opentelemetry::layer().with_tracer(tracer)),
             Some(tracer_provider),
