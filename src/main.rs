@@ -17,7 +17,6 @@ mod soulseek_tui;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing;
 
 use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::Context};

@@ -10,7 +10,6 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use tracing;
 
 type DirectRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 

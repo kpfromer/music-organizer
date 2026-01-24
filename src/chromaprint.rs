@@ -1,7 +1,6 @@
 use color_eyre::Result;
 use std::path::Path;
 use std::process::Command;
-use tracing;
 
 pub fn chromaprint_from_file(path: &Path) -> Result<(String, u32)> {
     tracing::debug!("Computing chromaprint fingerprint for: {}", path.display());

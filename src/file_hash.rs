@@ -3,7 +3,6 @@ use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use tracing;
 
 /// Compute the SHA-256 hash of a file
 pub fn compute_sha256(path: &Path) -> Result<String> {

@@ -8,7 +8,6 @@ use musicbrainz_rs::Fetch;
 use musicbrainz_rs::entity::recording::Recording;
 use musicbrainz_rs::entity::release::Release;
 use musicbrainz_rs::entity::release_group::ReleaseGroupPrimaryType;
-use tracing;
 
 /// Fetch a recording with details from MusicBrainz with exponential backoff
 /// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.

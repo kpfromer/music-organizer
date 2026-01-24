@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-use tracing;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MigrationError {

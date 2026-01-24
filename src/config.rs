@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use tracing;
 
 use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
