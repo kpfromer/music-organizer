@@ -2227,12 +2227,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
-name = "jaro_winkler"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "966903d6b75c207539d45eef272e66e68542640adc142f15e9c9623f76f36b5f"
-
-[[package]]
 name = "js-sys"
 version = "0.3.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2548,7 +2542,6 @@ dependencies = [
  "futures-util",
  "governor 0.6.3",
  "infer",
- "jaro_winkler",
  "musicbrainz_rs",
  "ollama-native",
  "opentelemetry",
