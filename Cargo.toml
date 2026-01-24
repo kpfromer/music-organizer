@@ -51,12 +51,13 @@ spotify-rs = { git = "https://github.com/kpfromer/spotify-rs", branch = "fix-for
 tempfile = "3.24.0"
 ollama-native = "1.0.2"
 schemars = "1.2.0"
-jaro_winkler = "0.1.0"
 opentelemetry-otlp = { version = "0.31.0", features = ["trace", "grpc-tonic", "metrics"] }
 opentelemetry-semantic-conventions = "0.31.0"
 tracing = "0.1.44"
 tracing-opentelemetry = "0.32.0"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "ansi"] }
+rayon = "1.11.0"
+unicode-normalization = "0.1.25"
 
 [profile.dev]
 opt-level = 1

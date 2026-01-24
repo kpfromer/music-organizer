@@ -1,4 +1,5 @@
 pub mod app;
+pub mod cleanup_tasks;
 pub mod error;
 pub mod graphql;
 pub mod graphql_error;
