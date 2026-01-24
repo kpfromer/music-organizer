@@ -152,7 +152,7 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    init_tracing(
+    let tracer_provider = init_tracing(
         "music-manager",
         args.jaeger_endpoint.as_deref(),
         args.tracing_level.as_str(),
@@ -189,7 +189,7 @@ async fn main() -> Result<()> {
             password,
             output_directory,
         } => {
-            tracing::debug!("Starting download command with username: {}", username);
+            tracing::debug!("Starting download command with username");
             let soulseek_context = Arc::new(
                 SoulSeekClientContext::new(SearchConfig {
                     username,
@@ -281,6 +281,13 @@ async fn main() -> Result<()> {
             })
             .await?;
         }
+    }
+
+    // Shutdown tracer provider to flush buffered spans
+    if let Some(provider) = tracer_provider
+        && let Err(e) = provider.shutdown()
+    {
+        eprintln!("Warning: Failed to shutdown tracer provider: {}", e);
     }
 
     Ok(())

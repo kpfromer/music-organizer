@@ -30,6 +30,13 @@ use crate::{
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install Ctrl+C handler");
+    tracing::info!("Shutting down...");
+}
+
 // Handler to serve index.html for SPA routing
 async fn serve_index(frontend_dist: PathBuf) -> Response {
     let index_path = frontend_dist.join("index.html");
@@ -198,6 +205,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         .await
         .wrap_err_with(|| eyre!("Failed to bind to port {}", port))?;
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .wrap_err("Failed to start HTTP server")?;
 
