@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing;
 
 use super::spotify_queries::SpotifyAccount;
 use crate::entities;
@@ -192,7 +193,7 @@ impl SpotifyMutation {
                     .wrap_err("Failed to save spotify playlist")?
             };
 
-            log::info!("Saved spotify playlist: {:?}", saved_playlist);
+            tracing::info!("Saved spotify playlist: {:?}", saved_playlist);
 
             let spotify_tracks_from_api = spotify_rs::playlist_items(&saved_playlist.spotify_id)
                 .get(&spotify_client)
@@ -236,7 +237,10 @@ impl SpotifyMutation {
                             existing_track_model.album = Set(track.album.name.clone());
                             existing_track_model.isrc = Set(track.external_ids.isrc.clone());
                             existing_track_model.barcode = Set(track.external_ids.upc.clone());
-                            log::info!("Updated spotify track in db: {:?}", existing_track_model);
+                            tracing::info!(
+                                "Updated spotify track in db: {:?}",
+                                existing_track_model
+                            );
                             entities::spotify_track::Entity::update(existing_track_model)
                                 .exec(&txn)
                                 .await
@@ -247,7 +251,7 @@ impl SpotifyMutation {
                                 .exec(&txn)
                                 .await
                                 .wrap_err("Failed to save spotify track")?;
-                            log::info!("Saved new spotify track to db",);
+                            tracing::info!("Saved new spotify track to db",);
                         }
                     }
                     track.id.clone()
@@ -278,7 +282,7 @@ impl SpotifyMutation {
                     .exec(&txn)
                     .await
                     .wrap_err("Failed to save spotify track playlist")?;
-                log::info!("Saved spotify track playlist",);
+                tracing::info!("Saved spotify track playlist",);
             }
         }
         txn.commit()

@@ -1,4 +1,5 @@
 use async_graphql::{Error, ErrorExtensions};
+use tracing;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum GraphqlError {
@@ -17,7 +18,7 @@ impl Default for GraphqlError {
 impl From<color_eyre::Report> for GraphqlError {
     fn from(report: color_eyre::Report) -> Self {
         // Log the full error report with trace chain for debugging
-        log::error!("GraphQL error: {:#?}", report);
+        tracing::error!("GraphQL error: {:#?}", report);
         Self::ServerError(report.to_string())
     }
 }

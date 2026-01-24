@@ -3,6 +3,7 @@ use axum::{
     http::{Response, StatusCode},
     response::IntoResponse,
 };
+use tracing;
 
 // A generic error report
 // Produced via `Err(some_err).wrap_err("Some context")`
@@ -31,7 +32,7 @@ impl IntoResponse for Report {
         let err = self.0;
         let err_string = format!("{err:?}");
 
-        log::error!("{err_string}");
+        tracing::error!("{err_string}");
 
         // TODO: handle errors here
         // if let Some(err) = err.downcast_ref::<DemoError>() {

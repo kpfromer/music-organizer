@@ -1,6 +1,7 @@
 use audiotags::Tag;
 use color_eyre::eyre::Context;
 use std::sync::Arc;
+use tracing;
 
 use crate::http_server::state::AppState;
 use axum::{
@@ -23,7 +24,7 @@ pub async fn get_track_album_art_image(
                 .into_response();
         }
         Err(e) => {
-            log::error!("Failed to get track: {}", e);
+            tracing::error!("Failed to get track: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Track not found: {}", track_id),

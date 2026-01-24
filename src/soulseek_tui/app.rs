@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing;
 
 use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
@@ -151,7 +152,7 @@ impl App {
                         self.status_message = Some(format!("Found {} results", self.results.len()));
                     }
                     SearchEvent::Failed(error) => {
-                        log::error!("Search failed: {}", error);
+                        tracing::error!("Search failed: {}", error);
                         self.error_message = Some(error);
                         self.mode = AppMode::Error;
                     }
@@ -191,7 +192,7 @@ impl App {
                         self.status_message = Some("Download completed".to_string())
                     }
                     DownloadEvent::Failed(error) => {
-                        log::error!("Download failed: {}", error);
+                        tracing::error!("Download failed: {}", error);
                         self.error_message = Some(error);
                         self.mode = AppMode::Error;
                     }

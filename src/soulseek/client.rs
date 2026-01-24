@@ -6,6 +6,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
+use tracing;
 
 use color_eyre::{Result, eyre::Context};
 use futures::future::join_all;
@@ -328,12 +329,12 @@ pub struct SoulSeekClientContext {
 
 impl SoulSeekClientContext {
     pub async fn new(config: SearchConfig) -> Result<Self> {
-        log::debug!("Creating SoulSeek client context");
+        tracing::debug!("Creating SoulSeek client context");
 
         let searches_per_time = config.searches_per_time.unwrap_or(34);
         let renew_time_secs = config.renew_time_secs.unwrap_or(220);
 
-        log::debug!(
+        tracing::debug!(
             "Rate limiter configured: {} searches per {}s",
             searches_per_time,
             renew_time_secs
@@ -348,7 +349,7 @@ impl SoulSeekClientContext {
 
         let rate_limiter = RateLimiter::direct(quota);
 
-        log::info!("SoulSeek client context created successfully");
+        tracing::info!("SoulSeek client context created successfully");
 
         Ok(Self {
             wrapper: Arc::new(SoulSeekClientWrapper::new()),
@@ -379,7 +380,7 @@ impl SoulSeekClientContext {
     }
 
     async fn invalidate(&self, err_msg: &str) {
-        log::warn!("Invalidating SoulSeek session: {}", err_msg);
+        tracing::warn!("Invalidating SoulSeek session: {}", err_msg);
         self.wrapper.clear_client().await;
         *self.state.lock().await = SessionState::Disconnected {
             last_error: Some(err_msg.to_string()),
@@ -433,11 +434,11 @@ impl SoulSeekClientContext {
         let username = self.config.username.clone();
         let password = self.config.password.clone();
 
-        log::debug!("Logging in to SoulSeek as user: {}", username);
+        tracing::debug!("Logging in to SoulSeek as user: {}", username);
 
         match self.wrapper.login(&username, &password).await {
             Ok(()) => {
-                log::info!("Successfully logged in to SoulSeek");
+                tracing::info!("Successfully logged in to SoulSeek");
                 *self.state.lock().await = SessionState::LoggedIn {
                     since: Instant::now(),
                 };
@@ -446,7 +447,7 @@ impl SoulSeekClientContext {
             }
             Err(e) => {
                 let msg = format!("{e:?}");
-                log::warn!("SoulSeek login failed: {}", msg);
+                tracing::warn!("SoulSeek login failed: {}", msg);
                 self.wrapper.clear_client().await;
                 self.set_backoff_state(msg).await;
                 Err(e)
@@ -465,7 +466,7 @@ impl SoulSeekClientContext {
         match f().await {
             Ok(v) => Ok(v),
             Err(e) => {
-                log::warn!(
+                tracing::warn!(
                     "{} failed due to session error; retrying once: {:?}",
                     op_name,
                     e
@@ -485,7 +486,7 @@ impl SoulSeekClientContext {
         result: &SingleFileResult,
         download_folder: &Path,
     ) -> Result<tokio::sync::mpsc::Receiver<soulseek_rs::DownloadStatus>> {
-        log::debug!(
+        tracing::debug!(
             "Starting download: '{}' from user '{}' ({} bytes)",
             result.filename,
             result.username,
@@ -544,7 +545,7 @@ impl SoulSeekClientContext {
             }
         });
 
-        log::info!(
+        tracing::info!(
             "Download initiated: '{}' from '{}'",
             result.filename,
             result.username
@@ -554,7 +555,7 @@ impl SoulSeekClientContext {
 
     /// Search for a track on SoulSeek.
     pub async fn search_for_track(&self, track: &Track) -> Result<Vec<SingleFileResult>> {
-        log::debug!(
+        tracing::debug!(
             "Starting search for track: '{}' by '{}'",
             track.title,
             track.artists.join(", ")
@@ -566,7 +567,7 @@ impl SoulSeekClientContext {
 
         // 1) Build queries
         let queries = build_search_queries(track, remove_special);
-        log::debug!("Built {} search queries", queries.len());
+        tracing::debug!("Built {} search queries", queries.len());
 
         // 2a) Concurrency limit
         let semaphore = Arc::new(Semaphore::new(concurrency));
@@ -583,7 +584,7 @@ impl SoulSeekClientContext {
                     // Rate limiting without holding any other locks
                     ctx.rate_limiter.until_ready().await;
 
-                    log::debug!("Executing search query: '{}'", q);
+                    tracing::debug!("Executing search query: '{}'", q);
                     let timeout = Duration::from_millis(max_search_time);
 
                     let responses = ctx
@@ -594,7 +595,7 @@ impl SoulSeekClientContext {
                         })
                         .await?;
 
-                    log::debug!(
+                    tracing::debug!(
                         "Search query '{}' returned {} responses",
                         q,
                         responses.len()
@@ -617,15 +618,15 @@ impl SoulSeekClientContext {
             all_flattened.extend(result?);
         }
 
-        log::debug!("Total results before filtering: {}", all_flattened.len());
+        tracing::debug!("Total results before filtering: {}", all_flattened.len());
 
         // 3) Filter out non-audio file types
-        log::debug!("Filtering audio files");
+        tracing::debug!("Filtering audio files");
         all_flattened.retain(|f| is_audio_file(&f.filename));
-        log::debug!("Results after audio filter: {}", all_flattened.len());
+        tracing::debug!("Results after audio filter: {}", all_flattened.len());
 
         // 4) Deduplicate (by username + filename)
-        log::debug!("Deduplicating results");
+        tracing::debug!("Deduplicating results");
         let mut unique_map: HashMap<String, SingleFileResult> = HashMap::new();
         for item in all_flattened {
             let key = format!("{}::{}", item.username, item.filename);
@@ -640,13 +641,13 @@ impl SoulSeekClientContext {
         }
 
         let mut unique_results: Vec<SingleFileResult> = unique_map.into_values().collect();
-        log::debug!("Results after deduplication: {}", unique_results.len());
+        tracing::debug!("Results after deduplication: {}", unique_results.len());
 
         // 5) Rank
-        log::debug!("Ranking results");
+        tracing::debug!("Ranking results");
         rank_results(track, &mut unique_results);
 
-        log::info!(
+        tracing::info!(
             "Search complete for '{}' by '{}': {} results found",
             track.title,
             track.artists.join(", "),
@@ -662,7 +663,7 @@ impl SoulSeekClientContext {
         tokio::spawn(async move {
             loop {
                 if let Err(e) = self.ensure_session().await {
-                    log::debug!("Watchdog: session ensure failed: {:?}", e);
+                    tracing::debug!("Watchdog: session ensure failed: {:?}", e);
                 }
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }

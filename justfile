@@ -33,7 +33,5 @@ test: backend-test
 # Fix frontend biome issues
 fix-frontend: frontend-fix
 
-
-
 just: watch
 

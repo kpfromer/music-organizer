@@ -7,6 +7,7 @@ use std::{
     thread,
     time::Duration,
 };
+use tracing;
 
 use std::sync::Arc;
 
@@ -129,7 +130,7 @@ impl EventHandler {
         thread::spawn(|| {
             let rt = tokio::runtime::Runtime::new().unwrap();
             if let Err(e) = rt.block_on(download_actor.run()) {
-                log::error!("Background thread error: {}", e);
+                tracing::error!("Background thread error: {}", e);
             }
         });
 
@@ -165,7 +166,7 @@ impl EventHandler {
 
     /// Queue a download request to be sent to the download thread.
     pub fn send_background_request(&mut self, request: BackgroundRequest) {
-        log::debug!("Sending background request: {:?}", request);
+        tracing::debug!("Sending background request: {:?}", request);
         let _ = self.background_sender.send(request);
     }
 }
@@ -232,7 +233,7 @@ impl BackgroundThread {
                 Ok(BackgroundRequest::Search(_request)) => self.handle_search(_request).await,
                 Ok(BackgroundRequest::Download(_request)) => self.handle_download(_request).await,
                 Err(_) => {
-                    log::debug!(
+                    tracing::debug!(
                         "Background request receiver disconnected, shutting down background thread"
                     );
                     return Ok(());
@@ -327,7 +328,7 @@ impl BackgroundThread {
                 }
             }
         }
-        log::debug!("Download file thread finished");
+        tracing::debug!("Download file thread finished");
         Ok(())
     }
 

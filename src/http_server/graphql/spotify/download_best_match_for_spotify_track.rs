@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use tracing;
 
 use crate::{
     entities,
@@ -23,7 +24,7 @@ pub async fn download_best_match_for_spotify_track(
     soulseek_context: &SoulSeekClientContext,
     spotify_track: entities::spotify_track::Model,
 ) -> Result<Option<(TempDir, PathBuf)>> {
-    log::debug!(
+    tracing::debug!(
         "Downloading best match for spotify track: {:?}",
         &spotify_track
     );
@@ -40,14 +41,14 @@ pub async fn download_best_match_for_spotify_track(
     let best_match = match best_match {
         Some(best_match) => best_match,
         None => {
-            log::warn!(
+            tracing::warn!(
                 "No best match found for spotify track: {:?}",
                 &spotify_track
             );
             return Ok(None);
         }
     };
-    log::debug!("Best match found for spotify track: {:?}", best_match);
+    tracing::debug!("Best match found for spotify track: {:?}", best_match);
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -58,12 +59,12 @@ pub async fn download_best_match_for_spotify_track(
         .download_file(best_match, temp_dir.path())
         .await?;
 
-    log::debug!("Downloading best match for spotify track: {:?}", best_match);
+    tracing::debug!("Downloading best match for spotify track: {:?}", best_match);
 
     while let Some(status) = download_receiver.recv().await {
         match status {
             soulseek_rs::DownloadStatus::Completed => {
-                log::debug!("Download completed for spotify track: {:?}", best_match);
+                tracing::debug!("Download completed for spotify track: {:?}", best_match);
                 break;
             }
             soulseek_rs::DownloadStatus::Failed => {
@@ -77,7 +78,7 @@ pub async fn download_best_match_for_spotify_track(
                 total_bytes,
                 speed_bytes_per_sec: _,
             } => {
-                log::debug!(
+                tracing::debug!(
                     "Download in progress for spotify track: {:?} ({} bytes downloaded, {} bytes total)",
                     best_match,
                     bytes_downloaded,

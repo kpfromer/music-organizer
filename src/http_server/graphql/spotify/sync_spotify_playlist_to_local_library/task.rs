@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing;
 
 use crate::config::Config;
 use crate::database::Database;
@@ -85,7 +86,7 @@ pub async fn sync_spotify_playlist_to_local_library_task(
     let spotify_playlist_clone = spotify_playlist.clone();
 
     tokio::spawn(async move {
-        log::info!(
+        tracing::info!(
             "Syncing spotify playlist to local library: {:?}",
             spotify_playlist_clone
         );
@@ -102,10 +103,10 @@ pub async fn sync_spotify_playlist_to_local_library_task(
         .await
         {
             Ok(()) => {
-                log::info!("Successfully completed sync");
+                tracing::info!("Successfully completed sync");
             }
             Err(e) => {
-                log::error!("Failed to sync spotify playlist to local library: {:?}", e);
+                tracing::error!("Failed to sync spotify playlist to local library: {:?}", e);
                 // Update sync state to mark it as failed
                 let mut sync_state: entities::spotify_playlist_sync_state::ActiveModel =
                     sync_state_clone.into();

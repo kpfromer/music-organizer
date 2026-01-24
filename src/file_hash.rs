@@ -6,7 +6,7 @@ use std::path::Path;
 
 /// Compute the SHA-256 hash of a file
 pub fn compute_sha256(path: &Path) -> Result<String> {
-    log::debug!("Computing SHA-256 hash for: {}", path.display());
+    tracing::debug!("Computing SHA-256 hash for: {}", path.display());
 
     let mut file = File::open(path).context(format!("Failed to open file: {}", path.display()))?;
 
@@ -27,6 +27,6 @@ pub fn compute_sha256(path: &Path) -> Result<String> {
 
     let hash = hasher.finalize();
     let hash_str = format!("{:x}", hash);
-    log::info!("Hash computed: {}", hash_str);
+    tracing::info!("Hash computed: {}", hash_str);
     Ok(hash_str)
 }

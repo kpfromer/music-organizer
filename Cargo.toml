@@ -29,15 +29,12 @@ ratatui = "0.30.0-beta"
 crossterm = "0.29"
 backon = "1.6.0"
 sea-orm = { version = "2.0.0-rc.27", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-log = "0.4"
-fern = { version = "0.7.1", features = ["colored"] }
-humantime = "2.3.0"
-axum = { version = "0.8.7", features = ["macros"] }
+axum = { version = "0.8.7", features = ["macros", "tracing"] }
 axum-macros = "0.5.0"
 chrono = "0.4.42"
 async-graphql = { version = "7.0.17", features = ["chrono"] }
 async-graphql-axum = "7.0.17"
-tower-http = {version = "0.6.8", features = ["cors", "fs"] }
+tower-http = {version = "0.6.8", features = ["cors", "fs", "trace"] }
 tower = "0.5.2"
 thiserror = "2.0.17"
 axum-range = "1.0.0"
@@ -48,6 +45,8 @@ urlencoding = "2.1.3"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
 tokio-stream = "0.1.18"
+opentelemetry = "0.31.0"
+opentelemetry_sdk = "0.31.0"
 
 spotify-rs = { git = "https://github.com/kpfromer/spotify-rs", branch = "fix-for-unknown-tracks" }
 # spotify-rs = "0.4.1"
@@ -55,7 +54,17 @@ tempfile = "3.24.0"
 ollama-native = "1.0.2"
 schemars = "1.2.0"
 jaro_winkler = "0.1.0"
+opentelemetry-otlp = { version = "0.31.0", features = ["trace", "grpc-tonic", "metrics"] }
+opentelemetry-semantic-conventions = "0.31.0"
+tracing = "0.1.44"
+tracing-opentelemetry = "0.32.0"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "ansi"] }
 
 [dev-dependencies]
 mockall = "0.12"
 tokio-test = "0.4"
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3

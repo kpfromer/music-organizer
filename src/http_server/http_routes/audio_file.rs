@@ -1,5 +1,6 @@
 use axum_extra::{TypedHeader, headers::Range};
 use std::sync::Arc;
+use tracing;
 
 use tokio::fs::File;
 
@@ -27,7 +28,7 @@ pub async fn audio_file(
                 .into_response());
         }
         Err(e) => {
-            log::error!("Get track database error: {}", e);
+            tracing::error!("Get track database error: {}", e);
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Get track database error",

@@ -13,7 +13,7 @@ use musicbrainz_rs::entity::release_group::ReleaseGroupPrimaryType;
 /// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
 /// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recording> {
-    log::debug!("Fetching recording from MusicBrainz: {}", recording_id);
+    tracing::debug!("Fetching recording from MusicBrainz: {}", recording_id);
 
     let result = (|| async {
         let recording = Recording::fetch()
@@ -31,13 +31,13 @@ pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recordin
 
     match &result {
         Ok(recording) => {
-            log::info!(
+            tracing::info!(
                 "Recording fetched successfully from MusicBrainz: '{}'",
                 recording.title
             );
         }
         Err(e) => {
-            log::error!(
+            tracing::error!(
                 "Failed to fetch recording {} from MusicBrainz after retries: {}",
                 recording_id,
                 e
@@ -52,7 +52,7 @@ pub async fn fetch_recording_with_details(recording_id: &str) -> Result<Recordin
 /// If the request fails, it will retry with exponential backoff since MusicBrainz is flaky.
 /// Please note that the musicbrainz rust library handles rate limiting.
 pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
-    log::debug!("Fetching release from MusicBrainz: {}", release_id);
+    tracing::debug!("Fetching release from MusicBrainz: {}", release_id);
 
     let result = (|| async {
         let release = Release::fetch()
@@ -72,13 +72,13 @@ pub async fn fetch_release_with_details(release_id: &str) -> Result<Release> {
 
     match &result {
         Ok(release) => {
-            log::info!(
+            tracing::info!(
                 "Release fetched successfully from MusicBrainz: '{}'",
                 release.title
             );
         }
         Err(e) => {
-            log::error!(
+            tracing::error!(
                 "Failed to fetch release {} from MusicBrainz after retries: {}",
                 release_id,
                 e

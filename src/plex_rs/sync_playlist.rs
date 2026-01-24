@@ -3,6 +3,7 @@ use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use tracing;
 use url::Url;
 
 use crate::database::Database;
@@ -97,7 +98,7 @@ pub async fn sync_playlist_to_plex(
     client: &Client,
     playlist_id: i64,
 ) -> Result<SyncPlaylistResult> {
-    log::info!("Starting sync of playlist ID {} to Plex", playlist_id);
+    tracing::info!("Starting sync of playlist ID {} to Plex", playlist_id);
 
     // Step 1: Get Database Playlist
     let playlist = entities::playlist::Entity::find_by_id(playlist_id)
@@ -106,7 +107,7 @@ pub async fn sync_playlist_to_plex(
         .wrap_err("Failed to find playlist")?
         .ok_or_eyre(format!("Playlist with ID {} not found", playlist_id))?;
 
-    log::info!("Found playlist: '{}' (ID: {})", playlist.name, playlist_id);
+    tracing::info!("Found playlist: '{}' (ID: {})", playlist.name, playlist_id);
 
     // Step 2: Get Database Playlist Tracks
     let playlist_track_models = entities::playlist_track::Entity::find()
@@ -116,7 +117,7 @@ pub async fn sync_playlist_to_plex(
         .wrap_err("Failed to fetch playlist tracks")?;
 
     let track_ids: Vec<i64> = playlist_track_models.iter().map(|pt| pt.track_id).collect();
-    log::info!("Found {} tracks in database playlist", track_ids.len());
+    tracing::info!("Found {} tracks in database playlist", track_ids.len());
 
     let track_models = entities::track::Entity::find()
         .filter(entities::track::Column::Id.is_in(track_ids.clone()))
@@ -144,7 +145,7 @@ pub async fn sync_playlist_to_plex(
     }
 
     let server = servers.into_iter().next().unwrap();
-    log::info!("Using Plex server: '{}'", server.name);
+    tracing::info!("Using Plex server: '{}'", server.name);
 
     let access_token = server.access_token.as_ref().ok_or_eyre(
         "Plex server does not have an access token. Please authenticate the server first.",
@@ -154,14 +155,14 @@ pub async fn sync_playlist_to_plex(
         .wrap_err(format!("Invalid server URL: {}", server.server_url))?;
 
     // Step 4: Build Plex Track Lookup Map
-    log::info!("Fetching all Plex library tracks...");
+    tracing::info!("Fetching all Plex library tracks...");
     let sections = get_library_sections(client, &server_url, access_token).await?;
     let music_section_id = find_music_section_id(&sections)
         .ok_or_eyre("No music library section found on Plex server")?;
 
     let plex_tracks =
         get_all_tracks_paginated(client, &server_url, access_token, music_section_id, 1000).await?;
-    log::info!("Found {} tracks in Plex library", plex_tracks.len());
+    tracing::info!("Found {} tracks in Plex library", plex_tracks.len());
 
     // Build normalized path key -> rating_key lookup map
     // Use normalized path (last 3 components: artist/album/track) for matching
@@ -172,7 +173,7 @@ pub async fn sync_playlist_to_plex(
                 if let Some(normalized_key) = normalize_path_key(file_path) {
                     plex_lookup.insert(normalized_key, track.rating_key.clone());
                 } else {
-                    log::warn!(
+                    tracing::warn!(
                         "Failed to normalize path for track '{}': {}",
                         track.title,
                         file_path
@@ -180,11 +181,11 @@ pub async fn sync_playlist_to_plex(
                 }
             }
             Err(e) => {
-                log::warn!("Failed to get file path for track '{}': {}", track.title, e);
+                tracing::warn!("Failed to get file path for track '{}': {}", track.title, e);
             }
         }
     }
-    log::info!(
+    tracing::info!(
         "Built lookup map with {} normalized paths",
         plex_lookup.len()
     );
@@ -201,7 +202,7 @@ pub async fn sync_playlist_to_plex(
 
     // Step 6: Get Machine Identifier (needed for creating playlist with initial track)
     let machine_identifier = get_machine_identifier(client, &server_url, access_token).await?;
-    log::debug!("Using machine identifier: {}", machine_identifier);
+    tracing::debug!("Using machine identifier: {}", machine_identifier);
 
     // Step 7: Find or Create Plex Playlist
     let plex_playlists = get_playlists(client, &server_url, access_token).await?;
@@ -215,7 +216,7 @@ pub async fn sync_playlist_to_plex(
 
     let plex_playlist = match music_playlists.iter().find(|p| p.title == playlist.name) {
         Some(p) => {
-            log::info!(
+            tracing::info!(
                 "Found existing Plex playlist: '{}' (ID: {})",
                 p.title,
                 p.rating_key
@@ -223,7 +224,7 @@ pub async fn sync_playlist_to_plex(
             p.clone()
         }
         None => {
-            log::info!("Creating new Plex playlist: '{}'", playlist.name);
+            tracing::info!("Creating new Plex playlist: '{}'", playlist.name);
             // Try to create playlist with first track if available (some Plex versions require it)
             let first_track_uri = first_rating_key.as_ref().map(|rating_key| {
                 format!(
@@ -256,7 +257,7 @@ pub async fn sync_playlist_to_plex(
         .map(|t| t.rating_key.clone())
         .collect();
 
-    log::info!(
+    tracing::info!(
         "Plex playlist currently has {} tracks",
         current_plex_rating_keys.len()
     );
@@ -274,7 +275,7 @@ pub async fn sync_playlist_to_plex(
                         file_path: track.file_path.clone(),
                         title: track.title.clone(),
                     });
-                    log::warn!(
+                    tracing::warn!(
                         "Track '{}' (ID: {}) not found in Plex library: {} (normalized: {})",
                         track.title,
                         track.id,
@@ -289,7 +290,7 @@ pub async fn sync_playlist_to_plex(
                     file_path: track.file_path.clone(),
                     title: track.title.clone(),
                 });
-                log::warn!(
+                tracing::warn!(
                     "Track '{}' (ID: {}) path cannot be normalized (needs at least 3 components): {}",
                     track.title,
                     track.id,
@@ -310,8 +311,8 @@ pub async fn sync_playlist_to_plex(
         .filter(|t| !db_rating_keys.contains(&t.rating_key))
         .collect();
 
-    log::info!("Tracks to add: {}", tracks_to_add.len());
-    log::info!("Tracks to remove: {}", tracks_to_remove.len());
+    tracing::info!("Tracks to add: {}", tracks_to_add.len());
+    tracing::info!("Tracks to remove: {}", tracks_to_remove.len());
 
     // Step 10: Add Missing Tracks (Incremental)
     let mut tracks_added = 0;
@@ -343,11 +344,11 @@ pub async fn sync_playlist_to_plex(
         {
             Ok(()) => {
                 tracks_added += 1;
-                log::info!("Added track to playlist (rating_key: {})", rating_key);
+                tracing::info!("Added track to playlist (rating_key: {})", rating_key);
             }
             Err(e) => {
                 tracks_skipped += 1;
-                log::error!("Failed to add track (rating_key: {}): {}", rating_key, e);
+                tracing::error!("Failed to add track (rating_key: {}): {}", rating_key, e);
             }
         }
     }
@@ -372,7 +373,7 @@ pub async fn sync_playlist_to_plex(
         {
             Ok(()) => {
                 tracks_removed += 1;
-                log::info!(
+                tracing::info!(
                     "Removed track from playlist: '{}' (rating_key: {})",
                     plex_track.title,
                     plex_track.rating_key
@@ -380,7 +381,7 @@ pub async fn sync_playlist_to_plex(
             }
             Err(e) => {
                 tracks_skipped += 1;
-                log::error!(
+                tracing::error!(
                     "Failed to remove track '{}' (rating_key: {}): {}",
                     plex_track.title,
                     plex_track.rating_key,
@@ -398,7 +399,7 @@ pub async fn sync_playlist_to_plex(
         tracks_skipped,
     };
 
-    log::info!(
+    tracing::info!(
         "Sync complete for playlist '{}': {} added, {} removed, {} skipped, {} missing",
         playlist.name,
         result.tracks_added,

@@ -27,7 +27,7 @@ use crate::{
     database::Database,
     http_server::app::HttpServerConfig,
     import_track::{import_folder, import_track, watch_directory},
-    logging::setup_logging,
+    logging::init_tracing,
     services::spotify::client::SpotifyApiCredentials,
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
@@ -39,17 +39,13 @@ struct Args {
     #[arg(short, long, env = "MUSIC_MANAGER_CONFIG")]
     config: Option<PathBuf>,
 
-    /// Console log level (default: off)
-    #[arg(long, default_value = "off", global = true, env = "LOG_LEVEL")]
-    log_level: log::LevelFilter,
+    /// Tracing level
+    #[arg(long, default_value = "info", global = true, env = "RUST_LOG")]
+    tracing_level: String,
 
-    /// File log level (default: debug)
-    #[arg(long, default_value = "debug", global = true)]
-    log_file_level: log::LevelFilter,
-
-    /// Path to log file
-    #[arg(long, env = "MUSIC_MANAGER_LOG_FILE", global = true)]
-    log_file: Option<PathBuf>,
+    /// Jaeger endpoint for tracing
+    #[arg(long, env = "JAEGER_ENDPOINT", global = true)]
+    jaeger_endpoint: Option<String>,
 
     #[command(subcommand)]
     command: Commands,
@@ -155,10 +151,16 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args = Args::parse();
-    setup_logging(args.log_level, args.log_file.clone(), args.log_file_level)?;
 
-    log::debug!("Music manager starting");
-    log::debug!("Loading configuration");
+    init_tracing(
+        "music-manager",
+        args.jaeger_endpoint.as_deref(),
+        args.tracing_level.as_str(),
+    )
+    .wrap_err("Failed to initialize tracing")?;
+
+    tracing::debug!("Music manager starting");
+    tracing::debug!("Loading configuration");
 
     let config = {
         if let Some(config) = args.config {
@@ -169,25 +171,25 @@ async fn main() -> Result<()> {
     }
     .with_context(|| "Failed to load music-manager config")?;
 
-    log::debug!("Opening database at: {}", config.database_path().display());
+    tracing::debug!("Opening database at: {}", config.database_path().display());
     let database = Database::open(&config.database_path()).await?;
 
     match args.command {
         Commands::Import { input, api_key } => {
-            log::debug!("Starting import command for: {}", input.display());
+            tracing::debug!("Starting import command for: {}", input.display());
             if input.is_file() {
                 import_track(&input, &api_key, &config, &database).await?;
             } else {
                 import_folder(&input, &api_key, &config, &database).await?;
             }
-            log::info!("Import command completed successfully");
+            tracing::info!("Import command completed successfully");
         }
         Commands::Download {
             username,
             password,
             output_directory,
         } => {
-            log::debug!("Starting download command with username: {}", username);
+            tracing::debug!("Starting download command with username: {}", username);
             let soulseek_context = Arc::new(
                 SoulSeekClientContext::new(SearchConfig {
                     username,
@@ -201,10 +203,10 @@ async fn main() -> Result<()> {
                 .await?,
             );
             crate::soulseek_tui::run(soulseek_context, output_directory).await?;
-            log::info!("Download command completed successfully");
+            tracing::info!("Download command completed successfully");
         }
         Commands::Watch { directory, api_key } => {
-            log::debug!(
+            tracing::debug!(
                 "Starting watch command for directory: {}",
                 directory.display()
             );
@@ -212,9 +214,9 @@ async fn main() -> Result<()> {
         }
         Commands::Config(config_commands) => match config_commands {
             ConfigCommands::CreateDefault => {
-                log::debug!("Creating default config");
+                tracing::debug!("Creating default config");
                 Config::create_default()?;
-                log::info!("Default config created successfully");
+                tracing::info!("Default config created successfully");
             }
             ConfigCommands::Path => match Config::config_path() {
                 Some(path) => println!("{}", path.display()),
@@ -264,7 +266,7 @@ async fn main() -> Result<()> {
                 }
                 (None, None) => None,
             };
-            log::info!("Starting HTTP server on port: {}", port);
+            tracing::info!("Starting HTTP server on port: {}", port);
             http_server::app::start(HttpServerConfig {
                 port,
                 database,
