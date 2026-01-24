@@ -96,7 +96,12 @@ pub async fn match_existing_spotify_tracks_with_local_task(
     db: Arc<Database>,
     spotify_tracks: Vec<entities::spotify_track::Model>,
 ) -> Result<entities::spotify_to_local_matcher_tasks::Model> {
-    let task = create_spotify_to_local_matcher_task(&db, spotify_tracks.len() as i64).await?;
+    let unmatched_spotify_tracks_count = spotify_tracks
+        .iter()
+        .filter(|&spotify_track| !is_spotify_track_already_matched(spotify_track))
+        .count() as i64;
+
+    let task = create_spotify_to_local_matcher_task(&db, unmatched_spotify_tracks_count).await?;
     let task_clone = task.clone();
     tokio::task::spawn(async move {
         if let Err(e) = mark_spotify_to_local_matcher_task_as_in_progress(&db, &task_clone).await {

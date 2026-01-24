@@ -4,12 +4,18 @@ use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveModelBehavior, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::None)")]
 pub enum MatchTaskStatus {
+    #[sea_orm(string_value = "pending")]
     Pending,
+    #[sea_orm(string_value = "in_progress")]
     InProgress,
+    #[sea_orm(string_value = "completed")]
     Completed,
+    #[sea_orm(string_value = "failed")]
     Failed,
+    #[sea_orm(string_value = "killed")]
     Killed,
 }
 

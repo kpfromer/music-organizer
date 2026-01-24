@@ -578,13 +578,13 @@ pub fn compare_tracks(local: &NormalizedTrack, spotify: &NormalizedTrack) -> Mat
 ///
 /// Returns candidates sorted by score, filtered to plausible matches
 pub fn find_matches(
-    local: &Track,
-    spotify_tracks: &[Track],
+    spotify_track: &Track,
+    local_tracks: &[Track],
     min_artist_threshold: f64,
 ) -> Vec<(usize, NormalizedTrack, MatchResult)> {
-    let local_normalized = normalize_track(local);
+    let local_normalized = normalize_track(spotify_track);
 
-    let mut results: Vec<(usize, NormalizedTrack, MatchResult)> = spotify_tracks
+    let mut results: Vec<(usize, NormalizedTrack, MatchResult)> = local_tracks
         .iter()
         .enumerate()
         .map(|(idx, spotify)| {

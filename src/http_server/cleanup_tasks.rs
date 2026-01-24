@@ -8,7 +8,7 @@ use crate::{
     entities::{self, spotify_to_local_matcher_tasks::MatchTaskStatus},
 };
 
-/// Cleans up spotify to local tracks tasks that where not completed.
+/// Cleans up spotify to local tracks tasks that were not completed.
 #[instrument(skip(db))]
 pub async fn cleanup_tasks(db: &Database) -> Result<()> {
     let tasks = entities::spotify_to_local_matcher_tasks::Entity::update_many()
