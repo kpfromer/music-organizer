@@ -84,21 +84,43 @@ impl SpotifyMutation {
             .wrap_err("Failed to get refresh token")?
             .ok_or_eyre("No refresh token found")?;
 
-        // Store account in database
-        let account = entities::spotify_account::ActiveModel {
-            user_id: Set(user.id),
-            display_name: Set(user.display_name),
-            access_token: Set(access_token),
-            refresh_token: Set(refresh_token),
-            // TODO: remove this?
-            token_expiry: Set(0),
-            ..entities::spotify_account::ActiveModel::new()
-        };
-
-        let account_model = account
-            .insert(&db.conn)
+        // Check if account already exists
+        let existing_account = entities::spotify_account::Entity::find()
+            .filter(entities::spotify_account::Column::UserId.eq(&user.id))
+            .one(&db.conn)
             .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to create spotify account: {}", e))?;
+            .wrap_err("Failed to check for existing spotify account")?;
+
+        let account_model = if let Some(existing) = existing_account {
+            // Update existing account with new tokens
+            let mut account: entities::spotify_account::ActiveModel = existing.into();
+            account.display_name = Set(user.display_name);
+            account.access_token = Set(access_token);
+            account.refresh_token = Set(refresh_token);
+            account.token_expiry = Set(0);
+            // updated_at will be set automatically by before_save hook
+
+            account
+                .update(&db.conn)
+                .await
+                .wrap_err("Failed to update spotify account")?
+        } else {
+            // Create new account
+            let account = entities::spotify_account::ActiveModel {
+                user_id: Set(user.id),
+                display_name: Set(user.display_name),
+                access_token: Set(access_token),
+                refresh_token: Set(refresh_token),
+                // TODO: remove this?
+                token_expiry: Set(0),
+                ..entities::spotify_account::ActiveModel::new()
+            };
+
+            account
+                .insert(&db.conn)
+                .await
+                .map_err(|e| color_eyre::eyre::eyre!("Failed to create spotify account: {}", e))?
+        };
 
         Ok(SpotifyAccount {
             id: account_model.id,

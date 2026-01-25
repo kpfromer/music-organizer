@@ -40,7 +40,7 @@ export function SpotifyAuthCallback() {
       setStatus("success");
       // Redirect after 2 seconds
       setTimeout(() => {
-        navigate("/");
+        navigate("/spotify");
       }, 2000);
     },
     onError: () => {
@@ -74,8 +74,8 @@ export function SpotifyAuthCallback() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate("/")} className="w-full">
-              Go to Home
+            <Button onClick={() => navigate("/spotify")} className="w-full">
+              Go to Spotify
             </Button>
           </CardContent>
         </Card>
@@ -116,11 +116,11 @@ export function SpotifyAuthCallback() {
               Retry
             </Button>
             <Button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/spotify")}
               variant="outline"
               className="flex-1"
             >
-              Go to Home
+              Go to Spotify
             </Button>
           </CardContent>
         </Card>
@@ -138,8 +138,9 @@ export function SpotifyAuthCallback() {
               Authentication Successful
             </CardTitle>
             <CardDescription>
-              Your Spotify account has been successfully authenticated.
-              Redirecting to home page...
+              Your Spotify account has been successfully authenticated. If this
+              account already existed, your tokens have been updated.
+              Redirecting to Spotify page...
             </CardDescription>
           </CardHeader>
         </Card>

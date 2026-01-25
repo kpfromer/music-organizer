@@ -644,6 +644,11 @@ export type CompleteSpotifyAuthMutationVariables = Exact<{
 
 export type CompleteSpotifyAuthMutation = { __typename?: 'Mutation', completeSpotifyAuth: { __typename?: 'SpotifyAccount', id: number, userId: string, displayName?: string | null, createdAt: any, updatedAt: any } };
 
+export type InitiateSpotifyAuthMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type InitiateSpotifyAuthMutation = { __typename?: 'Mutation', initiateSpotifyAuth: { __typename?: 'SpotifyAuthResponse', redirectUrl: string } };
+
 export type SpotifyMatchedTracksQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
@@ -960,6 +965,13 @@ export const CompleteSpotifyAuthDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<CompleteSpotifyAuthMutation, CompleteSpotifyAuthMutationVariables>;
+export const InitiateSpotifyAuthDocument = new TypedDocumentString(`
+    mutation InitiateSpotifyAuth {
+  initiateSpotifyAuth {
+    redirectUrl
+  }
+}
+    `) as unknown as TypedDocumentString<InitiateSpotifyAuthMutation, InitiateSpotifyAuthMutationVariables>;
 export const SpotifyMatchedTracksDocument = new TypedDocumentString(`
     query SpotifyMatchedTracks($page: Int, $pageSize: Int, $search: String) {
   spotifyMatchedTracks(page: $page, pageSize: $pageSize, search: $search) {

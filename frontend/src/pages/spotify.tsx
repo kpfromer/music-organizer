@@ -11,10 +11,12 @@ import {
   CheckCircle,
   Loader2,
   Music,
+  Plus,
   RefreshCw,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
 import { FormTextField } from "@/components/form/FormTextField";
@@ -171,6 +173,7 @@ type SpotifyTrackDownloadFailureWithDates = Omit<
 };
 
 export function Spotify() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
     null,
@@ -415,24 +418,33 @@ export function Spotify() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Select
-            value={selectedAccountId?.toString() || ""}
-            onValueChange={(value) => {
-              setSelectedAccountId(value ? parseInt(value, 10) : null);
-              setSelectedPlaylistId(null);
-            }}
-          >
-            <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select an account" />
-            </SelectTrigger>
-            <SelectContent>
-              {accountsData?.accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id.toString()}>
-                  {account.displayName || account.userId}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2 items-center">
+            <Select
+              value={selectedAccountId?.toString() || ""}
+              onValueChange={(value) => {
+                setSelectedAccountId(value ? parseInt(value, 10) : null);
+                setSelectedPlaylistId(null);
+              }}
+            >
+              <SelectTrigger className="flex-1 max-w-md">
+                <SelectValue placeholder="Select an account" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountsData?.accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    {account.displayName || account.userId}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={() => navigate("/spotify/login")}
+              variant="outline"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Account
+            </Button>
+          </div>
 
           {selectedAccountId && (
             <Button
