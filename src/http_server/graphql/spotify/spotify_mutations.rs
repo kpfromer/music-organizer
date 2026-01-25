@@ -6,7 +6,9 @@ use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql::spotify::context::get_spotify_client;
 use crate::http_server::graphql::spotify::matching_local_tracks::match_existing_spotify_tracks_with_local_task;
-use crate::http_server::graphql::spotify::sync_spotify_playlist_to_local_library::sync_spotify_playlist_to_local_library_task;
+use crate::http_server::graphql::spotify::sync_spotify_playlist_to_local_library::{
+    SyncSpotifyPlaylistToLocalLibraryResult, sync_spotify_playlist_to_local_library_task,
+};
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 use crate::services::spotify::client::start_spotify_auth_flow;
@@ -320,25 +322,17 @@ impl SpotifyMutation {
         spotify_account_id: i64,
         spotify_playlist_id: i64,
         local_playlist_name: String,
-    ) -> GraphqlResult<bool> {
+    ) -> GraphqlResult<SyncSpotifyPlaylistToLocalLibraryResult> {
         let app_state = get_app_state(ctx)?;
         let db = app_state.db.clone();
-        let soulseek_context = app_state.soulseek_context.clone();
-        let api_key = &app_state.api_key;
-        let config = &app_state.config;
 
-        sync_spotify_playlist_to_local_library_task(
+        Ok(sync_spotify_playlist_to_local_library_task(
             db,
-            soulseek_context,
-            api_key,
-            config,
             spotify_account_id,
             spotify_playlist_id,
             local_playlist_name,
         )
-        .await?;
-
-        Ok(true)
+        .await?)
     }
 
     async fn match_existing_spotify_tracks_with_local_tracks(

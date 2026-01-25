@@ -7,9 +7,9 @@
 //! 4. Updating sync state throughout the process
 
 mod add_tracks_to_playlist;
-mod create_sync_state;
 mod process_track;
 mod sync_task;
 mod task;
 
+pub use sync_task::SyncSpotifyPlaylistToLocalLibraryResult;
 pub use task::sync_spotify_playlist_to_local_library_task;

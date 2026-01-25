@@ -141,37 +141,6 @@ impl SpotifyQuery {
             .collect::<GraphqlResult<Vec<SpotifyPlaylist>>>()
     }
 
-    /// Get sync state for a Spotify playlist
-    async fn spotify_playlist_sync_state(
-        &self,
-        ctx: &Context<'_>,
-        spotify_playlist_id: i64,
-    ) -> GraphqlResult<Option<SpotifyPlaylistSyncState>> {
-        let db = &get_app_state(ctx)?.db;
-
-        let sync_state = entities::spotify_playlist_sync_state::Entity::find()
-            .filter(
-                entities::spotify_playlist_sync_state::Column::SpotifyPlaylistId
-                    .eq(spotify_playlist_id),
-            )
-            .one(&db.conn)
-            .await
-            .map_err(|e| {
-                color_eyre::eyre::eyre!("Failed to fetch spotify playlist sync state: {}", e)
-            })?;
-
-        Ok(sync_state.map(|state| SpotifyPlaylistSyncState {
-            id: state.id,
-            spotify_playlist_id: state.spotify_playlist_id,
-            local_playlist_id: state.local_playlist_id,
-            last_sync_at: state.last_sync_at,
-            sync_status: state.sync_status,
-            tracks_downloaded: state.tracks_downloaded,
-            tracks_failed: state.tracks_failed,
-            error_log: state.error_log,
-        }))
-    }
-
     /// Get download failures for a Spotify playlist
     async fn spotify_track_download_failures(
         &self,
