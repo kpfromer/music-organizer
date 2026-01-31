@@ -83,6 +83,7 @@ export type Mutation = {
   downloadSoulseekFile: DownloadStatus;
   /** Initiate Spotify OAuth flow */
   initiateSpotifyAuth: SpotifyAuthResponse;
+  markYoutubeVideoAsWatched: Scalars['Boolean']['output'];
   matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
   /** Trigger a refresh/rescan of the music library on a Plex server */
   refreshMusicLibrary: RefreshLibraryResult;
@@ -145,6 +146,11 @@ export type MutationDownloadSoulseekFileArgs = {
   size: Scalars['Int']['input'];
   token: Scalars['String']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type MutationMarkYoutubeVideoAsWatchedArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -346,6 +352,11 @@ export type QueryUnimportableFilesArgs = {
   pageSize?: InputMaybe<Scalars['Int']['input']>;
 };
 
+
+export type QueryYoutubeVideosArgs = {
+  watched?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type RefreshLibraryResult = {
   __typename?: 'RefreshLibraryResult';
   message: Scalars['String']['output'];
@@ -540,6 +551,7 @@ export type Video = {
   thumbnailUrl: Scalars['String']['output'];
   title: Scalars['String']['output'];
   videoUrl: Scalars['String']['output'];
+  watched: Scalars['Boolean']['output'];
 };
 
 export type YoutubeSubscription = {
@@ -759,10 +771,12 @@ export type UnimportableFilesQueryVariables = Exact<{
 
 export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
 
-export type YoutubeVideosQueryVariables = Exact<{ [key: string]: never; }>;
+export type YoutubeVideosQueryVariables = Exact<{
+  watched?: InputMaybe<Scalars['Boolean']['input']>;
+}>;
 
 
-export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: number, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string }> };
+export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: number, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string, watched: boolean }> };
 
 export type YoutubeSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -782,6 +796,13 @@ export type YoutubeRemoveSubscriptionMutationVariables = Exact<{
 
 
 export type YoutubeRemoveSubscriptionMutation = { __typename?: 'Mutation', removeYoutubeSubscription: boolean };
+
+export type YoutubeMarkVideoAsWatchedMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type YoutubeMarkVideoAsWatchedMutation = { __typename?: 'Mutation', markYoutubeVideoAsWatched: boolean };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -1186,14 +1207,15 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
 export const YoutubeVideosDocument = new TypedDocumentString(`
-    query YoutubeVideos {
-  youtubeVideos {
+    query YoutubeVideos($watched: Boolean) {
+  youtubeVideos(watched: $watched) {
     id
     title
     channelName
     publishedAt
     thumbnailUrl
     videoUrl
+    watched
   }
 }
     `) as unknown as TypedDocumentString<YoutubeVideosQuery, YoutubeVideosQueryVariables>;
@@ -1215,3 +1237,8 @@ export const YoutubeRemoveSubscriptionDocument = new TypedDocumentString(`
   removeYoutubeSubscription(id: $id)
 }
     `) as unknown as TypedDocumentString<YoutubeRemoveSubscriptionMutation, YoutubeRemoveSubscriptionMutationVariables>;
+export const YoutubeMarkVideoAsWatchedDocument = new TypedDocumentString(`
+    mutation YoutubeMarkVideoAsWatched($id: Int!) {
+  markYoutubeVideoAsWatched(id: $id)
+}
+    `) as unknown as TypedDocumentString<YoutubeMarkVideoAsWatchedMutation, YoutubeMarkVideoAsWatchedMutationVariables>;

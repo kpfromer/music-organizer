@@ -6,7 +6,9 @@ use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::{entities, services};
 use color_eyre::eyre::WrapErr;
+use sea_orm::ColumnTrait;
 use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
 
 #[derive(Default)]
@@ -29,6 +31,7 @@ pub struct Video {
     pub published_at: Option<DateTime<Utc>>,
     pub thumbnail_url: String,
     pub video_url: String,
+    pub watched: bool,
 }
 
 #[Object]
@@ -60,14 +63,23 @@ impl YoutubeQuery {
     /// Cache for 3 minutes
     #[graphql(cache_control(max_age = 180))]
     #[instrument(skip(self, ctx))]
-    async fn youtube_videos(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<Video>> {
+    async fn youtube_videos(
+        &self,
+        ctx: &Context<'_>,
+        watched: Option<bool>,
+    ) -> GraphqlResult<Vec<Video>> {
         let db = &get_app_state(ctx)?.db;
         // TODO: get subscriptions from db
         // TODO: filter for watched/unwatched videos from db
         // TODO: don't use cache, use db for youtube videos
 
-        let videos = entities::youtube_video::Entity::find()
-            .order_by_desc(entities::youtube_video::Column::PublishedAt)
+        let mut qs = entities::youtube_video::Entity::find()
+            .order_by_desc(entities::youtube_video::Column::PublishedAt);
+        if let Some(watched) = watched {
+            qs = qs.filter(entities::youtube_video::Column::Watched.eq(watched));
+        }
+
+        let videos = qs
             .all(&db.conn)
             .await
             .wrap_err("Failed to fetch youtube videos")?;
@@ -82,6 +94,7 @@ impl YoutubeQuery {
                 published_at: Some(video.published_at),
                 thumbnail_url: video.thumbnail_url,
                 video_url: video.video_url,
+                watched: video.watched,
             })
             .collect())
     }

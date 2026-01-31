@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
 import { FormSubmitButton } from "@/components/form/FormSubmitButton";
 import { FormTextField } from "@/components/form/FormTextField";
@@ -15,14 +16,15 @@ import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
 
 const YoutubeVideosQuery = graphql(`
-  query YoutubeVideos {
-    youtubeVideos {
+  query YoutubeVideos($watched: Boolean) {
+    youtubeVideos(watched: $watched) {
         id
         title
         channelName
         publishedAt
         thumbnailUrl
         videoUrl
+        watched
     }
   }
 `);
@@ -48,11 +50,20 @@ const YoutubeRemoveSubscriptionMutation = graphql(`
   }
 `);
 
+const YoutubeMarkVideoAsWatchedMutation = graphql(`
+  mutation YoutubeMarkVideoAsWatched($id: Int!) {
+    markYoutubeVideoAsWatched(id: $id)
+  }
+`);
+
 export function Youtube() {
+  const [watched, setWatched] = useState<undefined | boolean>(false);
+
   const queryClient = useQueryClient();
   const { data, status, error } = useQuery({
-    queryKey: ["youtube-videos"],
-    queryFn: async () => execute(YoutubeVideosQuery),
+    queryKey: ["youtube-videos", watched],
+    queryFn: async () =>
+      execute(YoutubeVideosQuery, watched !== undefined ? { watched } : {}),
   });
   const { data: subscriptionsData } = useQuery({
     queryKey: ["youtube-subscriptions"],
@@ -71,6 +82,13 @@ export function Youtube() {
       execute(YoutubeRemoveSubscriptionMutation, { id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["youtube-subscriptions"] });
+    },
+  });
+  const markVideoAsWatchedMutation = useMutation({
+    mutationFn: async (id: number) =>
+      execute(YoutubeMarkVideoAsWatchedMutation, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
     },
   });
 
@@ -129,6 +147,17 @@ export function Youtube() {
         />
       </form.AppForm>
 
+      <div className="flex flex-row gap-4 mb-8">
+        <Button onClick={() => setWatched(undefined)}>All</Button>
+        <Button onClick={() => setWatched(false)}>Unwatched</Button>
+        <Button onClick={() => setWatched(true)}>Watched</Button>
+      </div>
+
+      <h2 className="text-2xl font-bold mb-8">
+        {watched === undefined ? "All" : watched ? "Watched" : "Unwatched"}{" "}
+        Videos
+      </h2>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 justify-items-center">
         {videos.map((video) => (
           <Card key={video.id}>
@@ -144,6 +173,12 @@ export function Youtube() {
               >
                 <img src={video.thumbnailUrl} alt={video.title} />
               </a>
+              <Button
+                variant="outline"
+                onClick={() => markVideoAsWatchedMutation.mutate(video.id)}
+              >
+                {video.watched ? "Mark as unwatched" : "Mark as watched"}
+              </Button>
             </CardContent>
           </Card>
         ))}
