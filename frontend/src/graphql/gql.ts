@@ -44,6 +44,9 @@ type Documents = {
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
     "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n": typeof types.YoutubeVideosDocument,
+    "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": typeof types.YoutubeSubscriptionsDocument,
+    "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": typeof types.YoutubeAddSubscriptionDocument,
+    "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": typeof types.YoutubeRemoveSubscriptionDocument,
 };
 const documents: Documents = {
     "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n": types.PlaylistsForMenuDocument,
@@ -75,6 +78,9 @@ const documents: Documents = {
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
     "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n": types.YoutubeVideosDocument,
+    "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": types.YoutubeSubscriptionsDocument,
+    "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": types.YoutubeAddSubscriptionDocument,
+    "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": types.YoutubeRemoveSubscriptionDocument,
 };
 
 /**
@@ -193,6 +199,18 @@ export function graphql(source: "\n  query UnimportableFiles($page: Int, $pageSi
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n"): typeof import('./graphql').YoutubeVideosDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n"): typeof import('./graphql').YoutubeSubscriptionsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n"): typeof import('./graphql').YoutubeAddSubscriptionDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n"): typeof import('./graphql').YoutubeRemoveSubscriptionDocument;
 
 
 export function graphql(source: string) {
