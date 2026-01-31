@@ -16,6 +16,7 @@ import { SpotifyLogin } from "./pages/spotify-login";
 import { SpotifyMatchedTracks } from "./pages/spotify-matched-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
+import { Youtube } from "./pages/youtube";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ export function App() {
               path="/spotify/matched-tracks"
               element={<SpotifyMatchedTracks />}
             />
+            <Route path="/youtube" element={<Youtube />} />
           </Route>
           <Route path="/plex-auth/callback" element={<PlexAuthCallback />} />
           <Route

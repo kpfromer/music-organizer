@@ -15,6 +15,7 @@ musicbrainz_rs = "0.12.0"
 reqwest = { version = "0.12.24", features = ["json"] }
 serde = "1.0.228"
 serde_json = "1.0.145"
+serde-xml-rs = "0.8.2"
 sha2 = "0.10"
 tokio = {version = "1.48.0", features = ["full"] }
 toml = "0.9.8"
@@ -58,6 +59,7 @@ tracing-opentelemetry = "0.32.0"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "ansi"] }
 rayon = "1.11.0"
 unicode-normalization = "0.1.25"
+html_parser = "0.7.0"
 
 [profile.dev]
 opt-level = 1

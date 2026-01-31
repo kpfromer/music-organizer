@@ -19,6 +19,7 @@ use crate::http_server::graphql::query_builder::{
 };
 use crate::http_server::graphql::spotify::spotify_mutations::SpotifyMutation;
 use crate::http_server::graphql::spotify::spotify_queries::SpotifyQuery;
+use crate::http_server::graphql::youtube_queries::YoutubeQuery;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 
@@ -37,6 +38,7 @@ pub mod soulseek_mutations;
 mod spotify;
 pub mod track_queries;
 pub mod unimportable_file_queries;
+mod youtube_queries;
 
 use playlist_mutations::PlaylistMutation;
 use playlist_queries::{Playlist, PlaylistsResponse};
@@ -501,7 +503,12 @@ impl LegacyQuery {
 }
 
 #[derive(Default, MergedObject)]
-pub struct Query(LegacyQuery, PlexLibraryRefreshQuery, SpotifyQuery);
+pub struct Query(
+    LegacyQuery,
+    PlexLibraryRefreshQuery,
+    SpotifyQuery,
+    YoutubeQuery,
+);
 
 #[derive(Default, MergedObject)]
 pub struct Mutation(
