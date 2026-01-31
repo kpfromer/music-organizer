@@ -1,10 +1,12 @@
 use super::types::Feed;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Context, Result};
 use html_parser::{Dom, Node};
 use reqwest::Client;
 use std::time::Duration;
+use tracing::instrument;
 use url::Url;
 
+#[instrument]
 pub async fn get_channel_id(username: &str) -> Result<Option<String>> {
     let username = if username.starts_with("@") {
         username.to_string()
@@ -61,6 +63,7 @@ fn get_feed_url(channel_id: &str) -> String {
     )
 }
 
+#[instrument]
 pub async fn fetch_feed(channel_id: &str) -> Result<Feed> {
     let feed_url = get_feed_url(channel_id);
     let response = Client::new()
@@ -70,6 +73,11 @@ pub async fn fetch_feed(channel_id: &str) -> Result<Feed> {
         .await?
         .error_for_status()?;
     let body = response.text().await?;
-    let feed = serde_xml_rs::from_str::<Feed>(&body)?;
+    tracing::info!(body = ?body, "Fetched feed");
+    let feed = serde_xml_rs::SerdeXml::new()
+        // https://docs.rs/serde-xml-rs/latest/serde_xml_rs/config/struct.SerdeXml.html#method.overlapping_sequences
+        .overlapping_sequences(true)
+        .from_str(&body)
+        .wrap_err("Failed to parse feed")?;
     Ok(feed)
 }

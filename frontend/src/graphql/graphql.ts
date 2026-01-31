@@ -265,6 +265,8 @@ export type Query = {
   spotifyTrackDownloadFailures: Array<SpotifyTrackDownloadFailure>;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+  /** Get all videos from subscribed channels */
+  youtubeVideos: Array<Video>;
 };
 
 
@@ -513,6 +515,15 @@ export enum UnimportableReason {
   MusicBrainzError = 'MUSIC_BRAINZ_ERROR',
   UnsupportedFileType = 'UNSUPPORTED_FILE_TYPE'
 }
+
+export type Video = {
+  __typename?: 'Video';
+  channelId: Scalars['String']['output'];
+  channelName: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  title: Scalars['String']['output'];
+};
 
 export type PlaylistsForMenuQueryVariables = Exact<{ [key: string]: never; }>;
 
