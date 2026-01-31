@@ -1,10 +1,9 @@
 use std::sync::Arc;
 use tracing;
 
-use crate::config::Config;
 use crate::database::Database;
 use crate::entities;
-use crate::soulseek::SoulSeekClientContext;
+use crate::http_server::graphql::spotify::sync_spotify_playlist_to_local_library::sync_task::SyncSpotifyPlaylistToLocalLibraryResult;
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
 use color_eyre::eyre::WrapErr;
@@ -12,7 +11,6 @@ use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{EntityTrait, Set};
 
-use super::create_sync_state::create_sync_state;
 use super::sync_task::sync_spotify_playlist_to_local_library;
 
 /// Public entry point for syncing a Spotify playlist to the local music library.
@@ -36,13 +34,10 @@ use super::sync_task::sync_spotify_playlist_to_local_library;
 /// * `local_playlist_name` - Name of the local playlist (created if it doesn't exist)
 pub async fn sync_spotify_playlist_to_local_library_task(
     db: Arc<Database>,
-    soulseek_context: Arc<SoulSeekClientContext>,
-    api_key: &str,
-    config: &Config,
     spotify_account_id: i64,
     spotify_playlist_id: i64,
     local_playlist_name: String,
-) -> Result<entities::spotify_playlist_sync_state::Model> {
+) -> Result<SyncSpotifyPlaylistToLocalLibraryResult> {
     // Fetch the Spotify playlist
     let spotify_playlist = entities::spotify_playlist::Entity::find()
         .filter(entities::spotify_playlist::Column::AccountId.eq(spotify_account_id))
@@ -74,51 +69,14 @@ pub async fn sync_spotify_playlist_to_local_library_task(
         }
     };
 
-    // Create sync state to track progress
-    let sync_state = create_sync_state(&db, &spotify_playlist, &local_playlist).await?;
-
-    // Spawn background task to perform the sync
-    // Clone all necessary data for the async task
-    let api_key_clone = api_key.to_string();
-    let config_clone = config.clone();
-    let sync_state_clone = sync_state.clone();
-    let local_playlist_clone = local_playlist.clone();
-    let spotify_playlist_clone = spotify_playlist.clone();
-
-    tokio::spawn(async move {
-        tracing::info!(
-            "Syncing spotify playlist to local library: {:?}",
-            spotify_playlist_clone
-        );
-
-        match sync_spotify_playlist_to_local_library(
-            &db,
-            &soulseek_context,
-            api_key_clone,
-            config_clone,
-            sync_state_clone.clone(),
-            spotify_playlist_clone,
-            local_playlist_clone,
-        )
-        .await
-        {
-            Ok(()) => {
-                tracing::info!("Successfully completed sync");
-            }
-            Err(e) => {
-                tracing::error!("Failed to sync spotify playlist to local library: {:?}", e);
-                // Update sync state to mark it as failed
-                let mut sync_state: entities::spotify_playlist_sync_state::ActiveModel =
-                    sync_state_clone.into();
-                sync_state.sync_status = Set("error".to_string());
-                sync_state.error_log = Set(Some(e.to_string()));
-                // Ignore errors when updating failed state - we've already logged the error
-                let _ = entities::spotify_playlist_sync_state::Entity::update(sync_state)
-                    .exec(&db.conn)
-                    .await;
-            }
+    match sync_spotify_playlist_to_local_library(&db, spotify_playlist, local_playlist).await {
+        Ok(result) => {
+            tracing::info!(result = ?result, "Successfully completed sync");
+            Ok(result)
         }
-    });
-
-    Ok(sync_state)
+        Err(e) => {
+            tracing::error!("Failed to sync spotify playlist to local library: {:?}", e);
+            Err(e)
+        }
+    }
 }

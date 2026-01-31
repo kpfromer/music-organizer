@@ -144,23 +144,6 @@ CREATE TABLE `spotify_playlist` (
 CREATE UNIQUE INDEX `spotify_playlist_spotify_id` ON `spotify_playlist` (`spotify_id`);
 -- Create index "idx_spotify_playlists_account_id" to table: "spotify_playlist"
 CREATE INDEX `idx_spotify_playlists_account_id` ON `spotify_playlist` (`account_id`);
--- Create "spotify_playlist_sync_state" table
-CREATE TABLE `spotify_playlist_sync_state` (
-  `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-  `spotify_playlist_id` integer NOT NULL,
-  `local_playlist_id` integer NULL,
-  `last_sync_at` integer NULL,
-  `sync_status` varchar NOT NULL DEFAULT 'pending',
-  `tracks_downloaded` integer NOT NULL DEFAULT 0,
-  `tracks_failed` integer NOT NULL DEFAULT 0,
-  `error_log` text NULL,
-  `created_at` integer NOT NULL,
-  `updated_at` integer NOT NULL,
-  CONSTRAINT `0` FOREIGN KEY (`local_playlist_id`) REFERENCES `playlists` (`id`) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT `1` FOREIGN KEY (`spotify_playlist_id`) REFERENCES `spotify_playlist` (`id`) ON UPDATE CASCADE ON DELETE CASCADE
-);
--- Create index "idx_spotify_playlist_sync_state_spotify_playlist_id" to table: "spotify_playlist_sync_state"
-CREATE INDEX `idx_spotify_playlist_sync_state_spotify_playlist_id` ON `spotify_playlist_sync_state` (`spotify_playlist_id`);
 -- Create "spotify_track_download_failure" table
 CREATE TABLE `spotify_track_download_failure` (
   `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,

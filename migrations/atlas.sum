@@ -1,4 +1,5 @@
-h1:n1r56CD9+qGK5QdPjmBitTitUHOTyWAi4hE0H01eCQQ=
+h1:X0Riy/sFrVvFMPMpkRSL3kLrQh3s06vsXJAYLIk0od0=
 20260115162942.sql h1:2+36u93+oetA5t70ONlBnmG1Dp3KHsfxmRmTuAz7ZUQ=
 20260120225256_add_spotify.sql h1:Jz0tv2DTIAS2znSCODv1BZet7XOcR1SNuJ6UJqPmnPg=
 20260124215521_spotify_to_local_matcher_tasks_table.sql h1:1m5cUcimHIo1+OMhIXE+zdcvJlq/NxrixyqaueO5PuU=
+20260125173128_remove_sync_spotify_to_local_state.sql h1:pXOJH/Tug+JJuNbQ3uf9x2U6JGJJBgzrkzUqYkAOPBg=

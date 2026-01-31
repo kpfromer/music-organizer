@@ -137,7 +137,10 @@ const SyncPlaylistToLocalLibraryMutation = graphql(`
       spotifyAccountId: $spotifyAccountId
       spotifyPlaylistId: $spotifyPlaylistId
       localPlaylistName: $localPlaylistName
-    )
+    ) {
+      matchedTrackCount
+      missingTrackCount
+    }
   }
 `);
 
@@ -605,6 +608,12 @@ export function Spotify() {
                 />
               </FieldSet>
             </syncForm.AppForm>
+          )}
+          {syncPlaylistToLocal.isSuccess && syncPlaylistToLocal.data && (
+            <div>
+              <p>Synced {syncPlaylistToLocal.data.matchedTrackCount} tracks</p>
+              <p>Missing {syncPlaylistToLocal.data.missingTrackCount} tracks</p>
+            </div>
           )}
         </CardContent>
       </Card>

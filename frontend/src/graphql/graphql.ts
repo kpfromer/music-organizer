@@ -89,7 +89,7 @@ export type Mutation = {
   /** Sync a database playlist to Plex */
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
   syncSpotifyAccountPlaylistsToDb: Scalars['Boolean']['output'];
-  syncSpotifyPlaylistToLocalLibrary: Scalars['Boolean']['output'];
+  syncSpotifyPlaylistToLocalLibrary: SyncSpotifyPlaylistToLocalLibraryResult;
 };
 
 
@@ -450,6 +450,12 @@ export type SyncPlaylistToPlexResult = {
   tracksSkipped: Scalars['Int']['output'];
 };
 
+export type SyncSpotifyPlaylistToLocalLibraryResult = {
+  __typename?: 'SyncSpotifyPlaylistToLocalLibraryResult';
+  matchedTrackCount: Scalars['Int']['output'];
+  missingTrackCount: Scalars['Int']['output'];
+};
+
 export type TextSearchInput = {
   search?: InputMaybe<Scalars['String']['input']>;
 };
@@ -716,7 +722,7 @@ export type SyncPlaylistToLocalLibraryMutationVariables = Exact<{
 }>;
 
 
-export type SyncPlaylistToLocalLibraryMutation = { __typename?: 'Mutation', syncSpotifyPlaylistToLocalLibrary: boolean };
+export type SyncPlaylistToLocalLibraryMutation = { __typename?: 'Mutation', syncSpotifyPlaylistToLocalLibrary: { __typename?: 'SyncSpotifyPlaylistToLocalLibraryResult', matchedTrackCount: number, missingTrackCount: number } };
 
 export type TracksQueryVariables = Exact<{
   pagination?: InputMaybe<PaginationInput>;
@@ -1097,7 +1103,10 @@ export const SyncPlaylistToLocalLibraryDocument = new TypedDocumentString(`
     spotifyAccountId: $spotifyAccountId
     spotifyPlaylistId: $spotifyPlaylistId
     localPlaylistName: $localPlaylistName
-  )
+  ) {
+    matchedTrackCount
+    missingTrackCount
+  }
 }
     `) as unknown as TypedDocumentString<SyncPlaylistToLocalLibraryMutation, SyncPlaylistToLocalLibraryMutationVariables>;
 export const TracksDocument = new TypedDocumentString(`
