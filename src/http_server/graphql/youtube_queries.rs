@@ -22,15 +22,34 @@ pub struct Video {
 #[Object]
 impl YoutubeQuery {
     /// Get all videos from subscribed channels
+    /// Cache for 3 minutes
+    #[graphql(cache_control(max_age = 180))]
     #[instrument(skip(self, _ctx))]
     async fn youtube_videos(&self, _ctx: &Context<'_>) -> GraphqlResult<Vec<Video>> {
         // let db = &get_app_state(ctx)?.db;
         // TODO: get subscriptions from db
+        // TODO: filter for watched/unwatched videos from db
+        // TODO: don't use cache, use db for youtube videos
 
         let subscriptions = vec![
             "Vaush".to_string(),
-            // "PapaMeat".to_string()
+            "PapaMeat".to_string(),
+            "AtriocClips".to_string(),
+            "TheVaushPit".to_string(),
+            "mikeokay".to_string(),
+            "_jared".to_string(),
+            "nathanlaundry".to_string(),
+            "drewisgooden".to_string(),
+            "ManCarryingThing".to_string(),
+            "TheChristomer".to_string(),
+            "Bthelick".to_string(),
+            "briandavidgilbert".to_string(),
+            "atrioc".to_string(),
+            "johnnyharris".to_string(),
+            "JeffGeerling".to_string(),
+            "Fireship".to_string(),
         ];
+
         let channel_ids = {
             let mut channel_ids = Vec::new();
             for subscription in subscriptions {
@@ -42,7 +61,7 @@ impl YoutubeQuery {
             channel_ids
         };
         info!(channel_ids = ?channel_ids, "Found channel IDs");
-        let videos = {
+        let mut videos = {
             let mut videos = Vec::new();
             for channel_id in channel_ids {
                 let feed = services::youtube::feed::fetch_feed(&channel_id).await?;
@@ -58,6 +77,10 @@ impl YoutubeQuery {
             }
             videos
         };
+
+        videos.sort_by_key(|video| video.published_at.unwrap_or(Utc::now()));
+        videos.reverse();
+
         info!(videos = ?videos, "Found videos");
         Ok(videos)
     }
