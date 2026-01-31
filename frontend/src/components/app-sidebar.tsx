@@ -5,6 +5,7 @@ import {
   ListMusic,
   Music,
   Server,
+  Video,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -64,6 +65,11 @@ const items = [
     title: "Matched Tracks",
     url: "/spotify/matched-tracks",
     icon: Music,
+  },
+  {
+    title: "Youtube",
+    url: "/youtube",
+    icon: Video,
   },
 ];
 

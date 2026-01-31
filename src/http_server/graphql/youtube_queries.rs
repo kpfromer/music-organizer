@@ -16,6 +16,7 @@ pub struct Video {
     pub channel_name: String,
     pub published_at: Option<DateTime<Utc>>,
     pub thumbnail_url: String,
+    pub video_url: String,
 }
 
 #[Object]
@@ -52,6 +53,7 @@ impl YoutubeQuery {
                     channel_name: entry.author.name,
                     published_at: entry.published.parse::<DateTime<Utc>>().ok(),
                     thumbnail_url: entry.media_group.thumbnail.url,
+                    video_url: entry.link.href,
                 }));
             }
             videos

@@ -522,7 +522,9 @@ export type Video = {
   channelName: Scalars['String']['output'];
   id: Scalars['String']['output'];
   publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  thumbnailUrl: Scalars['String']['output'];
   title: Scalars['String']['output'];
+  videoUrl: Scalars['String']['output'];
 };
 
 export type PlaylistsForMenuQueryVariables = Exact<{ [key: string]: never; }>;
@@ -732,6 +734,11 @@ export type UnimportableFilesQueryVariables = Exact<{
 
 
 export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
+
+export type YoutubeVideosQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: string, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string }> };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -1135,3 +1142,15 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
+export const YoutubeVideosDocument = new TypedDocumentString(`
+    query YoutubeVideos {
+  youtubeVideos {
+    id
+    title
+    channelName
+    publishedAt
+    thumbnailUrl
+    videoUrl
+  }
+}
+    `) as unknown as TypedDocumentString<YoutubeVideosQuery, YoutubeVideosQueryVariables>;

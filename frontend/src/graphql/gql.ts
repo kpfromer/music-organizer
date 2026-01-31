@@ -43,6 +43,7 @@ type Documents = {
     "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": typeof types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
+    "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n": typeof types.YoutubeVideosDocument,
 };
 const documents: Documents = {
     "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n": types.PlaylistsForMenuDocument,
@@ -73,6 +74,7 @@ const documents: Documents = {
     "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
+    "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n": types.YoutubeVideosDocument,
 };
 
 /**
@@ -187,6 +189,10 @@ export function graphql(source: "\n  query Tracks(\n    $pagination: PaginationI
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').UnimportableFilesDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query YoutubeVideos {\n    youtubeVideos {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n    }\n  }\n"): typeof import('./graphql').YoutubeVideosDocument;
 
 
 export function graphql(source: string) {
