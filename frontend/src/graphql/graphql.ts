@@ -83,6 +83,7 @@ export type Mutation = {
   downloadSoulseekFile: DownloadStatus;
   /** Initiate Spotify OAuth flow */
   initiateSpotifyAuth: SpotifyAuthResponse;
+  markYoutubeVideoAsUnwatched: Scalars['Boolean']['output'];
   markYoutubeVideoAsWatched: Scalars['Boolean']['output'];
   matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
   /** Trigger a refresh/rescan of the music library on a Plex server */
@@ -146,6 +147,11 @@ export type MutationDownloadSoulseekFileArgs = {
   size: Scalars['Int']['input'];
   token: Scalars['String']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type MutationMarkYoutubeVideoAsUnwatchedArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -804,6 +810,13 @@ export type YoutubeMarkVideoAsWatchedMutationVariables = Exact<{
 
 export type YoutubeMarkVideoAsWatchedMutation = { __typename?: 'Mutation', markYoutubeVideoAsWatched: boolean };
 
+export type YoutubeMarkVideoAsUnwatchedMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type YoutubeMarkVideoAsUnwatchedMutation = { __typename?: 'Mutation', markYoutubeVideoAsUnwatched: boolean };
+
 export class TypedDocumentString<TResult, TVariables>
   extends String
   implements DocumentTypeDecoration<TResult, TVariables>
@@ -1242,3 +1255,8 @@ export const YoutubeMarkVideoAsWatchedDocument = new TypedDocumentString(`
   markYoutubeVideoAsWatched(id: $id)
 }
     `) as unknown as TypedDocumentString<YoutubeMarkVideoAsWatchedMutation, YoutubeMarkVideoAsWatchedMutationVariables>;
+export const YoutubeMarkVideoAsUnwatchedDocument = new TypedDocumentString(`
+    mutation YoutubeMarkVideoAsUnwatched($id: Int!) {
+  markYoutubeVideoAsUnwatched(id: $id)
+}
+    `) as unknown as TypedDocumentString<YoutubeMarkVideoAsUnwatchedMutation, YoutubeMarkVideoAsUnwatchedMutationVariables>;

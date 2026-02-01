@@ -48,6 +48,7 @@ type Documents = {
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": typeof types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": typeof types.YoutubeRemoveSubscriptionDocument,
     "\n  mutation YoutubeMarkVideoAsWatched($id: Int!) {\n    markYoutubeVideoAsWatched(id: $id)\n  }\n": typeof types.YoutubeMarkVideoAsWatchedDocument,
+    "\n  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {\n    markYoutubeVideoAsUnwatched(id: $id)\n  }\n": typeof types.YoutubeMarkVideoAsUnwatchedDocument,
 };
 const documents: Documents = {
     "\n  query PlaylistsForMenu {\n    playlists(page: 1, pageSize: 100) {\n      playlists {\n        id\n        name\n      }\n    }\n  }\n": types.PlaylistsForMenuDocument,
@@ -83,6 +84,7 @@ const documents: Documents = {
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": types.YoutubeRemoveSubscriptionDocument,
     "\n  mutation YoutubeMarkVideoAsWatched($id: Int!) {\n    markYoutubeVideoAsWatched(id: $id)\n  }\n": types.YoutubeMarkVideoAsWatchedDocument,
+    "\n  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {\n    markYoutubeVideoAsUnwatched(id: $id)\n  }\n": types.YoutubeMarkVideoAsUnwatchedDocument,
 };
 
 /**
@@ -217,6 +219,10 @@ export function graphql(source: "\n  mutation YoutubeRemoveSubscription($id: Int
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation YoutubeMarkVideoAsWatched($id: Int!) {\n    markYoutubeVideoAsWatched(id: $id)\n  }\n"): typeof import('./graphql').YoutubeMarkVideoAsWatchedDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {\n    markYoutubeVideoAsUnwatched(id: $id)\n  }\n"): typeof import('./graphql').YoutubeMarkVideoAsUnwatchedDocument;
 
 
 export function graphql(source: string) {

@@ -2,9 +2,9 @@ use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
 use tracing::{info, instrument};
 
+use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::{entities, services};
 use color_eyre::eyre::WrapErr;
 use sea_orm::ColumnTrait;
 use sea_orm::EntityTrait;
@@ -69,9 +69,6 @@ impl YoutubeQuery {
         watched: Option<bool>,
     ) -> GraphqlResult<Vec<Video>> {
         let db = &get_app_state(ctx)?.db;
-        // TODO: get subscriptions from db
-        // TODO: filter for watched/unwatched videos from db
-        // TODO: don't use cache, use db for youtube videos
 
         let mut qs = entities::youtube_video::Entity::find()
             .order_by_desc(entities::youtube_video::Column::PublishedAt);

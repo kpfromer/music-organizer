@@ -53,6 +53,30 @@ impl YoutubeMutation {
         Ok(true)
     }
 
+    async fn mark_youtube_video_as_unwatched(
+        &self,
+        ctx: &Context<'_>,
+        id: i64,
+    ) -> GraphqlResult<bool> {
+        let app_state = get_app_state(ctx)?;
+        let db = &app_state.db;
+        let video = entities::youtube_video::Entity::find_by_id(id)
+            .one(&db.conn)
+            .await
+            .wrap_err("Failed to find youtube video")?;
+        if let Some(video) = video {
+            let mut video: entities::youtube_video::ActiveModel = video.into();
+            video.watched = Set(false);
+            video
+                .update(&db.conn)
+                .await
+                .wrap_err("Failed to mark youtube video as unwatched")?;
+            Ok(true)
+        } else {
+            Err(color_eyre::eyre::eyre!("Youtube video not found").into())
+        }
+    }
+
     async fn mark_youtube_video_as_watched(
         &self,
         ctx: &Context<'_>,

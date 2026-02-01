@@ -26,7 +26,6 @@ use crate::{
         },
         state::AppState,
     },
-    import_track::watch_directory,
     services::{background::run_background_tasks, spotify::client::SpotifyApiCredentials},
     soulseek::{SearchConfig, SoulSeekClientContext},
 };

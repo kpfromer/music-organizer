@@ -56,14 +56,19 @@ const YoutubeMarkVideoAsWatchedMutation = graphql(`
   }
 `);
 
+const YoutubeMarkVideoAsUnwatchedMutation = graphql(`
+  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {
+    markYoutubeVideoAsUnwatched(id: $id)
+  }
+`);
+
 export function Youtube() {
   const [watched, setWatched] = useState<undefined | boolean>(false);
 
   const queryClient = useQueryClient();
   const { data, status, error } = useQuery({
     queryKey: ["youtube-videos", watched],
-    queryFn: async () =>
-      execute(YoutubeVideosQuery, watched !== undefined ? { watched } : {}),
+    queryFn: async () => execute(YoutubeVideosQuery, { watched }),
   });
   const { data: subscriptionsData } = useQuery({
     queryKey: ["youtube-subscriptions"],
@@ -87,6 +92,13 @@ export function Youtube() {
   const markVideoAsWatchedMutation = useMutation({
     mutationFn: async (id: number) =>
       execute(YoutubeMarkVideoAsWatchedMutation, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
+    },
+  });
+  const markVideoAsUnwatchedMutation = useMutation({
+    mutationFn: async (id: number) =>
+      execute(YoutubeMarkVideoAsUnwatchedMutation, { id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
     },
@@ -175,7 +187,13 @@ export function Youtube() {
               </a>
               <Button
                 variant="outline"
-                onClick={() => markVideoAsWatchedMutation.mutate(video.id)}
+                onClick={() => {
+                  if (video.watched) {
+                    markVideoAsUnwatchedMutation.mutate(video.id);
+                  } else {
+                    markVideoAsWatchedMutation.mutate(video.id);
+                  }
+                }}
               >
                 {video.watched ? "Mark as unwatched" : "Mark as watched"}
               </Button>

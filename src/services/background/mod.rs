@@ -4,11 +4,9 @@ use std::{path::Path, sync::Arc, time::Duration};
 pub mod youtube;
 
 pub fn run_background_tasks(app_state: Arc<AppState>, watch_directory_path: &Path) {
-    // TODO: import files
-
     let watch_directory_path = watch_directory_path.to_path_buf();
     let app_state_clone = app_state.clone();
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
         tracing::info!("Watching directory in background");
         // TODO: handle errors hear
         // maybe restart 5 times with a delay between each restart
@@ -30,7 +28,7 @@ pub fn run_background_tasks(app_state: Arc<AppState>, watch_directory_path: &Pat
 
     // Fetch youtube videos for subscribed channels
     let youtube_db = app_state.db.clone();
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
         tracing::info!("Fetching youtube videos in background");
         loop {
             tokio::time::sleep(Duration::from_mins(3)).await;

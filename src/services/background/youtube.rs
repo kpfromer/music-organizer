@@ -1,10 +1,7 @@
 use crate::{database::Database, entities, services};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{Context, Result};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database as SeaDatabase,
-    DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, Set,
-};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
 use tracing::instrument;
 
 pub async fn add_new_videos_for_subscription(
@@ -27,7 +24,7 @@ pub async fn add_new_videos_for_subscription(
             "Adding new youtube video",
         );
 
-        if let Some(published_at) = entry.published.parse::<DateTime<Utc>>().ok() {
+        if let Ok(published_at) = entry.published.parse::<DateTime<Utc>>() {
             let video = entities::youtube_video::ActiveModel {
                 youtube_id: Set(entry.id),
                 title: Set(entry.title),
@@ -55,7 +52,7 @@ pub async fn add_new_videos(db: &Database) -> Result<()> {
         .await
         .wrap_err("Failed to fetch youtube subscriptions")?;
     for subscription in subscriptions {
-        match add_new_videos_for_subscription(&db, &subscription).await {
+        match add_new_videos_for_subscription(db, &subscription).await {
             Ok(_) => {}
             Err(e) => tracing::error!(
                 subscription = ?subscription,
