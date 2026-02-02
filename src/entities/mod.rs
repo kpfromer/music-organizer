@@ -14,3 +14,5 @@ pub mod spotify_track_playlist;
 pub mod track;
 pub mod track_artist;
 pub mod unimportable_file;
+pub mod youtube_subscription;
+pub mod youtube_video;

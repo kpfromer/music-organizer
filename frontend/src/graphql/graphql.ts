@@ -72,6 +72,7 @@ export type MultiplePlexServersError = {
 export type Mutation = {
   __typename?: 'Mutation';
   addTrackToPlaylist: Scalars['Boolean']['output'];
+  addYoutubeSubscription: Scalars['Boolean']['output'];
   authenticatePlexServer: AuthResponse;
   completePlexServerAuthentication: PlexServer;
   /** Complete Spotify OAuth by exchanging code for access token */
@@ -82,9 +83,12 @@ export type Mutation = {
   downloadSoulseekFile: DownloadStatus;
   /** Initiate Spotify OAuth flow */
   initiateSpotifyAuth: SpotifyAuthResponse;
+  markYoutubeVideoAsUnwatched: Scalars['Boolean']['output'];
+  markYoutubeVideoAsWatched: Scalars['Boolean']['output'];
   matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
   /** Trigger a refresh/rescan of the music library on a Plex server */
   refreshMusicLibrary: RefreshLibraryResult;
+  removeYoutubeSubscription: Scalars['Boolean']['output'];
   searchSoulseek: Array<SoulSeekSearchResult>;
   /** Sync a database playlist to Plex */
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
@@ -96,6 +100,11 @@ export type Mutation = {
 export type MutationAddTrackToPlaylistArgs = {
   playlistId: Scalars['Int']['input'];
   trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationAddYoutubeSubscriptionArgs = {
+  name: Scalars['String']['input'];
 };
 
 
@@ -141,8 +150,23 @@ export type MutationDownloadSoulseekFileArgs = {
 };
 
 
+export type MutationMarkYoutubeVideoAsUnwatchedArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkYoutubeVideoAsWatchedArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
 export type MutationRefreshMusicLibraryArgs = {
   plexServerId: Scalars['Int']['input'];
+};
+
+
+export type MutationRemoveYoutubeSubscriptionArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -265,7 +289,11 @@ export type Query = {
   spotifyTrackDownloadFailures: Array<SpotifyTrackDownloadFailure>;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
-  /** Get all videos from subscribed channels */
+  youtubeSubscriptions: Array<YoutubeSubscription>;
+  /**
+   * Get all videos from subscribed channels
+   * Cache for 3 minutes
+   */
   youtubeVideos: Array<Video>;
 };
 
@@ -328,6 +356,11 @@ export type QueryTracksArgs = {
 export type QueryUnimportableFilesArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryYoutubeVideosArgs = {
+  watched?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type RefreshLibraryResult = {
@@ -518,13 +551,22 @@ export enum UnimportableReason {
 
 export type Video = {
   __typename?: 'Video';
-  channelId: Scalars['String']['output'];
   channelName: Scalars['String']['output'];
-  id: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   publishedAt?: Maybe<Scalars['DateTime']['output']>;
   thumbnailUrl: Scalars['String']['output'];
   title: Scalars['String']['output'];
   videoUrl: Scalars['String']['output'];
+  watched: Scalars['Boolean']['output'];
+};
+
+export type YoutubeSubscription = {
+  __typename?: 'YoutubeSubscription';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  youtubeId: Scalars['String']['output'];
 };
 
 export type PlaylistsForMenuQueryVariables = Exact<{ [key: string]: never; }>;
@@ -735,10 +777,45 @@ export type UnimportableFilesQueryVariables = Exact<{
 
 export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
 
-export type YoutubeVideosQueryVariables = Exact<{ [key: string]: never; }>;
+export type YoutubeVideosQueryVariables = Exact<{
+  watched?: InputMaybe<Scalars['Boolean']['input']>;
+}>;
 
 
-export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: string, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string }> };
+export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: number, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string, watched: boolean }> };
+
+export type YoutubeSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type YoutubeSubscriptionsQuery = { __typename?: 'Query', youtubeSubscriptions: Array<{ __typename?: 'YoutubeSubscription', id: number, name: string }> };
+
+export type YoutubeAddSubscriptionMutationVariables = Exact<{
+  name: Scalars['String']['input'];
+}>;
+
+
+export type YoutubeAddSubscriptionMutation = { __typename?: 'Mutation', addYoutubeSubscription: boolean };
+
+export type YoutubeRemoveSubscriptionMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type YoutubeRemoveSubscriptionMutation = { __typename?: 'Mutation', removeYoutubeSubscription: boolean };
+
+export type YoutubeMarkVideoAsWatchedMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type YoutubeMarkVideoAsWatchedMutation = { __typename?: 'Mutation', markYoutubeVideoAsWatched: boolean };
+
+export type YoutubeMarkVideoAsUnwatchedMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type YoutubeMarkVideoAsUnwatchedMutation = { __typename?: 'Mutation', markYoutubeVideoAsUnwatched: boolean };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -1143,14 +1220,43 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
 export const YoutubeVideosDocument = new TypedDocumentString(`
-    query YoutubeVideos {
-  youtubeVideos {
+    query YoutubeVideos($watched: Boolean) {
+  youtubeVideos(watched: $watched) {
     id
     title
     channelName
     publishedAt
     thumbnailUrl
     videoUrl
+    watched
   }
 }
     `) as unknown as TypedDocumentString<YoutubeVideosQuery, YoutubeVideosQueryVariables>;
+export const YoutubeSubscriptionsDocument = new TypedDocumentString(`
+    query YoutubeSubscriptions {
+  youtubeSubscriptions {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<YoutubeSubscriptionsQuery, YoutubeSubscriptionsQueryVariables>;
+export const YoutubeAddSubscriptionDocument = new TypedDocumentString(`
+    mutation YoutubeAddSubscription($name: String!) {
+  addYoutubeSubscription(name: $name)
+}
+    `) as unknown as TypedDocumentString<YoutubeAddSubscriptionMutation, YoutubeAddSubscriptionMutationVariables>;
+export const YoutubeRemoveSubscriptionDocument = new TypedDocumentString(`
+    mutation YoutubeRemoveSubscription($id: Int!) {
+  removeYoutubeSubscription(id: $id)
+}
+    `) as unknown as TypedDocumentString<YoutubeRemoveSubscriptionMutation, YoutubeRemoveSubscriptionMutationVariables>;
+export const YoutubeMarkVideoAsWatchedDocument = new TypedDocumentString(`
+    mutation YoutubeMarkVideoAsWatched($id: Int!) {
+  markYoutubeVideoAsWatched(id: $id)
+}
+    `) as unknown as TypedDocumentString<YoutubeMarkVideoAsWatchedMutation, YoutubeMarkVideoAsWatchedMutationVariables>;
+export const YoutubeMarkVideoAsUnwatchedDocument = new TypedDocumentString(`
+    mutation YoutubeMarkVideoAsUnwatched($id: Int!) {
+  markYoutubeVideoAsUnwatched(id: $id)
+}
+    `) as unknown as TypedDocumentString<YoutubeMarkVideoAsUnwatchedMutation, YoutubeMarkVideoAsUnwatchedMutationVariables>;

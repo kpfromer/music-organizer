@@ -26,8 +26,7 @@ use crate::{
         },
         state::AppState,
     },
-    import_track::watch_directory,
-    services::spotify::client::SpotifyApiCredentials,
+    services::{background::run_background_tasks, spotify::client::SpotifyApiCredentials},
     soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
@@ -177,30 +176,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state.clone());
 
-    // Start watch directory in background
-    {
-        tracing::info!("Watching directory in background");
-        let watch_directory_path = watch_directory_path.clone();
-        let app_state_clone = app_state.clone();
-        let _r = tokio::spawn(async move {
-            // TODO: handle errors hear
-            // maybe restart 5 times with a delay between each restart
-            // if it fails after 5 restarts, log an error and exit?
-            match watch_directory(
-                &watch_directory_path,
-                &app_state_clone.api_key,
-                &app_state_clone.config,
-                &app_state_clone.db,
-            )
-            .await
-            {
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::error!("Error watching directory: {}", e);
-                }
-            }
-        });
-    };
+    run_background_tasks(app_state.clone(), &watch_directory_path);
 
     {
         tokio::task::spawn(async move {
