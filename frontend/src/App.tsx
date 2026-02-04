@@ -1,10 +1,9 @@
 import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Page } from "./components/page";
 import { Download } from "./pages/download";
-import { Home } from "./pages/home";
 import { Playlist } from "./pages/playlist";
 import { Playlists } from "./pages/playlists";
 import { PlexAuthCallback } from "./pages/plex-auth-callback";
@@ -17,6 +16,7 @@ import { SpotifyMatchedTracks } from "./pages/spotify-matched-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 import { Youtube } from "./pages/youtube";
+import { YoutubeSubscriptions } from "./pages/youtube-subscriptions";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +32,7 @@ export function App() {
       <Providers>
         <Routes>
           <Route element={<Page />}>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Youtube />} />
             <Route path="/albums" element={<>Albums</>} />
             <Route path="/tracks" element={<Tracks />} />
             <Route path="/playlists" element={<Playlists />} />
@@ -47,7 +47,11 @@ export function App() {
               path="/spotify/matched-tracks"
               element={<SpotifyMatchedTracks />}
             />
-            <Route path="/youtube" element={<Youtube />} />
+            <Route path="/youtube" element={<Navigate to="/" />} />
+            <Route
+              path="/youtube-subscriptions"
+              element={<YoutubeSubscriptions />}
+            />
           </Route>
           <Route path="/plex-auth/callback" element={<PlexAuthCallback />} />
           <Route

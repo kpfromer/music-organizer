@@ -19,7 +19,6 @@ type Documents = {
     "\n  mutation CreatePlaylist($name: String!, $description: String) {\n    createPlaylist(name: $name, description: $description) {\n      id\n      name\n      description\n      createdAt\n      updatedAt\n      trackCount\n    }\n  }\n": typeof types.CreatePlaylistDocument,
     "\n  mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {\n    addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)\n  }\n": typeof types.AddTrackToPlaylistDocument,
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": typeof types.SearchSoulseekDocument,
-    "\n  query Test {\n    howdy\n  }\n": typeof types.TestDocument,
     "\n\tquery PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {\n\t\tplaylistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {\n\t\t\ttracks {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t\ttrackNumber\n\t\t\t\tduration\n\t\t\t\tcreatedAt\n\t\t\t\talbum {\n\t\t\t\t\tid\n\t\t\t\t\ttitle\n\t\t\t\t\tyear\n\t\t\t\t\tartworkUrl\n\t\t\t\t}\n\t\t\t\tartists {\n\t\t\t\t\tid\n\t\t\t\t\tname\n\t\t\t\t}\n\t\t\t}\n\t\t\ttotalCount\n\t\t\tpage\n\t\t\tpageSize\n\t\t}\n\t}\n": typeof types.PlaylistTracksDocument,
     "\n\tquery Playlist($id: Int!) {\n\t\tplaylist(id: $id) {\n\t\t\tid\n\t\t\tname\n\t\t\tdescription\n\t\t\ttrackCount\n\t\t}\n\t}\n": typeof types.PlaylistDocument,
     "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.PlaylistsDocument,
@@ -43,10 +42,10 @@ type Documents = {
     "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": typeof types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
-    "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n": typeof types.YoutubeVideosDocument,
     "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": typeof types.YoutubeSubscriptionsDocument,
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": typeof types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": typeof types.YoutubeRemoveSubscriptionDocument,
+    "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n": typeof types.YoutubeVideosDocument,
     "\n  mutation YoutubeMarkVideoAsWatched($id: Int!) {\n    markYoutubeVideoAsWatched(id: $id)\n  }\n": typeof types.YoutubeMarkVideoAsWatchedDocument,
     "\n  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {\n    markYoutubeVideoAsUnwatched(id: $id)\n  }\n": typeof types.YoutubeMarkVideoAsUnwatchedDocument,
 };
@@ -55,7 +54,6 @@ const documents: Documents = {
     "\n  mutation CreatePlaylist($name: String!, $description: String) {\n    createPlaylist(name: $name, description: $description) {\n      id\n      name\n      description\n      createdAt\n      updatedAt\n      trackCount\n    }\n  }\n": types.CreatePlaylistDocument,
     "\n  mutation AddTrackToPlaylist($playlistId: Int!, $trackId: Int!) {\n    addTrackToPlaylist(playlistId: $playlistId, trackId: $trackId)\n  }\n": types.AddTrackToPlaylistDocument,
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": types.SearchSoulseekDocument,
-    "\n  query Test {\n    howdy\n  }\n": types.TestDocument,
     "\n\tquery PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {\n\t\tplaylistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {\n\t\t\ttracks {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t\ttrackNumber\n\t\t\t\tduration\n\t\t\t\tcreatedAt\n\t\t\t\talbum {\n\t\t\t\t\tid\n\t\t\t\t\ttitle\n\t\t\t\t\tyear\n\t\t\t\t\tartworkUrl\n\t\t\t\t}\n\t\t\t\tartists {\n\t\t\t\t\tid\n\t\t\t\t\tname\n\t\t\t\t}\n\t\t\t}\n\t\t\ttotalCount\n\t\t\tpage\n\t\t\tpageSize\n\t\t}\n\t}\n": types.PlaylistTracksDocument,
     "\n\tquery Playlist($id: Int!) {\n\t\tplaylist(id: $id) {\n\t\t\tid\n\t\t\tname\n\t\t\tdescription\n\t\t\ttrackCount\n\t\t}\n\t}\n": types.PlaylistDocument,
     "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.PlaylistsDocument,
@@ -79,10 +77,10 @@ const documents: Documents = {
     "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": types.SyncPlaylistToLocalLibraryDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
-    "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n": types.YoutubeVideosDocument,
     "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": types.YoutubeSubscriptionsDocument,
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": types.YoutubeRemoveSubscriptionDocument,
+    "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n": types.YoutubeVideosDocument,
     "\n  mutation YoutubeMarkVideoAsWatched($id: Int!) {\n    markYoutubeVideoAsWatched(id: $id)\n  }\n": types.YoutubeMarkVideoAsWatchedDocument,
     "\n  mutation YoutubeMarkVideoAsUnwatched($id: Int!) {\n    markYoutubeVideoAsUnwatched(id: $id)\n  }\n": types.YoutubeMarkVideoAsUnwatchedDocument,
 };
@@ -103,10 +101,6 @@ export function graphql(source: "\n  mutation AddTrackToPlaylist($playlistId: In
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n"): typeof import('./graphql').SearchSoulseekDocument;
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  query Test {\n    howdy\n  }\n"): typeof import('./graphql').TestDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -202,10 +196,6 @@ export function graphql(source: "\n  query UnimportableFiles($page: Int, $pageSi
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n"): typeof import('./graphql').YoutubeVideosDocument;
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n"): typeof import('./graphql').YoutubeSubscriptionsDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -215,6 +205,10 @@ export function graphql(source: "\n  mutation YoutubeAddSubscription($name: Stri
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n"): typeof import('./graphql').YoutubeRemoveSubscriptionDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query YoutubeVideos($watched: Boolean) {\n    youtubeVideos(watched: $watched) {\n        id\n        title\n        channelName\n        publishedAt\n        thumbnailUrl\n        videoUrl\n        watched\n    }\n  }\n"): typeof import('./graphql').YoutubeVideosDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

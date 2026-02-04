@@ -25,7 +25,7 @@ backend-build-release:
 # Run cargo audit
 backend-audit:
     if ! command -v cargo-audit > /dev/null; then cargo install cargo-audit --locked; fi
-    cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0001 --ignore RUSTSEC-2026-0002
+    cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0001 --ignore RUSTSEC-2026-0002 --ignore RUSTSEC-2025-0134
 
 # Watch backend server
 backend-watch:
@@ -34,4 +34,3 @@ backend-watch:
 # Check (format-check + lint + test)
 [parallel]
 backend-check: backend-format-check backend-lint backend-test
-

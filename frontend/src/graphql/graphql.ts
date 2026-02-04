@@ -600,11 +600,6 @@ export type SearchSoulseekMutationVariables = Exact<{
 
 export type SearchSoulseekMutation = { __typename?: 'Mutation', searchSoulseek: Array<{ __typename?: 'SoulSeekSearchResult', username: string, token: string, filename: string, size: number, avgSpeed: number, queueLength: number, slotsFree: boolean, attributes: Array<{ __typename?: 'SoulSeekFileAttributeValue', attribute: SoulSeekFileAttribute, value: number }> }> };
 
-export type TestQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type TestQuery = { __typename?: 'Query', howdy: string };
-
 export type PlaylistTracksQueryVariables = Exact<{
   playlistId: Scalars['Int']['input'];
   page?: InputMaybe<Scalars['Int']['input']>;
@@ -777,13 +772,6 @@ export type UnimportableFilesQueryVariables = Exact<{
 
 export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
 
-export type YoutubeVideosQueryVariables = Exact<{
-  watched?: InputMaybe<Scalars['Boolean']['input']>;
-}>;
-
-
-export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: number, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string, watched: boolean }> };
-
 export type YoutubeSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -802,6 +790,13 @@ export type YoutubeRemoveSubscriptionMutationVariables = Exact<{
 
 
 export type YoutubeRemoveSubscriptionMutation = { __typename?: 'Mutation', removeYoutubeSubscription: boolean };
+
+export type YoutubeVideosQueryVariables = Exact<{
+  watched?: InputMaybe<Scalars['Boolean']['input']>;
+}>;
+
+
+export type YoutubeVideosQuery = { __typename?: 'Query', youtubeVideos: Array<{ __typename?: 'Video', id: number, title: string, channelName: string, publishedAt?: any | null, thumbnailUrl: string, videoUrl: string, watched: boolean }> };
 
 export type YoutubeMarkVideoAsWatchedMutationVariables = Exact<{
   id: Scalars['Int']['input'];
@@ -885,11 +880,6 @@ export const SearchSoulseekDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SearchSoulseekMutation, SearchSoulseekMutationVariables>;
-export const TestDocument = new TypedDocumentString(`
-    query Test {
-  howdy
-}
-    `) as unknown as TypedDocumentString<TestQuery, TestQueryVariables>;
 export const PlaylistTracksDocument = new TypedDocumentString(`
     query PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {
   playlistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {
@@ -1219,19 +1209,6 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
-export const YoutubeVideosDocument = new TypedDocumentString(`
-    query YoutubeVideos($watched: Boolean) {
-  youtubeVideos(watched: $watched) {
-    id
-    title
-    channelName
-    publishedAt
-    thumbnailUrl
-    videoUrl
-    watched
-  }
-}
-    `) as unknown as TypedDocumentString<YoutubeVideosQuery, YoutubeVideosQueryVariables>;
 export const YoutubeSubscriptionsDocument = new TypedDocumentString(`
     query YoutubeSubscriptions {
   youtubeSubscriptions {
@@ -1250,6 +1227,19 @@ export const YoutubeRemoveSubscriptionDocument = new TypedDocumentString(`
   removeYoutubeSubscription(id: $id)
 }
     `) as unknown as TypedDocumentString<YoutubeRemoveSubscriptionMutation, YoutubeRemoveSubscriptionMutationVariables>;
+export const YoutubeVideosDocument = new TypedDocumentString(`
+    query YoutubeVideos($watched: Boolean) {
+  youtubeVideos(watched: $watched) {
+    id
+    title
+    channelName
+    publishedAt
+    thumbnailUrl
+    videoUrl
+    watched
+  }
+}
+    `) as unknown as TypedDocumentString<YoutubeVideosQuery, YoutubeVideosQueryVariables>;
 export const YoutubeMarkVideoAsWatchedDocument = new TypedDocumentString(`
     mutation YoutubeMarkVideoAsWatched($id: Int!) {
   markYoutubeVideoAsWatched(id: $id)

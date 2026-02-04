@@ -71,6 +71,11 @@ const items = [
     url: "/youtube",
     icon: Video,
   },
+  {
+    title: "Youtube Subscriptions",
+    url: "/youtube-subscriptions",
+    icon: Video,
+  },
 ];
 
 export function AppSidebar() {

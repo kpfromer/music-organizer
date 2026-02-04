@@ -1,17 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { FormFieldContainer } from "@/components/form/FormFieldContainer";
-import { FormSubmitButton } from "@/components/form/FormSubmitButton";
-import { FormTextField } from "@/components/form/FormTextField";
-import { useAppForm } from "@/components/form/form-hooks";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
 
@@ -26,27 +15,6 @@ const YoutubeVideosQuery = graphql(`
         videoUrl
         watched
     }
-  }
-`);
-
-const YoutubeSubscriptionsQuery = graphql(`
-  query YoutubeSubscriptions {
-    youtubeSubscriptions {
-      id
-      name
-    }
-  }
-`);
-
-const YoutubeAddSubscriptionMutation = graphql(`
-  mutation YoutubeAddSubscription($name: String!) {
-    addYoutubeSubscription(name: $name)
-  }
-`);
-
-const YoutubeRemoveSubscriptionMutation = graphql(`
-  mutation YoutubeRemoveSubscription($id: Int!) {
-    removeYoutubeSubscription(id: $id)
   }
 `);
 
@@ -70,25 +38,6 @@ export function Youtube() {
     queryKey: ["youtube-videos", watched],
     queryFn: async () => execute(YoutubeVideosQuery, { watched }),
   });
-  const { data: subscriptionsData } = useQuery({
-    queryKey: ["youtube-subscriptions"],
-    queryFn: async () => execute(YoutubeSubscriptionsQuery),
-  });
-  const addSubscriptionMutation = useMutation({
-    mutationFn: async (name: string) =>
-      execute(YoutubeAddSubscriptionMutation, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["youtube-subscriptions"] });
-      queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
-    },
-  });
-  const removeSubscriptionMutation = useMutation({
-    mutationFn: async (id: number) =>
-      execute(YoutubeRemoveSubscriptionMutation, { id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["youtube-subscriptions"] });
-    },
-  });
   const markVideoAsWatchedMutation = useMutation({
     mutationFn: async (id: number) =>
       execute(YoutubeMarkVideoAsWatchedMutation, { id }),
@@ -101,15 +50,6 @@ export function Youtube() {
       execute(YoutubeMarkVideoAsUnwatchedMutation, { id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["youtube-videos"] });
-    },
-  });
-
-  const form = useAppForm({
-    defaultValues: {
-      name: "",
-    },
-    onSubmit: async ({ value }) => {
-      await addSubscriptionMutation.mutateAsync(value.name);
     },
   });
 
@@ -128,37 +68,6 @@ export function Youtube() {
   return (
     <div className="container mx-auto p-8 text-center relative z-10">
       <h1 className="text-3xl font-bold mb-8">Youtube Videos</h1>
-      <h2 className="text-2xl font-bold mb-8">Subscriptions</h2>
-      <div className="flex flex-col gap-4 mb-8">
-        {subscriptionsData?.youtubeSubscriptions.map((subscription) => (
-          <div key={subscription.id}>
-            <span>{subscription.name}</span>
-            <Button
-              variant="destructive"
-              onClick={() => removeSubscriptionMutation.mutate(subscription.id)}
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
-      </div>
-
-      <h2 className="text-2xl font-bold mb-8">Add Subscription</h2>
-      <form.AppForm>
-        <form.AppField name="name">
-          {() => (
-            <FormFieldContainer label="Subscription Name">
-              <FormTextField placeholder="Enter subscription name" />
-            </FormFieldContainer>
-          )}
-        </form.AppField>
-        <FormSubmitButton
-          label="Add Subscription"
-          loadingLabel="Adding..."
-          errorLabel="Failed to add subscription"
-        />
-      </form.AppForm>
-
       <div className="flex flex-row gap-4 mb-8">
         <Button onClick={() => setWatched(undefined)}>All</Button>
         <Button onClick={() => setWatched(false)}>Unwatched</Button>
@@ -170,35 +79,68 @@ export function Youtube() {
         Videos
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 justify-items-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 justify-items-center">
         {videos.map((video) => (
-          <Card key={video.id}>
-            <CardHeader className="gap-4">
-              <CardTitle>{video.title}</CardTitle>
-              <CardDescription>{video.channelName}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <a
-                href={video.videoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <img src={video.thumbnailUrl} alt={video.title} />
-              </a>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (video.watched) {
-                    markVideoAsUnwatchedMutation.mutate(video.id);
-                  } else {
-                    markVideoAsWatchedMutation.mutate(video.id);
-                  }
-                }}
-              >
-                {video.watched ? "Mark as unwatched" : "Mark as watched"}
-              </Button>
-            </CardContent>
-          </Card>
+          <div key={video.id} className="flex flex-col gap-2 items-start">
+            <a
+              href={video.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col gap-2 items-start"
+            >
+              <img
+                src={video.thumbnailUrl}
+                alt={video.title}
+                className="w-full h-auto rounded-md"
+              />
+
+              <span className="text-lg font-bold text-start">
+                {video.title.slice(0, 50)}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {video.channelName}
+              </span>
+            </a>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (video.watched) {
+                  markVideoAsUnwatchedMutation.mutate(video.id);
+                } else {
+                  markVideoAsWatchedMutation.mutate(video.id);
+                }
+              }}
+            >
+              {video.watched ? "Mark as unwatched" : "Mark as watched"}
+            </Button>
+          </div>
+          // <Card key={video.id}>
+          //   <CardHeader className="gap-4">
+          //     <CardTitle>{video.title}</CardTitle>
+          //     <CardDescription>{video.channelName}</CardDescription>
+          //   </CardHeader>
+          //   <CardContent>
+          //     <a
+          //       href={video.videoUrl}
+          //       target="_blank"
+          //       rel="noopener noreferrer"
+          //     >
+          //       <img src={video.thumbnailUrl} alt={video.title} />
+          //     </a>
+          //     <Button
+          //       variant="outline"
+          //       onClick={() => {
+          //         if (video.watched) {
+          //           markVideoAsUnwatchedMutation.mutate(video.id);
+          //         } else {
+          //           markVideoAsWatchedMutation.mutate(video.id);
+          //         }
+          //       }}
+          //     >
+          //       {video.watched ? "Mark as unwatched" : "Mark as watched"}
+          //     </Button>
+          //   </CardContent>
+          // </Card>
         ))}
       </div>
     </div>
