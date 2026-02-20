@@ -82,6 +82,90 @@ pub struct SpotifyMatchedTracksResponse {
     pub page_size: i32,
 }
 
+#[derive(async_graphql::SimpleObject)]
+pub struct SpotifyMatchCandidate {
+    pub id: i64,
+    pub local_track: Track,
+    pub score: f64,
+    pub confidence: String,
+    pub title_similarity: f64,
+    pub artist_similarity: f64,
+    pub album_similarity: f64,
+    pub duration_match: String,
+    pub version_match: String,
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct SpotifyUnmatchedTrack {
+    pub spotify_track_id: String,
+    pub spotify_title: String,
+    pub spotify_artists: Vec<String>,
+    pub spotify_album: String,
+    pub spotify_isrc: Option<String>,
+    pub spotify_duration: Option<i32>,
+    pub candidates: Vec<SpotifyMatchCandidate>,
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct SpotifyUnmatchedTracksResponse {
+    pub unmatched_tracks: Vec<SpotifyUnmatchedTrack>,
+    pub total_count: i64,
+    pub page: i32,
+    pub page_size: i32,
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct SearchLocalTracksResponse {
+    pub tracks: Vec<Track>,
+    pub total_count: i64,
+    pub page: i32,
+    pub page_size: i32,
+}
+
+async fn build_local_track(
+    db: &crate::database::Database,
+    base_url: &str,
+    local_track_id: i64,
+) -> GraphqlResult<Track> {
+    let (local_track_model, album_model) = entities::track::Entity::find_by_id(local_track_id)
+        .find_also_related(entities::album::Entity)
+        .one(&db.conn)
+        .await
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch local track: {}", e))?
+        .ok_or_eyre("Local track not found")?;
+
+    let album_model = album_model.ok_or_eyre("Local track has no album")?;
+
+    let track_artists = db
+        .get_track_artists(local_track_id)
+        .await
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch track artists: {}", e))?;
+
+    let artists: Vec<Artist> = track_artists
+        .into_iter()
+        .map(|(artist, _)| Artist {
+            id: artist.id,
+            name: artist.name,
+        })
+        .collect();
+
+    Ok(Track {
+        id: local_track_model.id,
+        title: local_track_model.title,
+        track_number: local_track_model.track_number,
+        duration: local_track_model.duration,
+        created_at: DateTime::<Utc>::from_timestamp_secs(local_track_model.created_at)
+            .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?,
+        album: Album {
+            id: album_model.id,
+            title: album_model.title,
+            year: album_model.year,
+            artwork_url: Some(format!("{}/album-art-image/{}", base_url, local_track_id)),
+        },
+        artists,
+    })
+}
+
 #[Object]
 impl SpotifyQuery {
     /// Get all Spotify accounts
@@ -277,46 +361,7 @@ impl SpotifyQuery {
                 .local_track_id
                 .ok_or_eyre("Spotify track should have local_track_id")?;
 
-            // Fetch local track with album
-            let (local_track_model, album_model) =
-                entities::track::Entity::find_by_id(local_track_id)
-                    .find_also_related(entities::album::Entity)
-                    .one(&db.conn)
-                    .await
-                    .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch local track: {}", e))?
-                    .ok_or_eyre("Local track not found")?;
-
-            let album_model = album_model.ok_or_eyre("Local track has no album")?;
-
-            // Fetch artists for local track
-            let track_artists = db
-                .get_track_artists(local_track_id)
-                .await
-                .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch track artists: {}", e))?;
-
-            let artists: Vec<Artist> = track_artists
-                .into_iter()
-                .map(|(artist, _)| Artist {
-                    id: artist.id,
-                    name: artist.name,
-                })
-                .collect();
-
-            let local_track = Track {
-                id: local_track_model.id,
-                title: local_track_model.title,
-                track_number: local_track_model.track_number,
-                duration: local_track_model.duration,
-                created_at: DateTime::<Utc>::from_timestamp_secs(local_track_model.created_at)
-                    .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?,
-                album: Album {
-                    id: album_model.id,
-                    title: album_model.title,
-                    year: album_model.year,
-                    artwork_url: Some(format!("{}/album-art-image/{}", base_url, local_track_id)),
-                },
-                artists,
-            };
+            let local_track = build_local_track(db, base_url, local_track_id).await?;
 
             matched_tracks.push(SpotifyMatchedTrack {
                 spotify_track_id: spotify_track.spotify_track_id,
@@ -335,6 +380,154 @@ impl SpotifyQuery {
 
         Ok(SpotifyMatchedTracksResponse {
             matched_tracks,
+            total_count: total_count as i64,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
+    }
+
+    /// Get unmatched Spotify tracks with their match candidates for review
+    async fn spotify_unmatched_tracks(
+        &self,
+        ctx: &Context<'_>,
+        page: Option<i32>,
+        page_size: Option<i32>,
+        search: Option<String>,
+    ) -> GraphqlResult<SpotifyUnmatchedTracksResponse> {
+        let db = &get_app_state(ctx)?.db;
+        let base_url = &get_app_state(ctx)?.base_url;
+
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+
+        // Build base query for unmatched Spotify tracks (where local_track_id is null)
+        let mut base_condition =
+            Condition::all().add(entities::spotify_track::Column::LocalTrackId.is_null());
+
+        if let Some(search_term) = &search
+            && !search_term.is_empty()
+        {
+            let search_condition = Condition::any()
+                .add(entities::spotify_track::Column::Title.contains(search_term))
+                .add(entities::spotify_track::Column::Album.contains(search_term));
+            base_condition = base_condition.add(search_condition);
+        }
+
+        let total_count = entities::spotify_track::Entity::find()
+            .filter(base_condition.clone())
+            .count(&db.conn)
+            .await
+            .map_err(|e| {
+                color_eyre::eyre::eyre!("Failed to count unmatched spotify tracks: {}", e)
+            })?;
+
+        let offset = (page.saturating_sub(1)) * page_size;
+        let spotify_tracks = entities::spotify_track::Entity::find()
+            .filter(base_condition)
+            .limit(page_size as u64)
+            .offset(offset as u64)
+            .order_by_desc(entities::spotify_track::Column::UpdatedAt)
+            .all(&db.conn)
+            .await
+            .map_err(|e| {
+                color_eyre::eyre::eyre!("Failed to fetch unmatched spotify tracks: {}", e)
+            })?;
+
+        let mut unmatched_tracks = Vec::new();
+
+        for spotify_track in spotify_tracks {
+            // Fetch pending candidates for this spotify track
+            let candidate_models = entities::spotify_match_candidate::Entity::find()
+                .filter(
+                    entities::spotify_match_candidate::Column::SpotifyTrackId
+                        .eq(&spotify_track.spotify_track_id),
+                )
+                .filter(
+                    entities::spotify_match_candidate::Column::Status
+                        .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+                )
+                .order_by_desc(entities::spotify_match_candidate::Column::Score)
+                .all(&db.conn)
+                .await
+                .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch match candidates: {}", e))?;
+
+            let mut candidates = Vec::new();
+            for candidate in candidate_models {
+                let local_track = build_local_track(db, base_url, candidate.local_track_id).await?;
+
+                candidates.push(SpotifyMatchCandidate {
+                    id: candidate.id,
+                    local_track,
+                    score: candidate.score,
+                    confidence: format!("{:?}", candidate.confidence),
+                    title_similarity: candidate.title_similarity,
+                    artist_similarity: candidate.artist_similarity,
+                    album_similarity: candidate.album_similarity,
+                    duration_match: format!("{:?}", candidate.duration_match),
+                    version_match: format!("{:?}", candidate.version_match),
+                });
+            }
+
+            unmatched_tracks.push(SpotifyUnmatchedTrack {
+                spotify_track_id: spotify_track.spotify_track_id,
+                spotify_title: spotify_track.title,
+                spotify_artists: spotify_track.artists.0,
+                spotify_album: spotify_track.album,
+                spotify_isrc: spotify_track.isrc,
+                spotify_duration: spotify_track.duration.map(|d| d / 1000),
+                candidates,
+            });
+        }
+
+        Ok(SpotifyUnmatchedTracksResponse {
+            unmatched_tracks,
+            total_count: total_count as i64,
+            page: page as i32,
+            page_size: page_size as i32,
+        })
+    }
+
+    /// Search local tracks for manual matching
+    async fn search_local_tracks_for_matching(
+        &self,
+        ctx: &Context<'_>,
+        search: String,
+        page: Option<i32>,
+        page_size: Option<i32>,
+    ) -> GraphqlResult<SearchLocalTracksResponse> {
+        let db = &get_app_state(ctx)?.db;
+        let base_url = &get_app_state(ctx)?.base_url;
+
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+
+        let search_condition =
+            Condition::any().add(entities::track::Column::Title.contains(&search));
+
+        let total_count = entities::track::Entity::find()
+            .filter(search_condition.clone())
+            .count(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to count local tracks: {}", e))?;
+
+        let offset = (page.saturating_sub(1)) * page_size;
+        let track_models = entities::track::Entity::find()
+            .filter(search_condition)
+            .limit(page_size as u64)
+            .offset(offset as u64)
+            .order_by_asc(entities::track::Column::Title)
+            .all(&db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch local tracks: {}", e))?;
+
+        let mut tracks = Vec::new();
+        for track_model in track_models {
+            let local_track = build_local_track(db, base_url, track_model.id).await?;
+            tracks.push(local_track);
+        }
+
+        Ok(SearchLocalTracksResponse {
+            tracks,
             total_count: total_count as i64,
             page: page as i32,
             page_size: page_size as i32,

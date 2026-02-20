@@ -356,4 +356,150 @@ impl SpotifyMutation {
         match_existing_spotify_tracks_with_local_task(db, spotify_tracks).await?;
         Ok(true)
     }
+
+    /// Accept a match candidate — links the Spotify track to the local track and dismisses other candidates
+    async fn accept_spotify_match_candidate(
+        &self,
+        ctx: &Context<'_>,
+        candidate_id: i64,
+    ) -> GraphqlResult<bool> {
+        let db = &get_app_state(ctx)?.db;
+
+        let candidate = entities::spotify_match_candidate::Entity::find_by_id(candidate_id)
+            .one(&db.conn)
+            .await
+            .wrap_err("Failed to fetch match candidate")?
+            .ok_or_eyre("Match candidate not found")?;
+
+        // Set spotify_track.local_track_id
+        let spotify_track = entities::spotify_track::Entity::find()
+            .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&candidate.spotify_track_id))
+            .one(&db.conn)
+            .await
+            .wrap_err("Failed to fetch spotify track")?
+            .ok_or_eyre("Spotify track not found")?;
+
+        let mut spotify_track_active: entities::spotify_track::ActiveModel = spotify_track.into();
+        spotify_track_active.local_track_id = Set(Some(candidate.local_track_id));
+        spotify_track_active
+            .update(&db.conn)
+            .await
+            .wrap_err("Failed to update spotify track")?;
+
+        // Mark the accepted candidate
+        let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
+            candidate.clone().into();
+        candidate_active.status = Set(entities::spotify_match_candidate::CandidateStatus::Accepted);
+        candidate_active
+            .update(&db.conn)
+            .await
+            .wrap_err("Failed to update match candidate")?;
+
+        // Dismiss all other pending candidates for this spotify track
+        let other_candidates = entities::spotify_match_candidate::Entity::find()
+            .filter(
+                entities::spotify_match_candidate::Column::SpotifyTrackId
+                    .eq(&candidate.spotify_track_id),
+            )
+            .filter(
+                entities::spotify_match_candidate::Column::Status
+                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+            )
+            .all(&db.conn)
+            .await
+            .wrap_err("Failed to fetch other candidates")?;
+
+        for other in other_candidates {
+            let mut other_active: entities::spotify_match_candidate::ActiveModel = other.into();
+            other_active.status =
+                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
+            other_active
+                .update(&db.conn)
+                .await
+                .wrap_err("Failed to dismiss other candidate")?;
+        }
+
+        Ok(true)
+    }
+
+    /// Dismiss all pending candidates for a Spotify track (removes from review queue without matching)
+    async fn dismiss_spotify_unmatched_track(
+        &self,
+        ctx: &Context<'_>,
+        spotify_track_id: String,
+    ) -> GraphqlResult<bool> {
+        let db = &get_app_state(ctx)?.db;
+
+        let pending_candidates = entities::spotify_match_candidate::Entity::find()
+            .filter(entities::spotify_match_candidate::Column::SpotifyTrackId.eq(&spotify_track_id))
+            .filter(
+                entities::spotify_match_candidate::Column::Status
+                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+            )
+            .all(&db.conn)
+            .await
+            .wrap_err("Failed to fetch pending candidates")?;
+
+        for candidate in pending_candidates {
+            let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
+                candidate.into();
+            candidate_active.status =
+                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
+            candidate_active
+                .update(&db.conn)
+                .await
+                .wrap_err("Failed to dismiss candidate")?;
+        }
+
+        Ok(true)
+    }
+
+    /// Manually match a Spotify track to a local track (from library search)
+    async fn manually_match_spotify_track(
+        &self,
+        ctx: &Context<'_>,
+        spotify_track_id: String,
+        local_track_id: i64,
+    ) -> GraphqlResult<bool> {
+        let db = &get_app_state(ctx)?.db;
+
+        // Set spotify_track.local_track_id
+        let spotify_track = entities::spotify_track::Entity::find()
+            .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&spotify_track_id))
+            .one(&db.conn)
+            .await
+            .wrap_err("Failed to fetch spotify track")?
+            .ok_or_eyre("Spotify track not found")?;
+
+        let mut spotify_track_active: entities::spotify_track::ActiveModel = spotify_track.into();
+        spotify_track_active.local_track_id = Set(Some(local_track_id));
+        spotify_track_active
+            .update(&db.conn)
+            .await
+            .wrap_err("Failed to update spotify track")?;
+
+        // Dismiss all pending candidates for this spotify track
+        let pending_candidates = entities::spotify_match_candidate::Entity::find()
+            .filter(entities::spotify_match_candidate::Column::SpotifyTrackId.eq(&spotify_track_id))
+            .filter(
+                entities::spotify_match_candidate::Column::Status
+                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+            )
+            .all(&db.conn)
+            .await
+            .wrap_err("Failed to fetch pending candidates")?;
+
+        for candidate in pending_candidates {
+            let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
+                candidate.into();
+            candidate_active.status =
+                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
+            candidate_active
+                .update(&db.conn)
+                .await
+                .wrap_err("Failed to dismiss candidate")?;
+        }
+
+        Ok(true)
+    }
 }

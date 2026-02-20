@@ -71,6 +71,8 @@ export type MultiplePlexServersError = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Accept a match candidate — links the Spotify track to the local track and dismisses other candidates */
+  acceptSpotifyMatchCandidate: Scalars['Boolean']['output'];
   addTrackToPlaylist: Scalars['Boolean']['output'];
   addYoutubeSubscription: Scalars['Boolean']['output'];
   authenticatePlexServer: AuthResponse;
@@ -80,9 +82,13 @@ export type Mutation = {
   createPlaylist: Playlist;
   createPlexServer: PlexServer;
   deleteSpotifyAccount: Scalars['Boolean']['output'];
+  /** Dismiss all pending candidates for a Spotify track (removes from review queue without matching) */
+  dismissSpotifyUnmatchedTrack: Scalars['Boolean']['output'];
   downloadSoulseekFile: DownloadStatus;
   /** Initiate Spotify OAuth flow */
   initiateSpotifyAuth: SpotifyAuthResponse;
+  /** Manually match a Spotify track to a local track (from library search) */
+  manuallyMatchSpotifyTrack: Scalars['Boolean']['output'];
   markYoutubeVideoAsUnwatched: Scalars['Boolean']['output'];
   markYoutubeVideoAsWatched: Scalars['Boolean']['output'];
   matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
@@ -94,6 +100,11 @@ export type Mutation = {
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
   syncSpotifyAccountPlaylistsToDb: Scalars['Boolean']['output'];
   syncSpotifyPlaylistToLocalLibrary: Scalars['Boolean']['output'];
+};
+
+
+export type MutationAcceptSpotifyMatchCandidateArgs = {
+  candidateId: Scalars['Int']['input'];
 };
 
 
@@ -142,11 +153,22 @@ export type MutationDeleteSpotifyAccountArgs = {
 };
 
 
+export type MutationDismissSpotifyUnmatchedTrackArgs = {
+  spotifyTrackId: Scalars['String']['input'];
+};
+
+
 export type MutationDownloadSoulseekFileArgs = {
   filename: Scalars['String']['input'];
   size: Scalars['Int']['input'];
   token: Scalars['String']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type MutationManuallyMatchSpotifyTrackArgs = {
+  localTrackId: Scalars['Int']['input'];
+  spotifyTrackId: Scalars['String']['input'];
 };
 
 
@@ -277,6 +299,8 @@ export type Query = {
   plexPlaylists: PlexPlaylistsResponse;
   plexServers: Array<PlexServer>;
   plexTracks: PlexTracksResult;
+  /** Search local tracks for manual matching */
+  searchLocalTracksForMatching: SearchLocalTracksResponse;
   /** Get all Spotify accounts */
   spotifyAccounts: Array<SpotifyAccount>;
   /** Get matched Spotify tracks with their local track information */
@@ -287,6 +311,8 @@ export type Query = {
   spotifyPlaylists: Array<SpotifyPlaylist>;
   /** Get download failures for a Spotify playlist */
   spotifyTrackDownloadFailures: Array<SpotifyTrackDownloadFailure>;
+  /** Get unmatched Spotify tracks with their match candidates for review */
+  spotifyUnmatchedTracks: SpotifyUnmatchedTracksResponse;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
   youtubeSubscriptions: Array<YoutubeSubscription>;
@@ -324,6 +350,13 @@ export type QueryPlaylistsArgs = {
 };
 
 
+export type QuerySearchLocalTracksForMatchingArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search: Scalars['String']['input'];
+};
+
+
 export type QuerySpotifyMatchedTracksArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
@@ -343,6 +376,13 @@ export type QuerySpotifyPlaylistsArgs = {
 
 export type QuerySpotifyTrackDownloadFailuresArgs = {
   spotifyPlaylistId: Scalars['Int']['input'];
+};
+
+
+export type QuerySpotifyUnmatchedTracksArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -368,6 +408,14 @@ export type RefreshLibraryResult = {
   message: Scalars['String']['output'];
   sectionId: Scalars['String']['output'];
   success: Scalars['Boolean']['output'];
+};
+
+export type SearchLocalTracksResponse = {
+  __typename?: 'SearchLocalTracksResponse';
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+  tracks: Array<Track>;
 };
 
 export enum SortOrder {
@@ -414,6 +462,19 @@ export type SpotifyAccount = {
 export type SpotifyAuthResponse = {
   __typename?: 'SpotifyAuthResponse';
   redirectUrl: Scalars['String']['output'];
+};
+
+export type SpotifyMatchCandidate = {
+  __typename?: 'SpotifyMatchCandidate';
+  albumSimilarity: Scalars['Float']['output'];
+  artistSimilarity: Scalars['Float']['output'];
+  confidence: Scalars['String']['output'];
+  durationMatch: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
+  localTrack: Track;
+  score: Scalars['Float']['output'];
+  titleSimilarity: Scalars['Float']['output'];
+  versionMatch: Scalars['String']['output'];
 };
 
 export type SpotifyMatchedTrack = {
@@ -473,6 +534,25 @@ export type SpotifyTrackDownloadFailure = {
   spotifyTrackId: Scalars['String']['output'];
   trackName: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
+};
+
+export type SpotifyUnmatchedTrack = {
+  __typename?: 'SpotifyUnmatchedTrack';
+  candidates: Array<SpotifyMatchCandidate>;
+  spotifyAlbum: Scalars['String']['output'];
+  spotifyArtists: Array<Scalars['String']['output']>;
+  spotifyDuration?: Maybe<Scalars['Int']['output']>;
+  spotifyIsrc?: Maybe<Scalars['String']['output']>;
+  spotifyTitle: Scalars['String']['output'];
+  spotifyTrackId: Scalars['String']['output'];
+};
+
+export type SpotifyUnmatchedTracksResponse = {
+  __typename?: 'SpotifyUnmatchedTracksResponse';
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+  unmatchedTracks: Array<SpotifyUnmatchedTrack>;
 };
 
 export type SyncPlaylistToPlexResult = {
@@ -707,6 +787,46 @@ export type SpotifyMatchedTracksQueryVariables = Exact<{
 
 
 export type SpotifyMatchedTracksQuery = { __typename?: 'Query', spotifyMatchedTracks: { __typename?: 'SpotifyMatchedTracksResponse', totalCount: number, page: number, pageSize: number, matchedTracks: Array<{ __typename?: 'SpotifyMatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, spotifyCreatedAt: any, spotifyUpdatedAt: any, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> } };
+
+export type SpotifyUnmatchedTracksQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type SpotifyUnmatchedTracksQuery = { __typename?: 'Query', spotifyUnmatchedTracks: { __typename?: 'SpotifyUnmatchedTracksResponse', totalCount: number, page: number, pageSize: number, unmatchedTracks: Array<{ __typename?: 'SpotifyUnmatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, candidates: Array<{ __typename?: 'SpotifyMatchCandidate', id: number, score: number, confidence: string, titleSimilarity: number, artistSimilarity: number, albumSimilarity: number, durationMatch: string, versionMatch: string, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> }> } };
+
+export type SearchLocalTracksForMatchingQueryVariables = Exact<{
+  search: Scalars['String']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type SearchLocalTracksForMatchingQuery = { __typename?: 'Query', searchLocalTracksForMatching: { __typename?: 'SearchLocalTracksResponse', totalCount: number, page: number, pageSize: number, tracks: Array<{ __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> }> } };
+
+export type AcceptSpotifyMatchCandidateMutationVariables = Exact<{
+  candidateId: Scalars['Int']['input'];
+}>;
+
+
+export type AcceptSpotifyMatchCandidateMutation = { __typename?: 'Mutation', acceptSpotifyMatchCandidate: boolean };
+
+export type DismissSpotifyUnmatchedTrackMutationVariables = Exact<{
+  spotifyTrackId: Scalars['String']['input'];
+}>;
+
+
+export type DismissSpotifyUnmatchedTrackMutation = { __typename?: 'Mutation', dismissSpotifyUnmatchedTrack: boolean };
+
+export type ManuallyMatchSpotifyTrackMutationVariables = Exact<{
+  spotifyTrackId: Scalars['String']['input'];
+  localTrackId: Scalars['Int']['input'];
+}>;
+
+
+export type ManuallyMatchSpotifyTrackMutation = { __typename?: 'Mutation', manuallyMatchSpotifyTrack: boolean };
 
 export type SpotifyAccountsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1093,6 +1213,94 @@ export const SpotifyMatchedTracksDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SpotifyMatchedTracksQuery, SpotifyMatchedTracksQueryVariables>;
+export const SpotifyUnmatchedTracksDocument = new TypedDocumentString(`
+    query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String) {
+  spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search) {
+    unmatchedTracks {
+      spotifyTrackId
+      spotifyTitle
+      spotifyArtists
+      spotifyAlbum
+      spotifyIsrc
+      spotifyDuration
+      candidates {
+        id
+        localTrack {
+          id
+          title
+          trackNumber
+          duration
+          createdAt
+          album {
+            id
+            title
+            year
+            artworkUrl
+          }
+          artists {
+            id
+            name
+          }
+        }
+        score
+        confidence
+        titleSimilarity
+        artistSimilarity
+        albumSimilarity
+        durationMatch
+        versionMatch
+      }
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyUnmatchedTracksQuery, SpotifyUnmatchedTracksQueryVariables>;
+export const SearchLocalTracksForMatchingDocument = new TypedDocumentString(`
+    query SearchLocalTracksForMatching($search: String!, $page: Int, $pageSize: Int) {
+  searchLocalTracksForMatching(search: $search, page: $page, pageSize: $pageSize) {
+    tracks {
+      id
+      title
+      trackNumber
+      duration
+      createdAt
+      album {
+        id
+        title
+        year
+        artworkUrl
+      }
+      artists {
+        id
+        name
+      }
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<SearchLocalTracksForMatchingQuery, SearchLocalTracksForMatchingQueryVariables>;
+export const AcceptSpotifyMatchCandidateDocument = new TypedDocumentString(`
+    mutation AcceptSpotifyMatchCandidate($candidateId: Int!) {
+  acceptSpotifyMatchCandidate(candidateId: $candidateId)
+}
+    `) as unknown as TypedDocumentString<AcceptSpotifyMatchCandidateMutation, AcceptSpotifyMatchCandidateMutationVariables>;
+export const DismissSpotifyUnmatchedTrackDocument = new TypedDocumentString(`
+    mutation DismissSpotifyUnmatchedTrack($spotifyTrackId: String!) {
+  dismissSpotifyUnmatchedTrack(spotifyTrackId: $spotifyTrackId)
+}
+    `) as unknown as TypedDocumentString<DismissSpotifyUnmatchedTrackMutation, DismissSpotifyUnmatchedTrackMutationVariables>;
+export const ManuallyMatchSpotifyTrackDocument = new TypedDocumentString(`
+    mutation ManuallyMatchSpotifyTrack($spotifyTrackId: String!, $localTrackId: Int!) {
+  manuallyMatchSpotifyTrack(
+    spotifyTrackId: $spotifyTrackId
+    localTrackId: $localTrackId
+  )
+}
+    `) as unknown as TypedDocumentString<ManuallyMatchSpotifyTrackMutation, ManuallyMatchSpotifyTrackMutationVariables>;
 export const SpotifyAccountsDocument = new TypedDocumentString(`
     query SpotifyAccounts {
   spotifyAccounts {

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use tracing::{self, Instrument, instrument};
 
-use crate::http_server::graphql::spotify::matching_local_tracks::matcher::MatchConfidence;
+use crate::http_server::graphql::spotify::matching_local_tracks::matcher::{
+    DurationMatch, MatchConfidence, VersionMatch,
+};
 use crate::http_server::graphql::spotify::matching_local_tracks::similarity_filter::match_spotify_track_to_local_track;
 use crate::http_server::graphql::spotify::matching_local_tracks::task_db::{
     create_spotify_to_local_matcher_task, mark_spotify_to_local_matcher_task_as_completed,
@@ -10,6 +12,7 @@ use crate::http_server::graphql::spotify::matching_local_tracks::task_db::{
 };
 use crate::{database::Database, entities};
 use color_eyre::eyre::{OptionExt, Result};
+use sea_orm::ActiveModelBehavior;
 use sea_orm::ActiveModelTrait;
 use sea_orm::{ColumnTrait, EntityTrait};
 use sea_orm::{QueryFilter, Set};
@@ -32,6 +35,92 @@ async fn update_database_spotify_track_with_local_track(
     let mut spotify_track: entities::spotify_track::ActiveModel = spotify_track.clone().into();
     spotify_track.local_track_id = Set(Some(local_track.id));
     spotify_track.update(&db.conn).await?;
+    Ok(())
+}
+
+fn confidence_to_candidate(
+    confidence: &MatchConfidence,
+) -> Option<entities::spotify_match_candidate::CandidateConfidence> {
+    match confidence {
+        MatchConfidence::High => Some(entities::spotify_match_candidate::CandidateConfidence::High),
+        MatchConfidence::Medium => {
+            Some(entities::spotify_match_candidate::CandidateConfidence::Medium)
+        }
+        MatchConfidence::Low => Some(entities::spotify_match_candidate::CandidateConfidence::Low),
+        MatchConfidence::NoMatch => None,
+    }
+}
+
+fn duration_match_to_candidate(
+    dm: &DurationMatch,
+) -> entities::spotify_match_candidate::CandidateDurationMatch {
+    match dm {
+        DurationMatch::Exact => entities::spotify_match_candidate::CandidateDurationMatch::Exact,
+        DurationMatch::Close => entities::spotify_match_candidate::CandidateDurationMatch::Close,
+        DurationMatch::Mismatch => {
+            entities::spotify_match_candidate::CandidateDurationMatch::Mismatch
+        }
+    }
+}
+
+fn version_match_to_candidate(
+    vm: &VersionMatch,
+) -> entities::spotify_match_candidate::CandidateVersionMatch {
+    match vm {
+        VersionMatch::Match => entities::spotify_match_candidate::CandidateVersionMatch::Match,
+        VersionMatch::Mismatch => {
+            entities::spotify_match_candidate::CandidateVersionMatch::Mismatch
+        }
+        VersionMatch::Ambiguous => {
+            entities::spotify_match_candidate::CandidateVersionMatch::Ambiguous
+        }
+    }
+}
+
+async fn store_match_candidates(
+    db: &Database,
+    spotify_track: &entities::spotify_track::Model,
+    candidates: &[(
+        entities::track::Model,
+        crate::http_server::graphql::spotify::matching_local_tracks::matcher::MatchResult,
+    )],
+) -> Result<()> {
+    // Delete existing pending candidates for this spotify track
+    entities::spotify_match_candidate::Entity::delete_many()
+        .filter(
+            entities::spotify_match_candidate::Column::SpotifyTrackId
+                .eq(&spotify_track.spotify_track_id),
+        )
+        .filter(
+            entities::spotify_match_candidate::Column::Status
+                .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+        )
+        .exec(&db.conn)
+        .await?;
+
+    // Store top 5 candidates
+    for (local_track, match_result) in candidates.iter().take(5) {
+        let candidate_confidence = match confidence_to_candidate(&match_result.confidence) {
+            Some(c) => c,
+            None => continue,
+        };
+
+        let candidate = entities::spotify_match_candidate::ActiveModel {
+            spotify_track_id: Set(spotify_track.spotify_track_id.clone()),
+            local_track_id: Set(local_track.id),
+            score: Set(match_result.score),
+            confidence: Set(candidate_confidence),
+            title_similarity: Set(match_result.title_similarity),
+            artist_similarity: Set(match_result.artist_similarity),
+            album_similarity: Set(match_result.album_similarity),
+            duration_match: Set(duration_match_to_candidate(&match_result.duration_match)),
+            version_match: Set(version_match_to_candidate(&match_result.version_match)),
+            ..entities::spotify_match_candidate::ActiveModel::new()
+        };
+
+        candidate.insert(&db.conn).await?;
+    }
+
     Ok(())
 }
 
@@ -74,11 +163,19 @@ async fn match_existing_spotify_tracks_with_local(
                 .await?;
             matched_tracks += 1;
         } else {
-            tracing::error!(
+            tracing::warn!(
                 spotify_track = ?spotify_track,
                 best_local_match = ?best_local_match,
-                "No best local match found for spotify track",
+                "No high-confidence match found for spotify track, storing candidates",
             );
+
+            // Store non-high-confidence candidates for manual review
+            if !matches.is_empty()
+                && let Err(e) = store_match_candidates(db, spotify_track, &matches).await
+            {
+                tracing::error!(error = ?e, "Failed to store match candidates");
+            }
+
             failed_tracks += 1;
         }
         if let Err(e) =

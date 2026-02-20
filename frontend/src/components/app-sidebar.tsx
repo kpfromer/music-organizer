@@ -67,6 +67,11 @@ const items = [
     icon: Music,
   },
   {
+    title: "Unmatched Tracks",
+    url: "/spotify/unmatched-tracks",
+    icon: Music,
+  },
+  {
     title: "Youtube",
     url: "/youtube",
     icon: Video,
