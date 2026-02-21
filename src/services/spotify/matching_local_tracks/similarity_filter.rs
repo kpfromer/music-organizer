@@ -1,7 +1,4 @@
-use super::matcher::Track;
-use crate::http_server::graphql::spotify::matching_local_tracks::matcher::{
-    MatchResult, find_matches,
-};
+use super::matcher::{MatchResult, Track, find_matches};
 use crate::{database::Database, entities};
 use color_eyre::eyre::{OptionExt, Result};
 use rayon::prelude::*;
