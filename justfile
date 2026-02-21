@@ -31,7 +31,7 @@ format: frontend-format backend-format
 test: backend-test
 
 # Fix frontend biome issues
-fix-frontend: frontend-fix
+fix: frontend-fix
 
 just: watch
 

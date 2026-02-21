@@ -5,6 +5,7 @@ pub mod playlist;
 pub mod playlist_track;
 pub mod plex_server;
 pub mod spotify_account;
+pub mod spotify_match_candidate;
 pub mod spotify_playlist;
 pub mod spotify_playlist_sync_state;
 pub mod spotify_to_local_matcher_tasks;

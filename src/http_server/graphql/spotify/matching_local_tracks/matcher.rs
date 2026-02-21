@@ -42,15 +42,10 @@ pub struct NormalizedTrack {
 #[derive(Debug, Clone)]
 pub struct MatchResult {
     pub confidence: MatchConfidence,
-    #[allow(dead_code)]
     pub title_similarity: f64,
-    #[allow(dead_code)]
     pub artist_similarity: f64,
-    #[allow(dead_code)]
     pub album_similarity: f64,
-    #[allow(dead_code)]
     pub duration_match: DurationMatch,
-    #[allow(dead_code)]
     pub version_match: VersionMatch,
     /// Overall score from 0.0 to 1.0
     pub score: f64,
@@ -68,6 +63,17 @@ pub enum MatchConfidence {
     NoMatch,
 }
 
+impl std::fmt::Display for MatchConfidence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MatchConfidence::High => write!(f, "high"),
+            MatchConfidence::Medium => write!(f, "medium"),
+            MatchConfidence::Low => write!(f, "low"),
+            MatchConfidence::NoMatch => write!(f, "no_match"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DurationMatch {
     /// Within tight tolerance - same version
@@ -78,6 +84,16 @@ pub enum DurationMatch {
     Mismatch,
 }
 
+impl std::fmt::Display for DurationMatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DurationMatch::Exact => write!(f, "exact"),
+            DurationMatch::Close => write!(f, "close"),
+            DurationMatch::Mismatch => write!(f, "mismatch"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VersionMatch {
     /// Both have same version indicator or both have none
@@ -86,6 +102,16 @@ pub enum VersionMatch {
     Mismatch,
     /// One has indicator, other doesn't
     Ambiguous,
+}
+
+impl std::fmt::Display for VersionMatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VersionMatch::Match => write!(f, "match"),
+            VersionMatch::Mismatch => write!(f, "mismatch"),
+            VersionMatch::Ambiguous => write!(f, "ambiguous"),
+        }
+    }
 }
 
 // =============================================================================
@@ -549,7 +575,8 @@ pub fn compare_tracks(local: &NormalizedTrack, spotify: &NormalizedTrack) -> Mat
     // Determine confidence level
     let confidence = if score >= 0.85
         && matches!(duration_match, DurationMatch::Exact)
-        && matches!(version_match, VersionMatch::Match)
+        && (matches!(version_match, VersionMatch::Match)
+            || (score >= 0.92 && matches!(version_match, VersionMatch::Ambiguous)))
     {
         MatchConfidence::High
     } else if score >= 0.70

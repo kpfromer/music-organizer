@@ -13,6 +13,7 @@ import { Spotify } from "./pages/spotify";
 import { SpotifyAuthCallback } from "./pages/spotify-auth-callback";
 import { SpotifyLogin } from "./pages/spotify-login";
 import { SpotifyMatchedTracks } from "./pages/spotify-matched-tracks";
+import { SpotifyUnmatchedTracks } from "./pages/spotify-unmatched-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
 import { Youtube } from "./pages/youtube";
@@ -46,6 +47,10 @@ export function App() {
             <Route
               path="/spotify/matched-tracks"
               element={<SpotifyMatchedTracks />}
+            />
+            <Route
+              path="/spotify/unmatched-tracks"
+              element={<SpotifyUnmatchedTracks />}
             />
             <Route path="/youtube" element={<Navigate to="/" />} />
             <Route
