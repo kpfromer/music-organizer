@@ -1,15 +1,10 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, SimpleObject};
-use color_eyre::eyre::OptionExt;
-use reqwest::Client;
-use sea_orm::EntityTrait;
-use url::Url;
 
-use crate::entities;
+use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::http_server::state::AppState;
-use crate::plex_rs::playlist::{get_playlists, is_music_playlist};
+use crate::plex_rs::playlist::is_music_playlist;
+use crate::services::plex::PlexService;
+use crate::services::plex::client::PlexHttpAdapter;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct PlexPlaylist {
@@ -27,43 +22,9 @@ pub struct PlexPlaylistsResponse {
 
 /// Fetch all music playlists from Plex
 pub async fn plex_playlists(ctx: &Context<'_>) -> GraphqlResult<PlexPlaylistsResponse> {
-    let app_state = ctx
-        .data::<Arc<AppState>>()
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-    let db = &app_state.db;
-
-    // Fetch all plex servers
-    let servers = entities::plex_server::Entity::find()
-        .all(&db.conn)
-        .await
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))?;
-
-    if servers.is_empty() {
-        return Err(color_eyre::eyre::eyre!(
-            "No Plex server configured. Please add a Plex server first."
-        )
-        .into());
-    }
-
-    if servers.len() > 1 {
-        return Err(color_eyre::eyre::eyre!(
-            "Multiple Plex servers found ({}). Only one server is supported at a time.",
-            servers.len()
-        )
-        .into());
-    }
-
-    let server = servers.into_iter().next().unwrap();
-
-    let access_token = server.access_token.as_ref().ok_or_eyre(
-        "Plex server does not have an access token. Please authenticate the server first.",
-    )?;
-
-    let server_url = Url::parse(&server.server_url)
-        .map_err(|e| color_eyre::eyre::eyre!("Invalid server URL: {}", e))?;
-
-    let client = Client::new();
-    let plex_playlists = get_playlists(&client, &server_url, access_token).await?;
+    let app_state = get_app_state(ctx)?;
+    let service = PlexService::new(app_state.db.clone(), PlexHttpAdapter::new());
+    let plex_playlists = service.get_playlists().await?;
 
     let music_playlists: Vec<PlexPlaylist> = plex_playlists
         .into_iter()

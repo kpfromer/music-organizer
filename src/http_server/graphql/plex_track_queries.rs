@@ -1,14 +1,9 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Union};
-use reqwest::Client;
-use url::Url;
 
-use crate::entities;
+use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::http_server::state::AppState;
-use crate::plex_rs::all_tracks::{find_music_section_id, get_library_sections, get_tracks_page};
-use sea_orm::EntityTrait;
+use crate::services::plex::client::PlexHttpAdapter;
+use crate::services::plex::{PlexService, PlexTracksOutcome};
 
 #[derive(Debug, Clone, async_graphql::SimpleObject)]
 pub struct PlexTrack {
@@ -49,104 +44,41 @@ pub enum PlexTracksResult {
 /// Fetch up to 50 tracks from the configured Plex server.
 /// Returns a union type that can be either success or one of several error types.
 pub async fn plex_tracks(ctx: &Context<'_>) -> GraphqlResult<PlexTracksResult> {
-    let app_state = ctx
-        .data::<Arc<AppState>>()
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-    let db = &app_state.db;
+    let app_state = get_app_state(ctx)?;
+    let service = PlexService::new(app_state.db.clone(), PlexHttpAdapter::new());
 
-    // Fetch all plex servers
-    let servers = entities::plex_server::Entity::find()
-        .all(&db.conn)
-        .await
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))?;
+    let outcome = service.get_tracks().await?;
 
-    // Check for no servers
-    if servers.is_empty() {
-        return Ok(PlexTracksResult::NoPlexServer(NoPlexServerError {
+    Ok(match outcome {
+        PlexTracksOutcome::NoServer => PlexTracksResult::NoPlexServer(NoPlexServerError {
             message: "No Plex server configured. Please add a Plex server first.".to_string(),
-        }));
-    }
-
-    // Check for multiple servers
-    if servers.len() > 1 {
-        return Ok(PlexTracksResult::MultiplePlexServers(
-            MultiplePlexServersError {
+        }),
+        PlexTracksOutcome::MultipleServers(count) => {
+            PlexTracksResult::MultiplePlexServers(MultiplePlexServersError {
                 message: format!(
                     "Multiple Plex servers found ({}). Only one server is supported at a time.",
-                    servers.len()
+                    count
                 ),
-                server_count: servers.len() as i32,
-            },
-        ));
-    }
-
-    // Get the single server
-    let server = servers.into_iter().next().unwrap();
-
-    // Check if server has access token
-    let access_token = match &server.access_token {
-        Some(token) => token.clone(),
-        None => {
-            return Ok(PlexTracksResult::Error(PlexTracksError {
-                    message: "Plex server does not have an access token. Please authenticate the server first.".to_string(),
-                }));
+                server_count: count as i32,
+            })
         }
-    };
-
-    // Parse server URL
-    let server_url = match Url::parse(&server.server_url) {
-        Ok(url) => url,
-        Err(e) => {
-            return Ok(PlexTracksResult::Error(PlexTracksError {
-                message: format!("Invalid server URL: {}", e),
-            }));
+        PlexTracksOutcome::NoToken => PlexTracksResult::Error(PlexTracksError {
+            message:
+                "Plex server does not have an access token. Please authenticate the server first."
+                    .to_string(),
+        }),
+        PlexTracksOutcome::Error(msg) => PlexTracksResult::Error(PlexTracksError { message: msg }),
+        PlexTracksOutcome::Success(container) => {
+            let tracks: Vec<PlexTrack> = container
+                .metadata
+                .into_iter()
+                .map(|track| PlexTrack {
+                    title: track.title,
+                    album: track.album,
+                    artist: track.artist,
+                })
+                .collect();
+            PlexTracksResult::Success(PlexTracksSuccess { tracks })
         }
-    };
-
-    // Create HTTP client
-    let client = Client::new();
-
-    // Get library sections
-    let sections = match get_library_sections(&client, &server_url, &access_token).await {
-        Ok(sections) => sections,
-        Err(e) => {
-            return Ok(PlexTracksResult::Error(PlexTracksError {
-                message: format!("Failed to fetch library sections: {}", e),
-            }));
-        }
-    };
-
-    // Find music section
-    let music_section_id = match find_music_section_id(&sections) {
-        Some(id) => id,
-        None => {
-            return Ok(PlexTracksResult::Error(PlexTracksError {
-                message: "No music library section found on Plex server.".to_string(),
-            }));
-        }
-    };
-
-    // Fetch tracks (limit to 50)
-    let container =
-        match get_tracks_page(&client, &server_url, &access_token, music_section_id, 0, 50).await {
-            Ok(container) => container,
-            Err(e) => {
-                return Ok(PlexTracksResult::Error(PlexTracksError {
-                    message: format!("Failed to fetch tracks: {}", e),
-                }));
-            }
-        };
-
-    // Convert to GraphQL types
-    let tracks: Vec<PlexTrack> = container
-        .metadata
-        .into_iter()
-        .map(|track| PlexTrack {
-            title: track.title,
-            album: track.album,
-            artist: track.artist,
-        })
-        .collect();
-
-    Ok(PlexTracksResult::Success(PlexTracksSuccess { tracks }))
+    })
 }
