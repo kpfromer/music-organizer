@@ -1,10 +1,10 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, SimpleObject};
 
+use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::http_server::state::AppState;
 use crate::plex_rs::sync_playlist::MissingTrack;
+use crate::services::plex::PlexService;
+use crate::services::plex::client::PlexHttpAdapter;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct SyncPlaylistToPlexResult {
@@ -42,14 +42,9 @@ impl PlexPlaylistMutation {
         ctx: &Context<'_>,
         playlist_id: i64,
     ) -> GraphqlResult<SyncPlaylistToPlexResult> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-        let db = &app_state.db;
-
-        let client = reqwest::Client::new();
-        let result =
-            crate::plex_rs::sync_playlist::sync_playlist_to_plex(db, &client, playlist_id).await?;
+        let app_state = get_app_state(ctx)?;
+        let service = PlexService::new(app_state.db.clone(), PlexHttpAdapter::new());
+        let result = service.sync_playlist(playlist_id).await?;
 
         Ok(SyncPlaylistToPlexResult {
             missing_tracks: result

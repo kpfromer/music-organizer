@@ -2,14 +2,9 @@ use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
 use tracing::{info, instrument};
 
-use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use color_eyre::eyre::WrapErr;
-use sea_orm::ColumnTrait;
-use sea_orm::EntityTrait;
-use sea_orm::QueryFilter;
-use sea_orm::QueryOrder;
+use crate::services::youtube::service::YoutubeService;
 
 #[derive(Default)]
 pub struct YoutubeQuery;
@@ -42,12 +37,8 @@ impl YoutubeQuery {
         ctx: &Context<'_>,
     ) -> GraphqlResult<Vec<YoutubeSubscription>> {
         let app_state = get_app_state(ctx)?;
-        let db = &app_state.db;
-        let subscriptions = entities::youtube_subscription::Entity::find()
-            .order_by_asc(entities::youtube_subscription::Column::Name)
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch youtube subscriptions")?;
+        let service = YoutubeService::new(app_state.db.clone());
+        let subscriptions = service.list_subscriptions().await?;
         Ok(subscriptions
             .into_iter()
             .map(|subscription| YoutubeSubscription {
@@ -68,18 +59,9 @@ impl YoutubeQuery {
         ctx: &Context<'_>,
         watched: Option<bool>,
     ) -> GraphqlResult<Vec<Video>> {
-        let db = &get_app_state(ctx)?.db;
-
-        let mut qs = entities::youtube_video::Entity::find()
-            .order_by_desc(entities::youtube_video::Column::PublishedAt);
-        if let Some(watched) = watched {
-            qs = qs.filter(entities::youtube_video::Column::Watched.eq(watched));
-        }
-
-        let videos = qs
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch youtube videos")?;
+        let app_state = get_app_state(ctx)?;
+        let service = YoutubeService::new(app_state.db.clone());
+        let videos = service.list_videos(watched).await?;
 
         info!(videos = ?videos, "Found videos");
         Ok(videos

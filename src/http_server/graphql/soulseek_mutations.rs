@@ -1,15 +1,11 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use tracing;
 
 use async_graphql::{Context, Object, SimpleObject};
 
+use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::http_server::state::AppState;
-use crate::import_track;
+use crate::services::soulseek_service::SoulseekService;
 use crate::soulseek::{FileAttribute, SingleFileResult, Track};
-
-use std::path::Path;
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct SoulSeekSearchResult {
@@ -95,11 +91,15 @@ impl SoulseekMutation {
         artists: Option<Vec<String>>,
         duration: Option<i32>,
     ) -> GraphqlResult<Vec<SoulSeekSearchResult>> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let app_state = get_app_state(ctx)?;
+        let service = SoulseekService::new(
+            app_state.db.clone(),
+            app_state.soulseek_context.clone(),
+            app_state.download_directory.clone(),
+            app_state.api_key.clone(),
+            app_state.config.clone(),
+        );
 
-        // Build Track struct from mutation arguments
         let track = Track {
             title: track_title,
             album: album_name.unwrap_or_default(),
@@ -107,23 +107,11 @@ impl SoulseekMutation {
             length: duration.map(|d| d as u32),
         };
 
-        // Perform search
-        let results = app_state
-            .soulseek_context
-            .search_for_track(&track)
-            .await
-            .map_err(|e| {
-                tracing::error!("SoulSeek search error: {}", e);
-                color_eyre::eyre::eyre!("SoulSeek search failed: {}", e)
-            })?;
-
-        // Convert results to GraphQL types
-        let graphql_results: Vec<SoulSeekSearchResult> = results
+        let results = service.search(&track).await?;
+        Ok(results
             .into_iter()
             .map(SoulSeekSearchResult::from)
-            .collect();
-
-        Ok(graphql_results)
+            .collect())
     }
 
     async fn download_soulseek_file(
@@ -134,12 +122,16 @@ impl SoulseekMutation {
         size: u64,
         token: String,
     ) -> GraphqlResult<DownloadStatus> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
+        let app_state = get_app_state(ctx)?;
+        let service = SoulseekService::new(
+            app_state.db.clone(),
+            app_state.soulseek_context.clone(),
+            app_state.download_directory.clone(),
+            app_state.api_key.clone(),
+            app_state.config.clone(),
+        );
 
-        // Build SingleFileResult from mutation arguments
-        let result = SingleFileResult {
+        let file_result = SingleFileResult {
             username,
             token,
             filename,
@@ -150,82 +142,10 @@ impl SoulseekMutation {
             attrs: HashMap::new(),
         };
 
-        // Initiate download - now returns async receiver
-        let mut receiver = app_state
-            .soulseek_context
-            .download_file(&result, &app_state.download_directory)
-            .await?;
-
-        let filename = result.filename.clone();
-        let filename_for_path = result.filename.clone();
-        let soulseek_context = app_state.soulseek_context.clone();
-
-        // Consume the async receiver and wait for final result
-        let download_result: Result<DownloadStatus, color_eyre::Report> = async {
-            while let Some(status) = receiver.recv().await {
-                match status {
-                    soulseek_rs::DownloadStatus::Queued => {
-                        tracing::info!("Download queued: {}", filename);
-                    }
-                    soulseek_rs::DownloadStatus::InProgress {
-                        bytes_downloaded,
-                        total_bytes,
-                        speed_bytes_per_sec: _,
-                    } => {
-                        tracing::info!(
-                            "Download in progress: {} ({} bytes downloaded, {} bytes total)",
-                            filename,
-                            bytes_downloaded,
-                            total_bytes
-                        );
-                    }
-                    soulseek_rs::DownloadStatus::Completed => {
-                        tracing::info!("Download completed: {}", filename);
-                        return Ok(DownloadStatus {
-                            success: true,
-                            message: format!("Download completed: {}", filename),
-                        });
-                    }
-                    soulseek_rs::DownloadStatus::Failed => {
-                        tracing::error!("Download failed: {}", filename);
-                        soulseek_context
-                            .report_session_error("Download failed")
-                            .await;
-                        return Err(color_eyre::eyre::eyre!("Download failed: {}", filename));
-                    }
-                    soulseek_rs::DownloadStatus::TimedOut => {
-                        tracing::error!("Download timed out: {}", filename);
-                        soulseek_context
-                            .report_session_error("Download timed out")
-                            .await;
-                        return Err(color_eyre::eyre::eyre!("Download timed out: {}", filename));
-                    }
-                }
-            }
-            // If the loop ends without a terminal status, return an error
-            Err(color_eyre::eyre::eyre!("Download failed: {}", filename))
-        }
-        .await;
-
-        match download_result {
-            Ok(status) => {
-                let file_path = Path::new(&filename_for_path)
-                    .file_name()
-                    .to_owned()
-                    .map(|file_name| Path::new(&app_state.download_directory).join(file_name));
-                if let Some(file_path) = file_path {
-                    import_track::import_track(
-                        &file_path,
-                        &app_state.api_key,
-                        &app_state.config,
-                        &app_state.db,
-                    )
-                    .await
-                    .map_err(|e| color_eyre::eyre::eyre!("Failed to import track: {}", e))?;
-                }
-                Ok(status)
-            }
-            Err(e) => Err(e.into()),
-        }
+        let message = service.download_and_import(&file_result).await?;
+        Ok(DownloadStatus {
+            success: true,
+            message,
+        })
     }
 }
