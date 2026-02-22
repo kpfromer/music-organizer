@@ -289,8 +289,6 @@ export type PlexTracksSuccess = {
 
 export type Query = {
   __typename?: 'Query';
-  errorExample: Scalars['String']['output'];
-  howdy: Scalars['String']['output'];
   /** Get the current scan status for the music library on a Plex server */
   musicLibraryScanStatus: LibraryScanStatus;
   playlist?: Maybe<Playlist>;
@@ -380,9 +378,12 @@ export type QuerySpotifyTrackDownloadFailuresArgs = {
 
 
 export type QuerySpotifyUnmatchedTracksArgs = {
+  hasCandidates?: InputMaybe<Scalars['Boolean']['input']>;
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
+  playlistId?: InputMaybe<Scalars['Int']['input']>;
   search?: InputMaybe<Scalars['String']['input']>;
+  sortByScore?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -788,10 +789,25 @@ export type SpotifyMatchedTracksQueryVariables = Exact<{
 
 export type SpotifyMatchedTracksQuery = { __typename?: 'Query', spotifyMatchedTracks: { __typename?: 'SpotifyMatchedTracksResponse', totalCount: number, page: number, pageSize: number, matchedTracks: Array<{ __typename?: 'SpotifyMatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, spotifyCreatedAt: any, spotifyUpdatedAt: any, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> } };
 
+export type SpotifyAccountsForFilterQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SpotifyAccountsForFilterQuery = { __typename?: 'Query', spotifyAccounts: Array<{ __typename?: 'SpotifyAccount', id: number, displayName?: string | null, userId: string }> };
+
+export type SpotifyPlaylistsForFilterQueryVariables = Exact<{
+  accountId: Scalars['Int']['input'];
+}>;
+
+
+export type SpotifyPlaylistsForFilterQuery = { __typename?: 'Query', spotifyPlaylists: Array<{ __typename?: 'SpotifyPlaylist', id: number, name: string, trackCount: number }> };
+
 export type SpotifyUnmatchedTracksQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
   search?: InputMaybe<Scalars['String']['input']>;
+  hasCandidates?: InputMaybe<Scalars['Boolean']['input']>;
+  sortByScore?: InputMaybe<Scalars['Boolean']['input']>;
+  playlistId?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
@@ -1213,9 +1229,34 @@ export const SpotifyMatchedTracksDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SpotifyMatchedTracksQuery, SpotifyMatchedTracksQueryVariables>;
+export const SpotifyAccountsForFilterDocument = new TypedDocumentString(`
+    query SpotifyAccountsForFilter {
+  spotifyAccounts {
+    id
+    displayName
+    userId
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyAccountsForFilterQuery, SpotifyAccountsForFilterQueryVariables>;
+export const SpotifyPlaylistsForFilterDocument = new TypedDocumentString(`
+    query SpotifyPlaylistsForFilter($accountId: Int!) {
+  spotifyPlaylists(accountId: $accountId) {
+    id
+    name
+    trackCount
+  }
+}
+    `) as unknown as TypedDocumentString<SpotifyPlaylistsForFilterQuery, SpotifyPlaylistsForFilterQueryVariables>;
 export const SpotifyUnmatchedTracksDocument = new TypedDocumentString(`
-    query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String) {
-  spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search) {
+    query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int) {
+  spotifyUnmatchedTracks(
+    page: $page
+    pageSize: $pageSize
+    search: $search
+    hasCandidates: $hasCandidates
+    sortByScore: $sortByScore
+    playlistId: $playlistId
+  ) {
     unmatchedTracks {
       spotifyTrackId
       spotifyTitle

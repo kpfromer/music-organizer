@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, JoinType, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, RelationTrait, Set,
 };
 
 use crate::database::Database;
@@ -152,6 +152,9 @@ impl SpotifyMatchingService {
     pub async fn list_unmatched_tracks(
         &self,
         search: Option<&str>,
+        has_candidates: Option<bool>,
+        sort_by_score: bool,
+        playlist_id: Option<i64>,
         page: usize,
         page_size: usize,
     ) -> Result<PaginatedResult<UnmatchedTrackWithCandidates>> {
@@ -169,18 +172,76 @@ impl SpotifyMatchingService {
             base_condition = base_condition.add(search_condition);
         }
 
-        let total_count = entities::spotify_track::Entity::find()
-            .filter(base_condition.clone())
+        // Build the base query with optional candidate join for filtering/sorting
+        let build_query = |base_cond: Condition| {
+            let mut query = entities::spotify_track::Entity::find().filter(base_cond);
+
+            // Filter by playlist via the join table
+            if let Some(pid) = playlist_id {
+                query = query
+                    .join(
+                        JoinType::InnerJoin,
+                        entities::spotify_track_playlist::Relation::SpotifyTrack
+                            .def()
+                            .rev(),
+                    )
+                    .filter(entities::spotify_track_playlist::Column::SpotifyPlaylistId.eq(pid));
+            }
+
+            if has_candidates == Some(true) || sort_by_score {
+                // Join with candidates to filter/sort by best score
+                query = query
+                    .join(
+                        JoinType::InnerJoin,
+                        entities::spotify_match_candidate::Relation::SpotifyTrack
+                            .def()
+                            .rev(),
+                    )
+                    .filter(
+                        entities::spotify_match_candidate::Column::Status
+                            .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
+                    )
+                    .group_by(entities::spotify_track::Column::SpotifyTrackId);
+            } else if has_candidates == Some(false) {
+                // Left join and filter for tracks with NO pending candidates
+                query =
+                    query
+                        .join(
+                            JoinType::LeftJoin,
+                            entities::spotify_match_candidate::Relation::SpotifyTrack
+                                .def()
+                                .rev(),
+                        )
+                        .filter(
+                            Condition::any()
+                                .add(entities::spotify_match_candidate::Column::Id.is_null())
+                                .add(entities::spotify_match_candidate::Column::Status.ne(
+                                    entities::spotify_match_candidate::CandidateStatus::Pending,
+                                )),
+                        )
+                        .group_by(entities::spotify_track::Column::SpotifyTrackId);
+            }
+
+            query
+        };
+
+        let total_count = build_query(base_condition.clone())
             .count(&self.db.conn)
             .await
             .wrap_err("Failed to count unmatched spotify tracks")?;
 
         let offset = (page.saturating_sub(1)) * page_size;
-        let spotify_tracks = entities::spotify_track::Entity::find()
-            .filter(base_condition)
+        let mut query = build_query(base_condition)
             .limit(page_size as u64)
-            .offset(offset as u64)
-            .order_by_desc(entities::spotify_track::Column::UpdatedAt)
+            .offset(offset as u64);
+
+        if sort_by_score {
+            query = query.order_by_desc(entities::spotify_match_candidate::Column::Score.max());
+        } else {
+            query = query.order_by_desc(entities::spotify_track::Column::UpdatedAt);
+        }
+
+        let spotify_tracks = query
             .all(&self.db.conn)
             .await
             .wrap_err("Failed to fetch unmatched spotify tracks")?;
@@ -516,7 +577,10 @@ mod tests {
         insert_candidate(&db, "sp1", local_id, 0.85).await;
 
         let service = SpotifyMatchingService::new(db);
-        let result = service.list_unmatched_tracks(None, 1, 25).await.unwrap();
+        let result = service
+            .list_unmatched_tracks(None, None, false, None, 1, 25)
+            .await
+            .unwrap();
 
         assert_eq!(result.total_count, 1);
         assert_eq!(result.items.len(), 1);
@@ -526,6 +590,63 @@ mod tests {
             result.items[0].candidates[0].local_track.track.title,
             "Local Song"
         );
+    }
+
+    #[tokio::test]
+    async fn test_list_unmatched_tracks_playlist_filter() {
+        let db = test_db().await;
+
+        // Create an account and playlist
+        let account = entities::spotify_account::ActiveModel {
+            user_id: Set("test_user".into()),
+            display_name: Set(Some("Test User".into())),
+            access_token: Set("at".into()),
+            refresh_token: Set("rt".into()),
+            token_expiry: Set(0),
+            ..entities::spotify_account::ActiveModel::new()
+        };
+        let account = account.insert(&db.conn).await.unwrap();
+
+        let playlist = entities::spotify_playlist::ActiveModel {
+            account_id: Set(account.id),
+            spotify_id: Set("pl1".into()),
+            name: Set("My Playlist".into()),
+            snapshot_id: Set("snap1".into()),
+            track_count: Set(1),
+            ..entities::spotify_playlist::ActiveModel::new()
+        };
+        let playlist = playlist.insert(&db.conn).await.unwrap();
+
+        // Create two unmatched spotify tracks
+        insert_spotify_track(&db, "sp1", "In Playlist").await;
+        insert_spotify_track(&db, "sp2", "Not In Playlist").await;
+
+        // Link only sp1 to the playlist
+        let link = entities::spotify_track_playlist::ActiveModel {
+            spotify_track_id: Set("sp1".into()),
+            spotify_playlist_id: Set(playlist.id),
+        };
+        entities::spotify_track_playlist::Entity::insert(link)
+            .exec(&db.conn)
+            .await
+            .unwrap();
+
+        let service = SpotifyMatchingService::new(db);
+
+        // Without filter: both tracks
+        let result = service
+            .list_unmatched_tracks(None, None, false, None, 1, 25)
+            .await
+            .unwrap();
+        assert_eq!(result.total_count, 2);
+
+        // With playlist filter: only sp1
+        let result = service
+            .list_unmatched_tracks(None, None, false, Some(playlist.id), 1, 25)
+            .await
+            .unwrap();
+        assert_eq!(result.total_count, 1);
+        assert_eq!(result.items[0].spotify_track.title, "In Playlist");
     }
 
     #[tokio::test]

@@ -121,6 +121,7 @@ pub struct SearchLocalTracksResponse {
 }
 
 #[Object]
+#[allow(clippy::too_many_arguments)]
 impl SpotifyQuery {
     /// Get all Spotify accounts
     async fn spotify_accounts(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<SpotifyAccount>> {
@@ -278,6 +279,9 @@ impl SpotifyQuery {
         page: Option<i32>,
         page_size: Option<i32>,
         search: Option<String>,
+        has_candidates: Option<bool>,
+        sort_by_score: Option<bool>,
+        playlist_id: Option<i64>,
     ) -> GraphqlResult<SpotifyUnmatchedTracksResponse> {
         let app_state = get_app_state(ctx)?;
         let service = SpotifyMatchingService::new(app_state.db.clone());
@@ -286,7 +290,14 @@ impl SpotifyQuery {
         let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
 
         let result = service
-            .list_unmatched_tracks(search.as_deref(), page, page_size)
+            .list_unmatched_tracks(
+                search.as_deref(),
+                has_candidates,
+                sort_by_score.unwrap_or(false),
+                playlist_id,
+                page,
+                page_size,
+            )
             .await?;
 
         let mut unmatched_tracks = Vec::new();
