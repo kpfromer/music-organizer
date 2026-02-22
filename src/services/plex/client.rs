@@ -54,8 +54,8 @@ impl PlexClient for PlexHttpAdapter {
         get_library_sections(&self.client, server_url, token).await
     }
 
-    fn find_music_section_id<'a>(&self, sections: &'a [PlexLibrarySection]) -> Option<&'a str> {
-        find_music_section_id(sections)
+    fn find_music_section_id(&self, sections: &[PlexLibrarySection]) -> Option<String> {
+        find_music_section_id(sections).map(|s| s.to_string())
     }
 
     async fn get_tracks_page(

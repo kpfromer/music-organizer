@@ -96,3 +96,54 @@ impl SpotifyAccountService {
         Ok(account_model)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::test_db;
+    use sea_orm::{ActiveModelBehavior, ActiveModelTrait};
+
+    async fn insert_account(db: &Database, user_id: &str) -> entities::spotify_account::Model {
+        let account = entities::spotify_account::ActiveModel {
+            user_id: Set(user_id.into()),
+            display_name: Set(Some(format!("User {}", user_id))),
+            access_token: Set("at".into()),
+            refresh_token: Set("rt".into()),
+            token_expiry: Set(0),
+            ..entities::spotify_account::ActiveModel::new()
+        };
+        account.insert(&db.conn).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_list_accounts_empty() {
+        let db = test_db().await;
+        let service = SpotifyAccountService::new(db);
+
+        let accounts = service.list_accounts().await.unwrap();
+        assert!(accounts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_accounts() {
+        let db = test_db().await;
+        insert_account(&db, "user1").await;
+        insert_account(&db, "user2").await;
+
+        let service = SpotifyAccountService::new(db);
+        let accounts = service.list_accounts().await.unwrap();
+        assert_eq!(accounts.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_delete_account() {
+        let db = test_db().await;
+        let account = insert_account(&db, "user1").await;
+
+        let service = SpotifyAccountService::new(db);
+        service.delete_account(account.id).await.unwrap();
+
+        let accounts = service.list_accounts().await.unwrap();
+        assert!(accounts.is_empty());
+    }
+}

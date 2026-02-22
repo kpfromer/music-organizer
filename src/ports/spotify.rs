@@ -25,12 +25,9 @@ pub struct SpotifyApiTrack {
 /// Port trait wrapping the Spotify API capabilities used by business logic.
 ///
 /// Implementations live in `services::spotify::client` (production) or test mocks.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait::async_trait]
 pub trait SpotifyClient: Send + Sync {
-    fn current_user_playlists(
-        &self,
-    ) -> impl Future<Output = Result<Vec<SpotifyApiPlaylist>>> + Send;
-    fn playlist_tracks(
-        &self,
-        playlist_id: &str,
-    ) -> impl Future<Output = Result<Vec<SpotifyApiTrack>>> + Send;
+    async fn current_user_playlists(&self) -> Result<Vec<SpotifyApiPlaylist>>;
+    async fn playlist_tracks(&self, playlist_id: &str) -> Result<Vec<SpotifyApiTrack>>;
 }

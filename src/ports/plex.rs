@@ -9,6 +9,7 @@ use crate::plex_rs::playlist::PlexPlaylist;
 /// Port trait wrapping the Plex API capabilities used by business logic.
 ///
 /// Implementations live in `services::plex::client` (production) or test mocks.
+#[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait]
 pub trait PlexClient: Send + Sync {
     async fn create_pin(&self) -> Result<PlexPinResponse>;
@@ -25,7 +26,7 @@ pub trait PlexClient: Send + Sync {
         token: &str,
     ) -> Result<Vec<PlexLibrarySection>>;
 
-    fn find_music_section_id<'a>(&self, sections: &'a [PlexLibrarySection]) -> Option<&'a str>;
+    fn find_music_section_id(&self, sections: &[PlexLibrarySection]) -> Option<String>;
 
     async fn get_tracks_page(
         &self,

@@ -61,6 +61,9 @@ rayon = "1.11.0"
 unicode-normalization = "0.1.25"
 html_parser = "0.7.0"
 
+[dev-dependencies]
+mockall = "0.13"
+
 [profile.dev]
 opt-level = 1
 [profile.dev.package."*"]
