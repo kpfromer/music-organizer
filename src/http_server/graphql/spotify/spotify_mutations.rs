@@ -1,11 +1,8 @@
-use std::sync::Arc;
-
 use super::spotify_queries::SpotifyAccount;
 use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
 use crate::http_server::graphql::spotify::context::get_spotify_adapter;
 use crate::http_server::graphql_error::GraphqlResult;
-use crate::http_server::state::AppState;
 use crate::services::spotify::client::start_spotify_auth_flow;
 use crate::services::spotify::matching_local_tracks::match_existing_spotify_tracks_with_local_task;
 use crate::services::spotify::sync_spotify_playlist_to_local_library::sync_spotify_playlist_to_local_library_task;
@@ -13,10 +10,7 @@ use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::WrapErr;
-use sea_orm::ActiveModelBehavior;
-use sea_orm::ColumnTrait;
-use sea_orm::QueryFilter;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+use sea_orm::EntityTrait;
 
 #[derive(Default)]
 pub struct SpotifyMutation;
@@ -56,10 +50,7 @@ impl SpotifyMutation {
         auth_code: String,
         csrf_state: String,
     ) -> GraphqlResult<SpotifyAccount> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-        let db = &app_state.db;
+        let app_state = get_app_state(ctx)?;
 
         // Retrieve and remove OAuth session
         let session = {
@@ -67,58 +58,11 @@ impl SpotifyMutation {
             session.take().ok_or_eyre("No spotify session found")?
         };
 
-        let authenticated_client = session
-            .authenticate(auth_code, csrf_state)
-            .await
-            .wrap_err("Failed to authenticate spotify session")?;
-        let user = spotify_rs::get_current_user_profile(&authenticated_client)
-            .await
-            .wrap_err("Failed to get user info")?;
-        let access_token = authenticated_client
-            .access_token()
-            .wrap_err("Failed to get access token")?;
-        let refresh_token = authenticated_client
-            .refresh_token()
-            .wrap_err("Failed to get refresh token")?
-            .ok_or_eyre("No refresh token found")?;
-
-        // Check if account already exists
-        let existing_account = entities::spotify_account::Entity::find()
-            .filter(entities::spotify_account::Column::UserId.eq(&user.id))
-            .one(&db.conn)
-            .await
-            .wrap_err("Failed to check for existing spotify account")?;
-
-        let account_model = if let Some(existing) = existing_account {
-            // Update existing account with new tokens
-            let mut account: entities::spotify_account::ActiveModel = existing.into();
-            account.display_name = Set(user.display_name);
-            account.access_token = Set(access_token);
-            account.refresh_token = Set(refresh_token);
-            account.token_expiry = Set(0);
-            // updated_at will be set automatically by before_save hook
-
-            account
-                .update(&db.conn)
-                .await
-                .wrap_err("Failed to update spotify account")?
-        } else {
-            // Create new account
-            let account = entities::spotify_account::ActiveModel {
-                user_id: Set(user.id),
-                display_name: Set(user.display_name),
-                access_token: Set(access_token),
-                refresh_token: Set(refresh_token),
-                // TODO: remove this?
-                token_expiry: Set(0),
-                ..entities::spotify_account::ActiveModel::new()
-            };
-
-            account
-                .insert(&db.conn)
-                .await
-                .map_err(|e| color_eyre::eyre::eyre!("Failed to create spotify account: {}", e))?
-        };
+        let service =
+            crate::services::spotify::account::SpotifyAccountService::new(app_state.db.clone());
+        let account_model = service
+            .complete_auth(session, auth_code, csrf_state)
+            .await?;
 
         Ok(SpotifyAccount {
             id: account_model.id,
@@ -137,12 +81,9 @@ impl SpotifyMutation {
         account_id: i64,
     ) -> GraphqlResult<bool> {
         let app_state = get_app_state(ctx)?;
-        let db = &app_state.db;
-
-        entities::spotify_account::Entity::delete_by_id(account_id)
-            .exec(&db.conn)
-            .await
-            .wrap_err("Failed to delete spotify account")?;
+        let service =
+            crate::services::spotify::account::SpotifyAccountService::new(app_state.db.clone());
+        service.delete_account(account_id).await?;
         Ok(true)
     }
 
@@ -197,15 +138,12 @@ impl SpotifyMutation {
         &self,
         ctx: &Context<'_>,
     ) -> GraphqlResult<bool> {
-        let db = get_app_state(ctx)?.db.clone();
+        let app_state = get_app_state(ctx)?;
+        let service =
+            crate::services::spotify::matching::SpotifyMatchingService::new(app_state.db.clone());
+        let spotify_tracks = service.list_unmatched_spotify_tracks().await?;
 
-        let spotify_tracks = entities::spotify_track::Entity::find()
-            .filter(entities::spotify_track::Column::LocalTrackId.is_null())
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch spotify tracks from db")?;
-
-        match_existing_spotify_tracks_with_local_task(db, spotify_tracks).await?;
+        match_existing_spotify_tracks_with_local_task(app_state.db.clone(), spotify_tracks).await?;
         Ok(true)
     }
 

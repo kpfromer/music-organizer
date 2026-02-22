@@ -1,3 +1,4 @@
+pub mod account;
 pub mod client;
 pub mod download_best_match_for_spotify_track;
 pub mod matching;

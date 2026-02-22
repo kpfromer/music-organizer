@@ -101,6 +101,13 @@ impl<C: PlexClient> PlexService<C> {
 
     // ---- CRUD ----
 
+    pub async fn list_servers(&self) -> color_eyre::Result<Vec<entities::plex_server::Model>> {
+        entities::plex_server::Entity::find()
+            .all(&self.db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))
+    }
+
     pub async fn create_server(
         &self,
         name: String,
