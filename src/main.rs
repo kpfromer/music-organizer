@@ -11,6 +11,7 @@ mod migrator;
 mod musicbrainz;
 mod ollama;
 mod plex_rs;
+mod ports;
 mod services;
 mod soulseek;
 mod soulseek_tui;

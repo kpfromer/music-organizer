@@ -1,15 +1,14 @@
 use std::sync::Arc;
-use tracing;
 
 use super::spotify_queries::SpotifyAccount;
 use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
-use crate::http_server::graphql::spotify::context::get_spotify_client;
-use crate::http_server::graphql::spotify::matching_local_tracks::match_existing_spotify_tracks_with_local_task;
-use crate::http_server::graphql::spotify::sync_spotify_playlist_to_local_library::sync_spotify_playlist_to_local_library_task;
+use crate::http_server::graphql::spotify::context::get_spotify_adapter;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
 use crate::services::spotify::client::start_spotify_auth_flow;
+use crate::services::spotify::matching_local_tracks::match_existing_spotify_tracks_with_local_task;
+use crate::services::spotify::sync_spotify_playlist_to_local_library::sync_spotify_playlist_to_local_library_task;
 use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::OptionExt;
@@ -17,7 +16,6 @@ use color_eyre::eyre::WrapErr;
 use sea_orm::ActiveModelBehavior;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
-use sea_orm::TransactionTrait;
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 
 #[derive(Default)]
@@ -153,163 +151,17 @@ impl SpotifyMutation {
         ctx: &Context<'_>,
         account_id: i64,
     ) -> GraphqlResult<bool> {
-        let db = &get_app_state(ctx)?.db;
+        let app_state = get_app_state(ctx)?;
+        let db = &app_state.db;
         let spotify_account = entities::spotify_account::Entity::find_by_id(account_id)
             .one(&db.conn)
             .await
             .wrap_err("Failed to fetch spotify account")?
             .ok_or_eyre("Spotify account not found")?;
-        let spotify_client = get_spotify_client(ctx, spotify_account).await?;
+        let adapter = get_spotify_adapter(app_state, spotify_account).await?;
 
-        let playlists = spotify_rs::current_user_playlists()
-            .get(&spotify_client)
-            .await
-            .wrap_err("Failed to fetch user spotify playlists")?
-            .get_all(&spotify_client)
-            .await
-            .wrap_err("Unable to get all user spotify playlists")?;
-
-        let txn = db
-            .conn
-            .begin()
-            .await
-            .wrap_err("Failed to begin transaction")?;
-        for playlist in playlists.into_iter().flatten() {
-            // Upsert spotify playlist details
-            let saved_playlist = if let Some(existing_playlist) =
-                entities::spotify_playlist::Entity::find()
-                    .filter(entities::spotify_playlist::Column::SpotifyId.eq(&playlist.id))
-                    .one(&txn)
-                    .await
-                    .wrap_err("Failed to fetch saved spotify playlist")?
-            {
-                let mut existing_playlist_model: entities::spotify_playlist::ActiveModel =
-                    existing_playlist.into();
-
-                existing_playlist_model.account_id = Set(account_id);
-                existing_playlist_model.spotify_id = Set(playlist.id.clone());
-                existing_playlist_model.name = Set(playlist.name);
-                existing_playlist_model.description = Set(playlist.description);
-                existing_playlist_model.snapshot_id = Set(playlist.snapshot_id);
-                existing_playlist_model.track_count =
-                    Set(playlist.tracks.map(|t| t.total).unwrap_or(0) as i32);
-                existing_playlist_model.updated_at = Set(chrono::Utc::now().timestamp());
-
-                entities::spotify_playlist::Entity::update(existing_playlist_model)
-                    .exec(&txn)
-                    .await
-                    .wrap_err("Failed to update spotify playlist")?
-            } else {
-                let playlist_model = entities::spotify_playlist::ActiveModel {
-                    account_id: Set(account_id),
-                    spotify_id: Set(playlist.id.clone()),
-                    name: Set(playlist.name),
-                    description: Set(playlist.description),
-                    snapshot_id: Set(playlist.snapshot_id),
-                    track_count: Set(playlist.tracks.map(|t| t.total).unwrap_or(0) as i32),
-                    ..entities::spotify_playlist::ActiveModel::new()
-                };
-                entities::spotify_playlist::Entity::insert(playlist_model)
-                    .exec_with_returning(&txn)
-                    .await
-                    .wrap_err("Failed to save spotify playlist")?
-            };
-
-            tracing::info!("Saved spotify playlist: {:?}", saved_playlist);
-
-            let spotify_tracks_from_api = spotify_rs::playlist_items(&saved_playlist.spotify_id)
-                .get(&spotify_client)
-                .await
-                .wrap_err("Failed to fetch spotify tracks from api")?
-                .get_all(&spotify_client)
-                .await
-                .wrap_err("Unable to get all spotify playlist items")?;
-
-            for track in spotify_tracks_from_api.into_iter().flatten() {
-                let track_id = if let spotify_rs::model::PlayableItem::Track(track) = track.track {
-                    let track_model = entities::spotify_track::ActiveModel {
-                        spotify_track_id: Set(track.id.clone()),
-                        title: Set(track.name),
-                        duration: Set(Some(track.duration_ms as i32)),
-                        artists: Set(entities::spotify_track::StringVec(
-                            track.artists.iter().map(|a| a.name.clone()).collect(),
-                        )),
-                        album: Set(track.album.name.clone()),
-                        isrc: Set(track.external_ids.isrc.clone()),
-                        barcode: Set(track.external_ids.upc.clone()),
-                        created_at: Set(chrono::Utc::now().timestamp()),
-                        updated_at: Set(chrono::Utc::now().timestamp()),
-                        local_track_id: Set(None),
-                    };
-                    // Upsert spotify track details
-                    match entities::spotify_track::Entity::find()
-                        .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&track.id))
-                        .one(&txn)
-                        .await
-                        .wrap_err("Failed to fetch saved spotify track")?
-                    {
-                        Some(existing_track) => {
-                            let mut existing_track_model: entities::spotify_track::ActiveModel =
-                                existing_track.into();
-                            existing_track_model.updated_at = Set(chrono::Utc::now().timestamp());
-                            existing_track_model.duration = Set(Some(track.duration_ms as i32));
-                            existing_track_model.artists = Set(entities::spotify_track::StringVec(
-                                track.artists.iter().map(|a| a.name.clone()).collect(),
-                            ));
-                            existing_track_model.album = Set(track.album.name.clone());
-                            existing_track_model.isrc = Set(track.external_ids.isrc.clone());
-                            existing_track_model.barcode = Set(track.external_ids.upc.clone());
-                            tracing::info!(
-                                "Updated spotify track in db: {:?}",
-                                existing_track_model
-                            );
-                            entities::spotify_track::Entity::update(existing_track_model)
-                                .exec(&txn)
-                                .await
-                                .wrap_err("Failed to update spotify track")?;
-                        }
-                        None => {
-                            entities::spotify_track::Entity::insert(track_model)
-                                .exec(&txn)
-                                .await
-                                .wrap_err("Failed to save spotify track")?;
-                            tracing::info!("Saved new spotify track to db",);
-                        }
-                    }
-                    track.id.clone()
-                } else {
-                    continue;
-                };
-
-                // Create link between spotify track and playlist
-                if entities::spotify_track_playlist::Entity::find()
-                    .filter(entities::spotify_track_playlist::Column::SpotifyTrackId.eq(&track_id))
-                    .filter(
-                        entities::spotify_track_playlist::Column::SpotifyPlaylistId
-                            .eq(saved_playlist.id),
-                    )
-                    .one(&txn)
-                    .await
-                    .wrap_err("Failed to fetch saved spotify track playlist")?
-                    .is_some()
-                {
-                    continue;
-                }
-
-                let spotify_track_playlist_model = entities::spotify_track_playlist::ActiveModel {
-                    spotify_track_id: Set(track_id),
-                    spotify_playlist_id: Set(saved_playlist.id),
-                };
-                entities::spotify_track_playlist::Entity::insert(spotify_track_playlist_model)
-                    .exec(&txn)
-                    .await
-                    .wrap_err("Failed to save spotify track playlist")?;
-                tracing::info!("Saved spotify track playlist",);
-            }
-        }
-        txn.commit()
-            .await
-            .wrap_err("Failed to commit transaction")?;
+        let service = crate::services::spotify::sync::SpotifySyncService::new(db.clone(), adapter);
+        service.sync_account_playlists(account_id).await?;
 
         Ok(true)
     }
@@ -364,61 +216,8 @@ impl SpotifyMutation {
         candidate_id: i64,
     ) -> GraphqlResult<bool> {
         let db = &get_app_state(ctx)?.db;
-
-        let candidate = entities::spotify_match_candidate::Entity::find_by_id(candidate_id)
-            .one(&db.conn)
-            .await
-            .wrap_err("Failed to fetch match candidate")?
-            .ok_or_eyre("Match candidate not found")?;
-
-        // Set spotify_track.local_track_id
-        let spotify_track = entities::spotify_track::Entity::find()
-            .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&candidate.spotify_track_id))
-            .one(&db.conn)
-            .await
-            .wrap_err("Failed to fetch spotify track")?
-            .ok_or_eyre("Spotify track not found")?;
-
-        let mut spotify_track_active: entities::spotify_track::ActiveModel = spotify_track.into();
-        spotify_track_active.local_track_id = Set(Some(candidate.local_track_id));
-        spotify_track_active
-            .update(&db.conn)
-            .await
-            .wrap_err("Failed to update spotify track")?;
-
-        // Mark the accepted candidate
-        let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
-            candidate.clone().into();
-        candidate_active.status = Set(entities::spotify_match_candidate::CandidateStatus::Accepted);
-        candidate_active
-            .update(&db.conn)
-            .await
-            .wrap_err("Failed to update match candidate")?;
-
-        // Dismiss all other pending candidates for this spotify track
-        let other_candidates = entities::spotify_match_candidate::Entity::find()
-            .filter(
-                entities::spotify_match_candidate::Column::SpotifyTrackId
-                    .eq(&candidate.spotify_track_id),
-            )
-            .filter(
-                entities::spotify_match_candidate::Column::Status
-                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
-            )
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch other candidates")?;
-
-        for other in other_candidates {
-            let mut other_active: entities::spotify_match_candidate::ActiveModel = other.into();
-            other_active.status =
-                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
-            other_active
-                .update(&db.conn)
-                .await
-                .wrap_err("Failed to dismiss other candidate")?;
-        }
-
+        let service = crate::services::spotify::matching::SpotifyMatchingService::new(db.clone());
+        service.accept_candidate(candidate_id).await?;
         Ok(true)
     }
 
@@ -429,28 +228,8 @@ impl SpotifyMutation {
         spotify_track_id: String,
     ) -> GraphqlResult<bool> {
         let db = &get_app_state(ctx)?.db;
-
-        let pending_candidates = entities::spotify_match_candidate::Entity::find()
-            .filter(entities::spotify_match_candidate::Column::SpotifyTrackId.eq(&spotify_track_id))
-            .filter(
-                entities::spotify_match_candidate::Column::Status
-                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
-            )
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch pending candidates")?;
-
-        for candidate in pending_candidates {
-            let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
-                candidate.into();
-            candidate_active.status =
-                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
-            candidate_active
-                .update(&db.conn)
-                .await
-                .wrap_err("Failed to dismiss candidate")?;
-        }
-
+        let service = crate::services::spotify::matching::SpotifyMatchingService::new(db.clone());
+        service.dismiss_track(&spotify_track_id).await?;
         Ok(true)
     }
 
@@ -462,44 +241,10 @@ impl SpotifyMutation {
         local_track_id: i64,
     ) -> GraphqlResult<bool> {
         let db = &get_app_state(ctx)?.db;
-
-        // Set spotify_track.local_track_id
-        let spotify_track = entities::spotify_track::Entity::find()
-            .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&spotify_track_id))
-            .one(&db.conn)
-            .await
-            .wrap_err("Failed to fetch spotify track")?
-            .ok_or_eyre("Spotify track not found")?;
-
-        let mut spotify_track_active: entities::spotify_track::ActiveModel = spotify_track.into();
-        spotify_track_active.local_track_id = Set(Some(local_track_id));
-        spotify_track_active
-            .update(&db.conn)
-            .await
-            .wrap_err("Failed to update spotify track")?;
-
-        // Dismiss all pending candidates for this spotify track
-        let pending_candidates = entities::spotify_match_candidate::Entity::find()
-            .filter(entities::spotify_match_candidate::Column::SpotifyTrackId.eq(&spotify_track_id))
-            .filter(
-                entities::spotify_match_candidate::Column::Status
-                    .eq(entities::spotify_match_candidate::CandidateStatus::Pending),
-            )
-            .all(&db.conn)
-            .await
-            .wrap_err("Failed to fetch pending candidates")?;
-
-        for candidate in pending_candidates {
-            let mut candidate_active: entities::spotify_match_candidate::ActiveModel =
-                candidate.into();
-            candidate_active.status =
-                Set(entities::spotify_match_candidate::CandidateStatus::Dismissed);
-            candidate_active
-                .update(&db.conn)
-                .await
-                .wrap_err("Failed to dismiss candidate")?;
-        }
-
+        let service = crate::services::spotify::matching::SpotifyMatchingService::new(db.clone());
+        service
+            .manually_match(&spotify_track_id, local_track_id)
+            .await?;
         Ok(true)
     }
 }

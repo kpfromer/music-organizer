@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use tracing::{self, Instrument, instrument};
 
-use crate::http_server::graphql::spotify::matching_local_tracks::matcher::{
+use crate::services::spotify::matching_local_tracks::matcher::{
     DurationMatch, MatchConfidence, VersionMatch,
 };
-use crate::http_server::graphql::spotify::matching_local_tracks::similarity_filter::match_spotify_track_to_local_track;
-use crate::http_server::graphql::spotify::matching_local_tracks::task_db::{
+use crate::services::spotify::matching_local_tracks::similarity_filter::match_spotify_track_to_local_track;
+use crate::services::spotify::matching_local_tracks::task_db::{
     create_spotify_to_local_matcher_task, mark_spotify_to_local_matcher_task_as_completed,
     mark_spotify_to_local_matcher_task_as_failed,
     mark_spotify_to_local_matcher_task_as_in_progress, update_spotify_to_local_matcher_task,
@@ -82,7 +82,7 @@ async fn store_match_candidates(
     spotify_track: &entities::spotify_track::Model,
     candidates: &[(
         entities::track::Model,
-        crate::http_server::graphql::spotify::matching_local_tracks::matcher::MatchResult,
+        crate::services::spotify::matching_local_tracks::matcher::MatchResult,
     )],
 ) -> Result<()> {
     // Delete existing pending candidates for this spotify track

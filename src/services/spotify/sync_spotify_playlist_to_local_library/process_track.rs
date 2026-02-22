@@ -1,7 +1,7 @@
 use crate::database::Database;
 use crate::entities;
-use crate::http_server::graphql::spotify::download_best_match_for_spotify_track::download_best_match_for_spotify_track;
 use crate::import_track::import_track;
+use crate::services::spotify::download_best_match_for_spotify_track::download_best_match_for_spotify_track;
 use crate::soulseek::SoulSeekClientContext;
 use color_eyre::eyre::Result;
 use sea_orm::{EntityTrait, Set};
