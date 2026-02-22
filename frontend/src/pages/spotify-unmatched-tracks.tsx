@@ -10,7 +10,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +25,29 @@ import {
 import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
 
+const SpotifyAccountsQuery = graphql(`
+  query SpotifyAccountsForFilter {
+    spotifyAccounts {
+      id
+      displayName
+      userId
+    }
+  }
+`);
+
+const SpotifyPlaylistsQuery = graphql(`
+  query SpotifyPlaylistsForFilter($accountId: Int!) {
+    spotifyPlaylists(accountId: $accountId) {
+      id
+      name
+      trackCount
+    }
+  }
+`);
+
 const SpotifyUnmatchedTracksQuery = graphql(`
-  query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String) {
-    spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search) {
+  query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int) {
+    spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search, hasCandidates: $hasCandidates, sortByScore: $sortByScore, playlistId: $playlistId) {
       unmatchedTracks {
         spotifyTrackId
         spotifyTitle
@@ -263,18 +283,62 @@ export function SpotifyUnmatchedTracks() {
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [hasCandidates, setHasCandidates] = useState<boolean | undefined>(
+    undefined,
+  );
+  const [sortByScore, setSortByScore] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<
+    number | undefined
+  >(undefined);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<
+    number | undefined
+  >(undefined);
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [librarySearchTrackId, setLibrarySearchTrackId] = useState<
     string | null
   >(null);
 
+  const { data: accountsData } = useQuery({
+    queryKey: ["spotifyAccountsForFilter"],
+    queryFn: () => execute(SpotifyAccountsQuery),
+  });
+
+  // Auto-select the first account to load its playlists
+  const accounts = accountsData?.spotifyAccounts;
+  const firstAccountId = accounts?.[0]?.id;
+  useEffect(() => {
+    if (firstAccountId !== undefined && selectedAccountId === undefined) {
+      setSelectedAccountId(firstAccountId);
+    }
+  }, [firstAccountId, selectedAccountId]);
+
+  const { data: playlistsData } = useQuery({
+    queryKey: ["spotifyPlaylistsForFilter", selectedAccountId],
+    queryFn: () =>
+      execute(SpotifyPlaylistsQuery, {
+        accountId: selectedAccountId!,
+      }),
+    enabled: selectedAccountId !== undefined,
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["spotifyUnmatchedTracks", page, pageSize, search],
+    queryKey: [
+      "spotifyUnmatchedTracks",
+      page,
+      pageSize,
+      search,
+      hasCandidates,
+      sortByScore,
+      selectedPlaylistId,
+    ],
     queryFn: () =>
       execute(SpotifyUnmatchedTracksQuery, {
         page,
         pageSize,
         search: search || undefined,
+        hasCandidates,
+        sortByScore: sortByScore || undefined,
+        playlistId: selectedPlaylistId,
       }),
   });
 
@@ -352,6 +416,89 @@ export function SpotifyUnmatchedTracks() {
               <Search className="mr-2 h-4 w-4" />
               Search
             </Button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">Playlist:</span>
+              <Select
+                value={
+                  selectedPlaylistId !== undefined
+                    ? String(selectedPlaylistId)
+                    : "all"
+                }
+                onValueChange={(value) => {
+                  if (value === "all") {
+                    setSelectedPlaylistId(undefined);
+                  } else {
+                    setSelectedPlaylistId(Number.parseInt(value, 10));
+                  }
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All playlists</SelectItem>
+                  {(playlistsData?.spotifyPlaylists ?? []).map((playlist) => (
+                    <SelectItem key={playlist.id} value={String(playlist.id)}>
+                      {playlist.name} ({playlist.trackCount})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">Candidates:</span>
+              <Select
+                value={
+                  hasCandidates === undefined
+                    ? "all"
+                    : hasCandidates
+                      ? "with"
+                      : "without"
+                }
+                onValueChange={(value) => {
+                  setHasCandidates(
+                    value === "all"
+                      ? undefined
+                      : value === "with"
+                        ? true
+                        : false,
+                  );
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="with">With candidates</SelectItem>
+                  <SelectItem value="without">Without candidates</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">Sort by:</span>
+              <Select
+                value={sortByScore ? "score" : "recent"}
+                onValueChange={(value) => {
+                  setSortByScore(value === "score");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Most recent</SelectItem>
+                  <SelectItem value="score">Best match score</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Content */}

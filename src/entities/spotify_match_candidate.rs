@@ -65,6 +65,9 @@ pub struct Model {
     pub status: CandidateStatus,
     pub created_at: i64,
     pub updated_at: i64,
+
+    #[sea_orm(belongs_to, from = "spotify_track_id", to = "spotify_track_id")]
+    pub spotify_track: Option<super::spotify_track::Entity>,
 }
 
 #[async_trait]
