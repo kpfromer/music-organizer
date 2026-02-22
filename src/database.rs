@@ -4,7 +4,7 @@ use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database as SeaDatabase,
-    DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect,
+    DatabaseConnection, EntityTrait, QueryFilter,
 };
 use serde::Serialize;
 use std::path::Path;
@@ -831,33 +831,5 @@ impl Database {
             .context("Failed to insert unimportable file")?;
 
         Ok(())
-    }
-
-    pub async fn get_unimportable_files(
-        &self,
-        page: usize,
-        page_size: usize,
-    ) -> Result<(Vec<entities::unimportable_file::Model>, usize)> {
-        use sea_orm::{EntityTrait, QueryOrder};
-
-        // Get total count
-        let total_count = entities::unimportable_file::Entity::find()
-            .count(&self.conn)
-            .await
-            .context("Failed to count unimportable files")?;
-
-        // Calculate offset
-        let offset = (page.saturating_sub(1)) * page_size;
-
-        // Fetch paginated results
-        let files = entities::unimportable_file::Entity::find()
-            .order_by_desc(entities::unimportable_file::Column::CreatedAt)
-            .limit(page_size as u64)
-            .offset(offset as u64)
-            .all(&self.conn)
-            .await
-            .context("Failed to fetch unimportable files")?;
-
-        Ok((files, total_count as usize))
     }
 }

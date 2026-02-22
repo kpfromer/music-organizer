@@ -96,7 +96,7 @@ impl<C: PlexClient> PlexService<C> {
             .client
             .find_music_section_id(&sections)
             .ok_or_eyre("No music library section found on Plex server")?;
-        Ok(section_id.to_string())
+        Ok(section_id)
     }
 
     // ---- CRUD ----
@@ -273,7 +273,7 @@ impl<C: PlexClient> PlexService<C> {
         };
 
         let music_section_id = match self.client.find_music_section_id(&sections) {
-            Some(id) => id.to_string(),
+            Some(id) => id,
             None => {
                 return Ok(PlexTracksOutcome::Error(
                     "No music library section found on Plex server.".to_string(),
@@ -339,5 +339,119 @@ impl<C: PlexClient> PlexService<C> {
         // Delegate to existing function (it mixes DB + API calls; decompose later)
         let client = reqwest::Client::new();
         crate::plex_rs::sync_playlist::sync_playlist_to_plex(&self.db, &client, playlist_id).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plex_rs::auth::PlexPinResponse;
+    use crate::ports::plex::MockPlexClient;
+    use crate::test_utils::test_db;
+
+    #[tokio::test]
+    async fn test_list_servers_empty() {
+        let db = test_db().await;
+        let client = MockPlexClient::new();
+        let service = PlexService::new(db, client);
+
+        let servers = service.list_servers().await.unwrap();
+        assert!(servers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_servers() {
+        let db = test_db().await;
+        let client = MockPlexClient::new();
+        let service = PlexService::new(db, client);
+
+        service
+            .create_server("Server1".into(), "http://localhost:32400".into())
+            .await
+            .unwrap();
+        service
+            .create_server("Server2".into(), "http://localhost:32401".into())
+            .await
+            .unwrap();
+
+        let servers = service.list_servers().await.unwrap();
+        assert_eq!(servers.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_create_server() {
+        let db = test_db().await;
+        let client = MockPlexClient::new();
+        let service = PlexService::new(db, client);
+
+        let server = service
+            .create_server("MyPlex".into(), "http://192.168.1.100:32400".into())
+            .await
+            .unwrap();
+
+        assert_eq!(server.name, "MyPlex");
+        assert_eq!(server.server_url, "http://192.168.1.100:32400");
+        assert!(server.access_token.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_create_server_invalid_url() {
+        let db = test_db().await;
+        let client = MockPlexClient::new();
+        let service = PlexService::new(db, client);
+
+        let result = service
+            .create_server("Bad".into(), "not-a-url".into())
+            .await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid server URL")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_start_authentication() {
+        let db = test_db().await;
+        let mut client = MockPlexClient::new();
+
+        client.expect_create_pin().returning(|| {
+            Ok(PlexPinResponse {
+                id: 42,
+                code: "ABCD1234".to_string(),
+            })
+        });
+        client
+            .expect_construct_auth_url()
+            .returning(|_code, _forward_url| Ok("https://plex.tv/auth?code=ABCD1234".to_string()));
+
+        let service = PlexService::new(db, client);
+
+        // First create a server so start_authentication can find it
+        let server = service
+            .create_server("TestServer".into(), "http://localhost:32400".into())
+            .await
+            .unwrap();
+
+        let (auth_url, pin_id) = service
+            .start_authentication(server.id, "http://localhost:3001")
+            .await
+            .unwrap();
+
+        assert_eq!(pin_id, 42);
+        assert!(auth_url.contains("plex.tv"));
+    }
+
+    #[tokio::test]
+    async fn test_get_tracks_no_server() {
+        let db = test_db().await;
+        let client = MockPlexClient::new();
+        let service = PlexService::new(db, client);
+
+        let result = service.get_tracks().await.unwrap();
+        assert!(matches!(result, PlexTracksOutcome::NoServer));
     }
 }

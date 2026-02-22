@@ -301,3 +301,246 @@ impl SpotifyMatchingService {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::test_db;
+    use sea_orm::{ActiveModelBehavior, ActiveModelTrait, Set};
+
+    /// Helper to set up a local track (album + artist + track + track_artist).
+    async fn insert_local_track(db: &Database, title: &str, file_path: &str) -> i64 {
+        let now = chrono::Utc::now().timestamp();
+
+        let album = entities::album::ActiveModel {
+            title: Set("Test Album".into()),
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..Default::default()
+        };
+        let album = album.insert(&db.conn).await.unwrap();
+
+        let artist = entities::artist::ActiveModel {
+            name: Set("Test Artist".into()),
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..Default::default()
+        };
+        let artist = artist.insert(&db.conn).await.unwrap();
+
+        let track = entities::track::ActiveModel {
+            album_id: Set(album.id),
+            title: Set(title.into()),
+            file_path: Set(file_path.into()),
+            sha256: Set(format!("sha256_{}", file_path)),
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..Default::default()
+        };
+        let track = track.insert(&db.conn).await.unwrap();
+
+        let ta = entities::track_artist::ActiveModel {
+            track_id: Set(track.id),
+            artist_id: Set(artist.id),
+            is_primary: Set(1),
+        };
+        entities::track_artist::Entity::insert(ta)
+            .exec(&db.conn)
+            .await
+            .unwrap();
+
+        track.id
+    }
+
+    async fn insert_spotify_track(db: &Database, spotify_id: &str, title: &str) {
+        let st = entities::spotify_track::ActiveModel {
+            spotify_track_id: Set(spotify_id.into()),
+            title: Set(title.into()),
+            artists: Set(entities::spotify_track::StringVec(vec!["Artist".into()])),
+            album: Set("Album".into()),
+            ..entities::spotify_track::ActiveModel::new()
+        };
+        st.insert(&db.conn).await.unwrap();
+    }
+
+    async fn insert_candidate(
+        db: &Database,
+        spotify_track_id: &str,
+        local_track_id: i64,
+        score: f64,
+    ) -> i64 {
+        let candidate = entities::spotify_match_candidate::ActiveModel {
+            spotify_track_id: Set(spotify_track_id.into()),
+            local_track_id: Set(local_track_id),
+            score: Set(score),
+            confidence: Set(entities::spotify_match_candidate::CandidateConfidence::High),
+            title_similarity: Set(0.9),
+            artist_similarity: Set(0.9),
+            album_similarity: Set(0.9),
+            duration_match: Set(entities::spotify_match_candidate::CandidateDurationMatch::Exact),
+            version_match: Set(entities::spotify_match_candidate::CandidateVersionMatch::Match),
+            ..entities::spotify_match_candidate::ActiveModel::new()
+        };
+        let result = candidate.insert(&db.conn).await.unwrap();
+        result.id
+    }
+
+    #[tokio::test]
+    async fn test_accept_candidate() {
+        let db = test_db().await;
+        let local_id1 = insert_local_track(&db, "Track A", "/a.flac").await;
+        let local_id2 = insert_local_track(&db, "Track B", "/b.flac").await;
+        insert_spotify_track(&db, "sp1", "Spotify Track").await;
+
+        let c1 = insert_candidate(&db, "sp1", local_id1, 0.95).await;
+        let _c2 = insert_candidate(&db, "sp1", local_id2, 0.80).await;
+
+        let service = SpotifyMatchingService::new(db.clone());
+        service.accept_candidate(c1).await.unwrap();
+
+        // Check spotify track is linked
+        let st = entities::spotify_track::Entity::find()
+            .filter(entities::spotify_track::Column::SpotifyTrackId.eq("sp1"))
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(st.local_track_id, Some(local_id1));
+
+        // Check accepted candidate
+        let accepted = entities::spotify_match_candidate::Entity::find_by_id(c1)
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            accepted.status,
+            entities::spotify_match_candidate::CandidateStatus::Accepted
+        );
+
+        // Check other candidate dismissed
+        let other = entities::spotify_match_candidate::Entity::find_by_id(_c2)
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            other.status,
+            entities::spotify_match_candidate::CandidateStatus::Dismissed
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dismiss_track() {
+        let db = test_db().await;
+        let local_id = insert_local_track(&db, "Track A", "/a.flac").await;
+        insert_spotify_track(&db, "sp1", "Spotify Track").await;
+
+        let c1 = insert_candidate(&db, "sp1", local_id, 0.95).await;
+
+        let service = SpotifyMatchingService::new(db.clone());
+        service.dismiss_track("sp1").await.unwrap();
+
+        let candidate = entities::spotify_match_candidate::Entity::find_by_id(c1)
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            candidate.status,
+            entities::spotify_match_candidate::CandidateStatus::Dismissed
+        );
+    }
+
+    #[tokio::test]
+    async fn test_manually_match() {
+        let db = test_db().await;
+        let local_id = insert_local_track(&db, "Track A", "/a.flac").await;
+        insert_spotify_track(&db, "sp1", "Spotify Track").await;
+        let c1 = insert_candidate(&db, "sp1", local_id, 0.9).await;
+
+        let service = SpotifyMatchingService::new(db.clone());
+        service.manually_match("sp1", local_id).await.unwrap();
+
+        // Check link
+        let st = entities::spotify_track::Entity::find()
+            .filter(entities::spotify_track::Column::SpotifyTrackId.eq("sp1"))
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(st.local_track_id, Some(local_id));
+
+        // Check candidate dismissed
+        let candidate = entities::spotify_match_candidate::Entity::find_by_id(c1)
+            .one(&db.conn)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            candidate.status,
+            entities::spotify_match_candidate::CandidateStatus::Dismissed
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_matched_tracks() {
+        let db = test_db().await;
+        let local_id = insert_local_track(&db, "Track A", "/a.flac").await;
+
+        // Insert a matched spotify track
+        let st = entities::spotify_track::ActiveModel {
+            spotify_track_id: Set("sp1".into()),
+            title: Set("Spotify Track".into()),
+            artists: Set(entities::spotify_track::StringVec(vec!["Artist".into()])),
+            album: Set("Album".into()),
+            local_track_id: Set(Some(local_id)),
+            ..entities::spotify_track::ActiveModel::new()
+        };
+        st.insert(&db.conn).await.unwrap();
+
+        let service = SpotifyMatchingService::new(db);
+        let result = service.list_matched_tracks(None, 1, 25).await.unwrap();
+
+        assert_eq!(result.total_count, 1);
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].spotify_track.title, "Spotify Track");
+        assert_eq!(result.items[0].local_track.track.title, "Track A");
+    }
+
+    #[tokio::test]
+    async fn test_list_unmatched_tracks_with_candidates() {
+        let db = test_db().await;
+        let local_id = insert_local_track(&db, "Local Song", "/song.flac").await;
+        insert_spotify_track(&db, "sp1", "Unmatched Spotify").await;
+        insert_candidate(&db, "sp1", local_id, 0.85).await;
+
+        let service = SpotifyMatchingService::new(db);
+        let result = service.list_unmatched_tracks(None, 1, 25).await.unwrap();
+
+        assert_eq!(result.total_count, 1);
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].spotify_track.title, "Unmatched Spotify");
+        assert_eq!(result.items[0].candidates.len(), 1);
+        assert_eq!(
+            result.items[0].candidates[0].local_track.track.title,
+            "Local Song"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_search_local_tracks() {
+        let db = test_db().await;
+        insert_local_track(&db, "Bohemian Rhapsody", "/bohemian.flac").await;
+        insert_local_track(&db, "Stairway to Heaven", "/stairway.flac").await;
+
+        let service = SpotifyMatchingService::new(db);
+        let result = service
+            .search_local_tracks("Bohemian", 1, 25)
+            .await
+            .unwrap();
+
+        assert_eq!(result.total_count, 1);
+        assert_eq!(result.items[0].track.title, "Bohemian Rhapsody");
+    }
+}

@@ -82,6 +82,7 @@ impl SpotifyRsAdapter {
     }
 }
 
+#[async_trait::async_trait]
 impl SpotifyClient for SpotifyRsAdapter {
     async fn current_user_playlists(&self) -> color_eyre::eyre::Result<Vec<SpotifyApiPlaylist>> {
         let pages = spotify_rs::current_user_playlists()

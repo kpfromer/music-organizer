@@ -15,6 +15,8 @@ mod ports;
 mod services;
 mod soulseek;
 mod soulseek_tui;
+#[cfg(test)]
+pub mod test_utils;
 
 use std::path::PathBuf;
 use std::sync::Arc;
