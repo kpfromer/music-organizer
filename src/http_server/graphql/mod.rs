@@ -18,6 +18,8 @@ use crate::http_server::graphql::youtube_mutations::YoutubeMutation;
 use crate::http_server::graphql::youtube_queries::YoutubeQuery;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::http_server::state::AppState;
+use crate::services::plex::PlexService;
+use crate::services::plex::client::PlexHttpAdapter;
 use crate::services::track::{TrackService, TrackWithRelations};
 
 mod context;
@@ -47,12 +49,11 @@ use plex_playlist_queries::PlexPlaylistsResponse;
 use plex_server_mutations::PlexServerMutation;
 use plex_server_queries::PlexServer;
 use plex_track_queries::PlexTracksResult;
-use sea_orm::EntityTrait;
 use soulseek_mutations::SoulseekMutation;
 use track_queries::{Album, Artist, Track, TracksResponse};
 use unimportable_file_queries::{UnimportableFile, UnimportableFilesResponse};
 
-fn map_track_with_relations(twr: TrackWithRelations) -> color_eyre::Result<Track> {
+pub(crate) fn map_track_with_relations(twr: TrackWithRelations) -> color_eyre::Result<Track> {
     #[cfg(debug_assertions)]
     let base_url = "http://localhost:3000";
     #[cfg(not(debug_assertions))]
@@ -142,18 +143,13 @@ impl LegacyQuery {
         page: Option<i32>,
         page_size: Option<i32>,
     ) -> GraphqlResult<UnimportableFilesResponse> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-        let db = &app_state.db;
+        let app_state = get_app_state(ctx)?;
+        let service = TrackService::new(app_state.db.clone());
 
-        let page = page.unwrap_or(1).max(1) as usize;
-        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+        let page_val = page.unwrap_or(1).max(1) as usize;
+        let page_size_val = page_size.unwrap_or(25).clamp(1, 100) as usize;
 
-        let (files, total_count) = db
-            .get_unimportable_files(page, page_size)
-            .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch unimportable files: {}", e))?;
+        let (files, total_count) = service.list_unimportable_files(page, page_size).await?;
 
         let mut unimportable_files = Vec::new();
         for file in files {
@@ -171,8 +167,8 @@ impl LegacyQuery {
         Ok(UnimportableFilesResponse {
             files: unimportable_files,
             total_count: total_count as i64,
-            page: page as i32,
-            page_size: page_size as i32,
+            page: page_val as i32,
+            page_size: page_size_val as i32,
         })
     }
 
@@ -264,17 +260,11 @@ impl LegacyQuery {
     }
 
     async fn plex_servers(&self, ctx: &Context<'_>) -> GraphqlResult<Vec<PlexServer>> {
-        let app_state = ctx
-            .data::<Arc<AppState>>()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to get app state: {:?}", e))?;
-        let db = &app_state.db;
+        let app_state = get_app_state(ctx)?;
+        let service = PlexService::new(app_state.db.clone(), PlexHttpAdapter::new());
+        let servers = service.list_servers().await?;
 
-        let servers = crate::entities::plex_server::Entity::find()
-            .all(&db.conn)
-            .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch plex servers: {}", e))?;
-
-        let plex_servers: Vec<PlexServer> = servers
+        Ok(servers
             .into_iter()
             .map(|server| PlexServer {
                 id: server.id,
@@ -284,9 +274,7 @@ impl LegacyQuery {
                 created_at: server.created_at,
                 updated_at: server.updated_at,
             })
-            .collect();
-
-        Ok(plex_servers)
+            .collect())
     }
 
     async fn plex_tracks(&self, ctx: &Context<'_>) -> GraphqlResult<PlexTracksResult> {

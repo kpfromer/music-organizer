@@ -8,6 +8,56 @@ use crate::database::Database;
 use crate::entities;
 use crate::ports::spotify::{SpotifyApiPlaylist, SpotifyApiTrack, SpotifyClient};
 
+/// Query-only service that doesn't require a Spotify API client adapter.
+pub struct SpotifySyncQueryService {
+    db: Arc<Database>,
+}
+
+impl SpotifySyncQueryService {
+    pub fn new(db: Arc<Database>) -> Self {
+        Self { db }
+    }
+
+    pub async fn list_playlists(
+        &self,
+        account_id: i64,
+    ) -> Result<Vec<entities::spotify_playlist::Model>> {
+        entities::spotify_playlist::Entity::find()
+            .filter(entities::spotify_playlist::Column::AccountId.eq(account_id))
+            .all(&self.db.conn)
+            .await
+            .wrap_err("Failed to fetch spotify playlists")
+    }
+
+    pub async fn get_playlist_sync_state(
+        &self,
+        spotify_playlist_id: i64,
+    ) -> Result<Option<entities::spotify_playlist_sync_state::Model>> {
+        entities::spotify_playlist_sync_state::Entity::find()
+            .filter(
+                entities::spotify_playlist_sync_state::Column::SpotifyPlaylistId
+                    .eq(spotify_playlist_id),
+            )
+            .one(&self.db.conn)
+            .await
+            .wrap_err("Failed to fetch spotify playlist sync state")
+    }
+
+    pub async fn list_download_failures(
+        &self,
+        spotify_playlist_id: i64,
+    ) -> Result<Vec<entities::spotify_track_download_failure::Model>> {
+        entities::spotify_track_download_failure::Entity::find()
+            .filter(
+                entities::spotify_track_download_failure::Column::SpotifyPlaylistId
+                    .eq(spotify_playlist_id),
+            )
+            .all(&self.db.conn)
+            .await
+            .wrap_err("Failed to fetch spotify track download failures")
+    }
+}
+
 pub struct SpotifySyncService<C: SpotifyClient> {
     db: Arc<Database>,
     client: C,

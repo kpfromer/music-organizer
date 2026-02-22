@@ -34,6 +34,43 @@ impl TrackService {
         Self { db }
     }
 
+    pub async fn list_unimportable_files(
+        &self,
+        page: Option<i32>,
+        page_size: Option<i32>,
+    ) -> color_eyre::Result<(Vec<entities::unimportable_file::Model>, usize)> {
+        let page = page.unwrap_or(1).max(1) as usize;
+        let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
+        self.db
+            .get_unimportable_files(page, page_size)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch unimportable files: {}", e))
+    }
+
+    pub async fn get_track_by_id(&self, track_id: i64) -> color_eyre::Result<TrackWithRelations> {
+        let (track, album) = entities::track::Entity::find_by_id(track_id)
+            .find_also_related(entities::album::Entity)
+            .one(&self.db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch track: {}", e))?
+            .ok_or_else(|| color_eyre::eyre::eyre!("Track not found"))?;
+
+        let album = album
+            .ok_or_else(|| color_eyre::eyre::eyre!("Track {} has no associated album", track_id))?;
+
+        let artists = self
+            .db
+            .get_track_artists(track_id)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch track artists: {}", e))?;
+
+        Ok(TrackWithRelations {
+            track,
+            album,
+            artists,
+        })
+    }
+
     pub async fn list_tracks(
         &self,
         search: Option<&str>,
