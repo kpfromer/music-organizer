@@ -89,14 +89,6 @@ pub struct LegacyQuery;
 
 #[Object]
 impl LegacyQuery {
-    async fn howdy(&self) -> &'static str {
-        "partner"
-    }
-
-    async fn error_example(&self) -> GraphqlResult<&'static str> {
-        Err(color_eyre::eyre::eyre!("This is a test error from the graphql schema").into())
-    }
-
     async fn tracks(
         &self,
         ctx: &Context<'_>,
@@ -146,13 +138,10 @@ impl LegacyQuery {
         let app_state = get_app_state(ctx)?;
         let service = TrackService::new(app_state.db.clone());
 
-        let page_val = page.unwrap_or(1).max(1) as usize;
-        let page_size_val = page_size.unwrap_or(25).clamp(1, 100) as usize;
-
-        let (files, total_count) = service.list_unimportable_files(page, page_size).await?;
+        let result = service.list_unimportable_files(page, page_size).await?;
 
         let mut unimportable_files = Vec::new();
-        for file in files {
+        for file in result.items {
             let created_at = DateTime::<Utc>::from_timestamp_secs(file.created_at)
                 .ok_or_eyre("Failed to convert created_at to DateTime<Utc>")?;
             unimportable_files.push(UnimportableFile {
@@ -166,9 +155,9 @@ impl LegacyQuery {
 
         Ok(UnimportableFilesResponse {
             files: unimportable_files,
-            total_count: total_count as i64,
-            page: page_val as i32,
-            page_size: page_size_val as i32,
+            total_count: result.total_count as i64,
+            page: result.page as i32,
+            page_size: result.page_size as i32,
         })
     }
 

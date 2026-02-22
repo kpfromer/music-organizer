@@ -38,13 +38,30 @@ impl TrackService {
         &self,
         page: Option<i32>,
         page_size: Option<i32>,
-    ) -> color_eyre::Result<(Vec<entities::unimportable_file::Model>, usize)> {
+    ) -> color_eyre::Result<PaginatedResult<entities::unimportable_file::Model>> {
         let page = page.unwrap_or(1).max(1) as usize;
         let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
-        self.db
-            .get_unimportable_files(page, page_size)
+
+        let total_count = entities::unimportable_file::Entity::find()
+            .count(&self.db.conn)
             .await
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch unimportable files: {}", e))
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to count unimportable files: {}", e))?;
+
+        let offset = (page.saturating_sub(1)) * page_size;
+        let items = entities::unimportable_file::Entity::find()
+            .order_by_desc(entities::unimportable_file::Column::CreatedAt)
+            .limit(page_size as u64)
+            .offset(offset as u64)
+            .all(&self.db.conn)
+            .await
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch unimportable files: {}", e))?;
+
+        Ok(PaginatedResult {
+            items,
+            total_count,
+            page,
+            page_size,
+        })
     }
 
     pub async fn get_track_by_id(&self, track_id: i64) -> color_eyre::Result<TrackWithRelations> {
