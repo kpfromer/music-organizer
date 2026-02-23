@@ -24,6 +24,8 @@ impl PlaylistMutation {
             id: model.id,
             name: model.name,
             description: model.description,
+            spotify_playlist_id: model.spotify_playlist_id,
+            unmatched_spotify_track_count: None,
             created_at: model.created_at,
             updated_at: model.updated_at,
             track_count: 0,

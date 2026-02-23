@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Heart,
   Music,
   Search,
   X,
@@ -132,6 +133,15 @@ const DismissTrackMutation = graphql(`
 const ManualMatchMutation = graphql(`
   mutation ManuallyMatchSpotifyTrack($spotifyTrackId: String!, $localTrackId: Int!) {
     manuallyMatchSpotifyTrack(spotifyTrackId: $spotifyTrackId, localTrackId: $localTrackId)
+  }
+`);
+
+const AddToWishlistMutation = graphql(`
+  mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {
+    addToWishlist(spotifyTrackId: $spotifyTrackId) {
+      id
+      status
+    }
   }
 `);
 
@@ -358,6 +368,15 @@ export function SpotifyUnmatchedTracks() {
     },
   });
 
+  const addToWishlist = useMutation({
+    mutationFn: (spotifyTrackId: string) =>
+      execute(AddToWishlistMutation, { spotifyTrackId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wishlistItems"] });
+      queryClient.invalidateQueries({ queryKey: ["wishlistStats"] });
+    },
+  });
+
   const handleSearch = () => {
     setSearch(searchInput);
     setPage(1);
@@ -574,6 +593,17 @@ export function SpotifyUnmatchedTracks() {
                           >
                             <Search className="mr-1 h-3 w-3" />
                             Search
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              addToWishlist.mutate(track.spotifyTrackId)
+                            }
+                            disabled={addToWishlist.isPending}
+                          >
+                            <Heart className="mr-1 h-3 w-3" />
+                            Wishlist
                           </Button>
                           <Button
                             size="sm"

@@ -6,6 +6,8 @@ pub struct Playlist {
     pub id: i64,
     pub name: String,
     pub description: Option<String>,
+    pub spotify_playlist_id: Option<i64>,
+    pub unmatched_spotify_track_count: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub track_count: i64,

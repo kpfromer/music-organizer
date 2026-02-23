@@ -13,7 +13,6 @@ import {
   Music,
   Plus,
   RefreshCw,
-  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +20,6 @@ import { z } from "zod";
 import { FormFieldContainer } from "@/components/form/FormFieldContainer";
 import { FormTextField } from "@/components/form/FormTextField";
 import { useAppForm } from "@/components/form/form-hooks";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -48,10 +46,8 @@ import {
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
 import type {
-  MutationSyncSpotifyPlaylistToLocalLibraryArgs,
   SpotifyAccount,
   SpotifyPlaylist,
-  SpotifyTrackDownloadFailure,
   SyncSpotifyPlaylistsMutationVariables,
 } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
@@ -82,39 +78,6 @@ const SpotifyPlaylistsQuery = graphql(`
   }
 `);
 
-const SpotifyPlaylistSyncStateQuery = graphql(`
-  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {
-    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {
-      id
-      spotifyPlaylistId
-      localPlaylistId
-      lastSyncAt
-      syncStatus
-      tracksDownloaded
-      tracksFailed
-      errorLog
-    }
-  }
-`);
-
-const SpotifyTrackDownloadFailuresQuery = graphql(`
-  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {
-    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {
-      id
-      spotifyPlaylistId
-      spotifyTrackId
-      trackName
-      artistName
-      albumName
-      isrc
-      reason
-      attemptsCount
-      createdAt
-      updatedAt
-    }
-  }
-`);
-
 const SyncSpotifyPlaylistsMutation = graphql(`
   mutation SyncSpotifyPlaylists($accountId: Int!) {
     syncSpotifyAccountPlaylistsToDb(accountId: $accountId)
@@ -127,17 +90,20 @@ const MatchTracksMutation = graphql(`
   }
 `);
 
-const SyncPlaylistToLocalLibraryMutation = graphql(`
-  mutation SyncPlaylistToLocalLibrary(
-    $spotifyAccountId: Int!
+const SyncSpotifyPlaylistToLocalMutation = graphql(`
+  mutation SyncSpotifyPlaylistToLocal(
     $spotifyPlaylistId: Int!
     $localPlaylistName: String!
   ) {
-    syncSpotifyPlaylistToLocalLibrary(
-      spotifyAccountId: $spotifyAccountId
+    syncSpotifyPlaylistToLocal(
       spotifyPlaylistId: $spotifyPlaylistId
       localPlaylistName: $localPlaylistName
-    )
+    ) {
+      totalTracks
+      matchedTracks
+      unmatchedTracks
+      newMatchesFound
+    }
   }
 `);
 
@@ -164,13 +130,12 @@ type SpotifyPlaylistWithDates = Omit<
   updatedAt: Date;
 };
 
-type SpotifyTrackDownloadFailureWithDates = Omit<
-  SpotifyTrackDownloadFailure,
-  "createdAt" | "updatedAt"
-> & {
-  createdAt: Date;
-  updatedAt: Date;
-};
+interface SyncResult {
+  totalTracks: number;
+  matchedTracks: number;
+  unmatchedTracks: number;
+  newMatchesFound: number;
+}
 
 export function Spotify() {
   const navigate = useNavigate();
@@ -178,9 +143,7 @@ export function Spotify() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
     null,
   );
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(
-    null,
-  );
+  const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null);
 
   const { data: accountsData, isLoading: accountsLoading } = useQuery({
     queryKey: ["spotifyAccounts"],
@@ -214,45 +177,6 @@ export function Spotify() {
     enabled: !!selectedAccountId,
   });
 
-  const { data: syncState } = useQuery({
-    queryKey: ["spotifyPlaylistSyncState", selectedPlaylistId],
-    queryFn: async () => {
-      if (!selectedPlaylistId) return null;
-      const result = await execute(SpotifyPlaylistSyncStateQuery, {
-        spotifyPlaylistId: selectedPlaylistId,
-      });
-      return result.spotifyPlaylistSyncState;
-    },
-    enabled: !!selectedPlaylistId,
-    refetchInterval: (query) => {
-      if (
-        query.state.data?.syncStatus === "pending" ||
-        query.state.data?.syncStatus === "in_progress"
-      ) {
-        return 2000;
-      }
-      return false;
-    },
-  });
-
-  const { data: failuresData } = useQuery({
-    queryKey: ["spotifyTrackDownloadFailures", selectedPlaylistId],
-    queryFn: async () => {
-      if (!selectedPlaylistId) return { failures: [] };
-      const result = await execute(SpotifyTrackDownloadFailuresQuery, {
-        spotifyPlaylistId: selectedPlaylistId,
-      });
-      return {
-        failures: result.spotifyTrackDownloadFailures.map((failure) => ({
-          ...failure,
-          createdAt: parseISO(failure.createdAt),
-          updatedAt: parseISO(failure.updatedAt),
-        })) as SpotifyTrackDownloadFailureWithDates[],
-      };
-    },
-    enabled: !!selectedPlaylistId,
-  });
-
   const syncPlaylists = useMutation({
     mutationFn: async (variables: SyncSpotifyPlaylistsMutationVariables) =>
       execute(SyncSpotifyPlaylistsMutation, variables),
@@ -269,16 +193,13 @@ export function Spotify() {
   });
 
   const syncPlaylistToLocal = useMutation({
-    mutationFn: async (
-      variables: MutationSyncSpotifyPlaylistToLocalLibraryArgs,
-    ) => execute(SyncPlaylistToLocalLibraryMutation, variables),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["spotifyPlaylistSyncState"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["spotifyTrackDownloadFailures"],
-      });
+    mutationFn: async (variables: {
+      spotifyPlaylistId: number;
+      localPlaylistName: string;
+    }) => execute(SyncSpotifyPlaylistToLocalMutation, variables),
+    onSuccess: (data) => {
+      setLastSyncResult(data.syncSpotifyPlaylistToLocal);
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
     },
   });
 
@@ -291,9 +212,7 @@ export function Spotify() {
       onSubmit: syncPlaylistSchema,
     },
     onSubmit: async ({ value }: { value: SyncPlaylistFormData }) => {
-      if (!selectedAccountId) return;
       await syncPlaylistToLocal.mutateAsync({
-        spotifyAccountId: selectedAccountId,
         spotifyPlaylistId: parseInt(value.spotifyPlaylistId, 10),
         localPlaylistName: value.localPlaylistName,
       });
@@ -329,82 +248,6 @@ export function Spotify() {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const failureColumns: ColumnDef<SpotifyTrackDownloadFailureWithDates>[] = [
-    {
-      accessorKey: "trackName",
-      header: "Track",
-    },
-    {
-      accessorKey: "artistName",
-      header: "Artist",
-    },
-    {
-      accessorKey: "albumName",
-      header: "Album",
-      cell: ({ row }) => row.original.albumName || "-",
-    },
-    {
-      accessorKey: "isrc",
-      header: "ISRC",
-      cell: ({ row }) => row.original.isrc || "-",
-    },
-    {
-      accessorKey: "reason",
-      header: "Reason",
-    },
-    {
-      accessorKey: "attemptsCount",
-      header: "Attempts",
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Failed At",
-      cell: ({ row }) =>
-        formatDistanceToNow(row.original.createdAt, { addSuffix: true }),
-    },
-  ];
-
-  const failureTable = useReactTable({
-    data: failuresData?.failures || [],
-    columns: failureColumns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return (
-          <Badge variant="default" className="bg-green-500">
-            <CheckCircle className="mr-1 h-3 w-3" />
-            Completed
-          </Badge>
-        );
-      case "in_progress":
-        return (
-          <Badge variant="default" className="bg-blue-500">
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-            In Progress
-          </Badge>
-        );
-      case "error":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="mr-1 h-3 w-3" />
-            Error
-          </Badge>
-        );
-      case "pending":
-        return (
-          <Badge variant="secondary">
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-            Pending
-          </Badge>
-        );
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   return (
     <div className="container mx-auto p-8 space-y-6">
       <h1 className="text-3xl font-bold">Spotify Management</h1>
@@ -423,7 +266,6 @@ export function Spotify() {
               value={selectedAccountId?.toString() || ""}
               onValueChange={(value) => {
                 setSelectedAccountId(value ? parseInt(value, 10) : null);
-                setSelectedPlaylistId(null);
               }}
             >
               <SelectTrigger className="flex-1 max-w-md">
@@ -475,7 +317,7 @@ export function Spotify() {
           <CardHeader>
             <CardTitle>Playlists</CardTitle>
             <CardDescription>
-              Select a playlist to view sync status and failures
+              Spotify playlists for the selected account
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -507,15 +349,7 @@ export function Spotify() {
                 </TableHeader>
                 <TableBody>
                   {playlistTable.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className={
-                        selectedPlaylistId === row.original.id
-                          ? "bg-muted"
-                          : "cursor-pointer"
-                      }
-                      onClick={() => setSelectedPlaylistId(row.original.id)}
-                    >
+                    <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(
@@ -598,7 +432,7 @@ export function Spotify() {
                 </syncForm.AppField>
 
                 <syncForm.FormSubmitButton
-                  label="Sync Playlist to Local Library"
+                  label="Sync to Local"
                   loadingLabel="Syncing..."
                   errorLabel="Sync failed"
                   icon={RefreshCw}
@@ -606,102 +440,42 @@ export function Spotify() {
               </FieldSet>
             </syncForm.AppForm>
           )}
+
+          {/* Sync Result */}
+          {lastSyncResult && (
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="font-medium">Sync Complete</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Total Tracks:</span>{" "}
+                  {lastSyncResult.totalTracks}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Matched:</span>{" "}
+                  <span className="text-green-600">
+                    {lastSyncResult.matchedTracks}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Unmatched:</span>{" "}
+                  <span className="text-orange-600">
+                    {lastSyncResult.unmatchedTracks}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">New Matches:</span>{" "}
+                  <span className="text-blue-600">
+                    {lastSyncResult.newMatchesFound}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Sync State */}
-      {selectedPlaylistId && syncState && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Sync State</CardTitle>
-            <CardDescription>
-              Current sync status for selected playlist
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Status:</span>
-              {getStatusBadge(syncState.syncStatus)} {syncState.lastSyncAt}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-muted-foreground text-sm">
-                  Tracks Downloaded:
-                </span>
-                <p className="text-lg font-semibold">
-                  {syncState.tracksDownloaded}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-sm">
-                  Tracks Failed:
-                </span>
-                <p className="text-lg font-semibold">
-                  {syncState.tracksFailed}
-                </p>
-              </div>
-            </div>
-            {syncState.errorLog && (
-              <div>
-                <span className="text-muted-foreground text-sm">
-                  Error Log:
-                </span>
-                <pre className="mt-2 rounded bg-destructive/10 p-2 text-sm">
-                  {syncState.errorLog}
-                </pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Download Failures */}
-      {selectedPlaylistId &&
-        failuresData &&
-        failuresData.failures.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Download Failures</CardTitle>
-              <CardDescription>
-                Tracks that failed to download during sync
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  {failureTable.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {failureTable.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
 
       {selectedAccountId &&
         !accountsLoading &&

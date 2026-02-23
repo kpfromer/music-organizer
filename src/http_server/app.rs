@@ -85,15 +85,28 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
     .await
     .wrap_err("Failed to initialize SoulSeek client context")?;
 
+    let db = Arc::new(database);
+    let soulseek_context = Arc::new(soulseek_context);
+
+    // Spawn wishlist background task
+    let wishlist_notify =
+        crate::services::wishlist::background_task::spawn_wishlist_background_task(
+            db.clone(),
+            soulseek_context.clone(),
+            acoustid_api_key.clone(),
+            config.clone(),
+        );
+
     let app_state = Arc::new(AppState {
-        db: Arc::new(database),
-        soulseek_context: Arc::new(soulseek_context),
+        db,
+        soulseek_context,
         download_directory,
         api_key: acoustid_api_key.clone(),
         config: config.clone(),
         base_url: base_url.clone(),
         spotify_credentials,
         spotify_oauth_session: tokio::sync::Mutex::new(None),
+        wishlist_notify,
     });
 
     let schema = graphql::create_schema(app_state.clone());
