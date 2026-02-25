@@ -1,5 +1,5 @@
 use spotify_rs::{AuthCodeFlow, Unauthenticated, client::Client as SpotifyClient};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 
 use crate::config::Config;
 use crate::database::Database;
@@ -17,4 +17,5 @@ pub struct AppState {
     pub base_url: String,
     pub spotify_credentials: Option<SpotifyApiCredentials>,
     pub spotify_oauth_session: Mutex<Option<SpotifyClient<Unauthenticated, AuthCodeFlow>>>,
+    pub wishlist_notify: Arc<Notify>,
 }

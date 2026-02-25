@@ -1,4 +1,4 @@
-mod matcher;
+pub(crate) mod matcher;
 mod similarity_filter;
 mod task;
 mod task_db;

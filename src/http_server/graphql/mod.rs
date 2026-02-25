@@ -14,6 +14,8 @@ use crate::http_server::graphql::query_builder::{
 };
 use crate::http_server::graphql::spotify::spotify_mutations::SpotifyMutation;
 use crate::http_server::graphql::spotify::spotify_queries::SpotifyQuery;
+use crate::http_server::graphql::wishlist::WishlistMutation;
+use crate::http_server::graphql::wishlist::WishlistQuery;
 use crate::http_server::graphql::youtube_mutations::YoutubeMutation;
 use crate::http_server::graphql::youtube_queries::YoutubeQuery;
 use crate::http_server::graphql_error::GraphqlResult;
@@ -37,6 +39,7 @@ pub mod soulseek_mutations;
 mod spotify;
 pub mod track_queries;
 pub mod unimportable_file_queries;
+mod wishlist;
 mod youtube_mutations;
 mod youtube_queries;
 
@@ -81,6 +84,40 @@ pub(crate) fn map_track_with_relations(twr: TrackWithRelations) -> color_eyre::R
             })
             .collect(),
     })
+}
+
+/// Compute how many spotify tracks in the linked spotify playlist are unmatched (no local_track_id).
+/// Returns None if the playlist isn't linked to a spotify playlist.
+async fn compute_unmatched_count(
+    db: &crate::database::Database,
+    spotify_playlist_id: Option<i64>,
+) -> color_eyre::Result<Option<i64>> {
+    use sea_orm::{
+        ColumnTrait, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait,
+    };
+
+    let Some(sp_id) = spotify_playlist_id else {
+        return Ok(None);
+    };
+
+    use crate::entities;
+
+    // Count spotify tracks in this playlist that have no local_track_id.
+    // Start from spotify_track, join to spotify_track_playlist (reverse relation),
+    // then filter by playlist id and unmatched.
+    let count = entities::spotify_track::Entity::find()
+        .join(
+            JoinType::InnerJoin,
+            entities::spotify_track_playlist::Relation::SpotifyTrack
+                .def()
+                .rev(),
+        )
+        .filter(entities::spotify_track_playlist::Column::SpotifyPlaylistId.eq(sp_id))
+        .filter(entities::spotify_track::Column::LocalTrackId.is_null())
+        .count(&db.conn)
+        .await?;
+
+    Ok(Some(count as i64))
 }
 
 // TODO: Remove this once we have a proper query object.
@@ -183,18 +220,21 @@ impl LegacyQuery {
             )
             .await?;
 
-        let playlists: Vec<Playlist> = result
-            .items
-            .into_iter()
-            .map(|(playlist_model, track_count)| Playlist {
+        let mut playlists = Vec::new();
+        for (playlist_model, track_count) in result.items {
+            let unmatched_count =
+                compute_unmatched_count(&app_state.db, playlist_model.spotify_playlist_id).await?;
+            playlists.push(Playlist {
                 id: playlist_model.id,
                 name: playlist_model.name,
                 description: playlist_model.description,
+                spotify_playlist_id: playlist_model.spotify_playlist_id,
+                unmatched_spotify_track_count: unmatched_count,
                 created_at: playlist_model.created_at,
                 updated_at: playlist_model.updated_at,
                 track_count: track_count as i64,
-            })
-            .collect();
+            });
+        }
 
         Ok(PlaylistsResponse {
             playlists,
@@ -210,14 +250,24 @@ impl LegacyQuery {
 
         let result = service.get_playlist(id).await?;
 
-        Ok(result.map(|(playlist_model, track_count)| Playlist {
-            id: playlist_model.id,
-            name: playlist_model.name,
-            description: playlist_model.description,
-            created_at: playlist_model.created_at,
-            updated_at: playlist_model.updated_at,
-            track_count: track_count as i64,
-        }))
+        match result {
+            Some((playlist_model, track_count)) => {
+                let unmatched_count =
+                    compute_unmatched_count(&app_state.db, playlist_model.spotify_playlist_id)
+                        .await?;
+                Ok(Some(Playlist {
+                    id: playlist_model.id,
+                    name: playlist_model.name,
+                    description: playlist_model.description,
+                    spotify_playlist_id: playlist_model.spotify_playlist_id,
+                    unmatched_spotify_track_count: unmatched_count,
+                    created_at: playlist_model.created_at,
+                    updated_at: playlist_model.updated_at,
+                    track_count: track_count as i64,
+                }))
+            }
+            None => Ok(None),
+        }
     }
 
     async fn playlist_tracks(
@@ -281,6 +331,7 @@ pub struct Query(
     PlexLibraryRefreshQuery,
     SpotifyQuery,
     YoutubeQuery,
+    WishlistQuery,
 );
 
 #[derive(Default, MergedObject)]
@@ -292,6 +343,7 @@ pub struct Mutation(
     PlexLibraryRefreshMutation,
     SpotifyMutation,
     YoutubeMutation,
+    WishlistMutation,
 );
 
 pub async fn graphql() -> impl IntoResponse {

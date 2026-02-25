@@ -9,7 +9,6 @@ mod import_track;
 mod logging;
 mod migrator;
 mod musicbrainz;
-mod ollama;
 mod plex_rs;
 mod ports;
 mod services;

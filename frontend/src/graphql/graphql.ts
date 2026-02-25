@@ -73,6 +73,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   /** Accept a match candidate — links the Spotify track to the local track and dismisses other candidates */
   acceptSpotifyMatchCandidate: Scalars['Boolean']['output'];
+  addToWishlist: WishlistItem;
   addTrackToPlaylist: Scalars['Boolean']['output'];
   addYoutubeSubscription: Scalars['Boolean']['output'];
   authenticatePlexServer: AuthResponse;
@@ -94,17 +95,29 @@ export type Mutation = {
   matchExistingSpotifyTracksWithLocalTracks: Scalars['Boolean']['output'];
   /** Trigger a refresh/rescan of the music library on a Plex server */
   refreshMusicLibrary: RefreshLibraryResult;
+  removeFromWishlist: Scalars['Boolean']['output'];
   removeYoutubeSubscription: Scalars['Boolean']['output'];
+  retryWishlistItem: WishlistItem;
   searchSoulseek: Array<SoulSeekSearchResult>;
   /** Sync a database playlist to Plex */
   syncPlaylistToPlex: SyncPlaylistToPlexResult;
   syncSpotifyAccountPlaylistsToDb: Scalars['Boolean']['output'];
+  /**
+   * Sync a Spotify playlist to a local playlist by matching tracks.
+   * Does NOT download — only matches against existing local tracks.
+   */
+  syncSpotifyPlaylistToLocal: SyncSpotifyPlaylistToLocalResultGql;
   syncSpotifyPlaylistToLocalLibrary: Scalars['Boolean']['output'];
 };
 
 
 export type MutationAcceptSpotifyMatchCandidateArgs = {
   candidateId: Scalars['Int']['input'];
+};
+
+
+export type MutationAddToWishlistArgs = {
+  spotifyTrackId: Scalars['String']['input'];
 };
 
 
@@ -187,7 +200,17 @@ export type MutationRefreshMusicLibraryArgs = {
 };
 
 
+export type MutationRemoveFromWishlistArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
 export type MutationRemoveYoutubeSubscriptionArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type MutationRetryWishlistItemArgs = {
   id: Scalars['Int']['input'];
 };
 
@@ -207,6 +230,12 @@ export type MutationSyncPlaylistToPlexArgs = {
 
 export type MutationSyncSpotifyAccountPlaylistsToDbArgs = {
   accountId: Scalars['Int']['input'];
+};
+
+
+export type MutationSyncSpotifyPlaylistToLocalArgs = {
+  localPlaylistName: Scalars['String']['input'];
+  spotifyPlaylistId: Scalars['Int']['input'];
 };
 
 
@@ -232,7 +261,9 @@ export type Playlist = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
+  spotifyPlaylistId?: Maybe<Scalars['Int']['output']>;
   trackCount: Scalars['Int']['output'];
+  unmatchedSpotifyTrackCount?: Maybe<Scalars['Int']['output']>;
   updatedAt: Scalars['DateTime']['output'];
 };
 
@@ -313,6 +344,8 @@ export type Query = {
   spotifyUnmatchedTracks: SpotifyUnmatchedTracksResponse;
   tracks: TracksResponse;
   unimportableFiles: UnimportableFilesResponse;
+  wishlistItems: WishlistItemsResponse;
+  wishlistStats: WishlistStatsGql;
   youtubeSubscriptions: Array<YoutubeSubscription>;
   /**
    * Get all videos from subscribed channels
@@ -397,6 +430,13 @@ export type QueryTracksArgs = {
 export type QueryUnimportableFilesArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryWishlistItemsArgs = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -564,6 +604,14 @@ export type SyncPlaylistToPlexResult = {
   tracksSkipped: Scalars['Int']['output'];
 };
 
+export type SyncSpotifyPlaylistToLocalResultGql = {
+  __typename?: 'SyncSpotifyPlaylistToLocalResultGql';
+  matchedTracks: Scalars['Int']['output'];
+  newMatchesFound: Scalars['Int']['output'];
+  totalTracks: Scalars['Int']['output'];
+  unmatchedTracks: Scalars['Int']['output'];
+};
+
 export type TextSearchInput = {
   search?: InputMaybe<Scalars['String']['input']>;
 };
@@ -641,6 +689,40 @@ export type Video = {
   watched: Scalars['Boolean']['output'];
 };
 
+export type WishlistItem = {
+  __typename?: 'WishlistItem';
+  attemptsCount: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  errorReason?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  lastAttemptAt?: Maybe<Scalars['DateTime']['output']>;
+  nextRetryAt?: Maybe<Scalars['DateTime']['output']>;
+  spotifyTrackId: Scalars['String']['output'];
+  status: Scalars['String']['output'];
+  trackAlbum: Scalars['String']['output'];
+  trackArtists: Array<Scalars['String']['output']>;
+  trackTitle: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type WishlistItemsResponse = {
+  __typename?: 'WishlistItemsResponse';
+  items: Array<WishlistItem>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type WishlistStatsGql = {
+  __typename?: 'WishlistStatsGql';
+  completed: Scalars['Int']['output'];
+  downloading: Scalars['Int']['output'];
+  failed: Scalars['Int']['output'];
+  importing: Scalars['Int']['output'];
+  pending: Scalars['Int']['output'];
+  searching: Scalars['Int']['output'];
+};
+
 export type YoutubeSubscription = {
   __typename?: 'YoutubeSubscription';
   createdAt: Scalars['DateTime']['output'];
@@ -706,7 +788,7 @@ export type PlaylistsQueryVariables = Exact<{
 }>;
 
 
-export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, createdAt: any, updatedAt: any, trackCount: number }> } };
+export type PlaylistsQuery = { __typename?: 'Query', playlists: { __typename?: 'PlaylistsResponse', totalCount: number, page: number, pageSize: number, playlists: Array<{ __typename?: 'Playlist', id: number, name: string, description?: string | null, spotifyPlaylistId?: number | null, unmatchedSpotifyTrackCount?: number | null, createdAt: any, updatedAt: any, trackCount: number }> } };
 
 export type SyncPlaylistToPlexMutationVariables = Exact<{
   playlistId: Scalars['Int']['input'];
@@ -844,6 +926,13 @@ export type ManuallyMatchSpotifyTrackMutationVariables = Exact<{
 
 export type ManuallyMatchSpotifyTrackMutation = { __typename?: 'Mutation', manuallyMatchSpotifyTrack: boolean };
 
+export type AddToWishlistFromUnmatchedMutationVariables = Exact<{
+  spotifyTrackId: Scalars['String']['input'];
+}>;
+
+
+export type AddToWishlistFromUnmatchedMutation = { __typename?: 'Mutation', addToWishlist: { __typename?: 'WishlistItem', id: number, status: string } };
+
 export type SpotifyAccountsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -855,20 +944,6 @@ export type SpotifyPlaylistsQueryVariables = Exact<{
 
 
 export type SpotifyPlaylistsQuery = { __typename?: 'Query', spotifyPlaylists: Array<{ __typename?: 'SpotifyPlaylist', id: number, spotifyId: string, name: string, description?: string | null, trackCount: number, createdAt: any, updatedAt: any }> };
-
-export type SpotifyPlaylistSyncStateQueryVariables = Exact<{
-  spotifyPlaylistId: Scalars['Int']['input'];
-}>;
-
-
-export type SpotifyPlaylistSyncStateQuery = { __typename?: 'Query', spotifyPlaylistSyncState?: { __typename?: 'SpotifyPlaylistSyncState', id: number, spotifyPlaylistId: number, localPlaylistId?: number | null, lastSyncAt?: number | null, syncStatus: string, tracksDownloaded: number, tracksFailed: number, errorLog?: string | null } | null };
-
-export type SpotifyTrackDownloadFailuresQueryVariables = Exact<{
-  spotifyPlaylistId: Scalars['Int']['input'];
-}>;
-
-
-export type SpotifyTrackDownloadFailuresQuery = { __typename?: 'Query', spotifyTrackDownloadFailures: Array<{ __typename?: 'SpotifyTrackDownloadFailure', id: number, spotifyPlaylistId: number, spotifyTrackId: string, trackName: string, artistName: string, albumName?: string | null, isrc?: string | null, reason: string, attemptsCount: number, createdAt: any, updatedAt: any }> };
 
 export type SyncSpotifyPlaylistsMutationVariables = Exact<{
   accountId: Scalars['Int']['input'];
@@ -882,14 +957,13 @@ export type MatchTracksMutationVariables = Exact<{ [key: string]: never; }>;
 
 export type MatchTracksMutation = { __typename?: 'Mutation', matchExistingSpotifyTracksWithLocalTracks: boolean };
 
-export type SyncPlaylistToLocalLibraryMutationVariables = Exact<{
-  spotifyAccountId: Scalars['Int']['input'];
+export type SyncSpotifyPlaylistToLocalMutationVariables = Exact<{
   spotifyPlaylistId: Scalars['Int']['input'];
   localPlaylistName: Scalars['String']['input'];
 }>;
 
 
-export type SyncPlaylistToLocalLibraryMutation = { __typename?: 'Mutation', syncSpotifyPlaylistToLocalLibrary: boolean };
+export type SyncSpotifyPlaylistToLocalMutation = { __typename?: 'Mutation', syncSpotifyPlaylistToLocal: { __typename?: 'SyncSpotifyPlaylistToLocalResultGql', totalTracks: number, matchedTracks: number, unmatchedTracks: number, newMatchesFound: number } };
 
 export type TracksQueryVariables = Exact<{
   pagination?: InputMaybe<PaginationInput>;
@@ -907,6 +981,34 @@ export type UnimportableFilesQueryVariables = Exact<{
 
 
 export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: { __typename?: 'UnimportableFilesResponse', totalCount: number, page: number, pageSize: number, files: Array<{ __typename?: 'UnimportableFile', id: number, filePath: string, reason: UnimportableReason, createdAt: any, sha256: string }> } };
+
+export type WishlistItemsQueryVariables = Exact<{
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type WishlistItemsQuery = { __typename?: 'Query', wishlistItems: { __typename?: 'WishlistItemsResponse', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WishlistItem', id: number, spotifyTrackId: string, status: string, errorReason?: string | null, attemptsCount: number, lastAttemptAt?: any | null, nextRetryAt?: any | null, createdAt: any, updatedAt: any, trackTitle: string, trackArtists: Array<string>, trackAlbum: string }> } };
+
+export type WishlistStatsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type WishlistStatsQuery = { __typename?: 'Query', wishlistStats: { __typename?: 'WishlistStatsGql', pending: number, searching: number, downloading: number, importing: number, completed: number, failed: number } };
+
+export type RemoveFromWishlistMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type RemoveFromWishlistMutation = { __typename?: 'Mutation', removeFromWishlist: boolean };
+
+export type RetryWishlistItemMutationVariables = Exact<{
+  id: Scalars['Int']['input'];
+}>;
+
+
+export type RetryWishlistItemMutation = { __typename?: 'Mutation', retryWishlistItem: { __typename?: 'WishlistItem', id: number, status: string } };
 
 export type YoutubeSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1065,6 +1167,8 @@ export const PlaylistsDocument = new TypedDocumentString(`
       id
       name
       description
+      spotifyPlaylistId
+      unmatchedSpotifyTrackCount
       createdAt
       updatedAt
       trackCount
@@ -1342,6 +1446,14 @@ export const ManuallyMatchSpotifyTrackDocument = new TypedDocumentString(`
   )
 }
     `) as unknown as TypedDocumentString<ManuallyMatchSpotifyTrackMutation, ManuallyMatchSpotifyTrackMutationVariables>;
+export const AddToWishlistFromUnmatchedDocument = new TypedDocumentString(`
+    mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {
+  addToWishlist(spotifyTrackId: $spotifyTrackId) {
+    id
+    status
+  }
+}
+    `) as unknown as TypedDocumentString<AddToWishlistFromUnmatchedMutation, AddToWishlistFromUnmatchedMutationVariables>;
 export const SpotifyAccountsDocument = new TypedDocumentString(`
     query SpotifyAccounts {
   spotifyAccounts {
@@ -1366,37 +1478,6 @@ export const SpotifyPlaylistsDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SpotifyPlaylistsQuery, SpotifyPlaylistsQueryVariables>;
-export const SpotifyPlaylistSyncStateDocument = new TypedDocumentString(`
-    query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {
-  spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {
-    id
-    spotifyPlaylistId
-    localPlaylistId
-    lastSyncAt
-    syncStatus
-    tracksDownloaded
-    tracksFailed
-    errorLog
-  }
-}
-    `) as unknown as TypedDocumentString<SpotifyPlaylistSyncStateQuery, SpotifyPlaylistSyncStateQueryVariables>;
-export const SpotifyTrackDownloadFailuresDocument = new TypedDocumentString(`
-    query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {
-  spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {
-    id
-    spotifyPlaylistId
-    spotifyTrackId
-    trackName
-    artistName
-    albumName
-    isrc
-    reason
-    attemptsCount
-    createdAt
-    updatedAt
-  }
-}
-    `) as unknown as TypedDocumentString<SpotifyTrackDownloadFailuresQuery, SpotifyTrackDownloadFailuresQueryVariables>;
 export const SyncSpotifyPlaylistsDocument = new TypedDocumentString(`
     mutation SyncSpotifyPlaylists($accountId: Int!) {
   syncSpotifyAccountPlaylistsToDb(accountId: $accountId)
@@ -1407,15 +1488,19 @@ export const MatchTracksDocument = new TypedDocumentString(`
   matchExistingSpotifyTracksWithLocalTracks
 }
     `) as unknown as TypedDocumentString<MatchTracksMutation, MatchTracksMutationVariables>;
-export const SyncPlaylistToLocalLibraryDocument = new TypedDocumentString(`
-    mutation SyncPlaylistToLocalLibrary($spotifyAccountId: Int!, $spotifyPlaylistId: Int!, $localPlaylistName: String!) {
-  syncSpotifyPlaylistToLocalLibrary(
-    spotifyAccountId: $spotifyAccountId
+export const SyncSpotifyPlaylistToLocalDocument = new TypedDocumentString(`
+    mutation SyncSpotifyPlaylistToLocal($spotifyPlaylistId: Int!, $localPlaylistName: String!) {
+  syncSpotifyPlaylistToLocal(
     spotifyPlaylistId: $spotifyPlaylistId
     localPlaylistName: $localPlaylistName
-  )
+  ) {
+    totalTracks
+    matchedTracks
+    unmatchedTracks
+    newMatchesFound
+  }
 }
-    `) as unknown as TypedDocumentString<SyncPlaylistToLocalLibraryMutation, SyncPlaylistToLocalLibraryMutationVariables>;
+    `) as unknown as TypedDocumentString<SyncSpotifyPlaylistToLocalMutation, SyncSpotifyPlaylistToLocalMutationVariables>;
 export const TracksDocument = new TypedDocumentString(`
     query Tracks($pagination: PaginationInput, $search: TextSearchInput, $sort: [TrackSortInput!]) {
   tracks(pagination: $pagination, search: $search, sort: $sort) {
@@ -1458,6 +1543,54 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
+export const WishlistItemsDocument = new TypedDocumentString(`
+    query WishlistItems($page: Int, $pageSize: Int, $status: String) {
+  wishlistItems(page: $page, pageSize: $pageSize, status: $status) {
+    items {
+      id
+      spotifyTrackId
+      status
+      errorReason
+      attemptsCount
+      lastAttemptAt
+      nextRetryAt
+      createdAt
+      updatedAt
+      trackTitle
+      trackArtists
+      trackAlbum
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `) as unknown as TypedDocumentString<WishlistItemsQuery, WishlistItemsQueryVariables>;
+export const WishlistStatsDocument = new TypedDocumentString(`
+    query WishlistStats {
+  wishlistStats {
+    pending
+    searching
+    downloading
+    importing
+    completed
+    failed
+  }
+}
+    `) as unknown as TypedDocumentString<WishlistStatsQuery, WishlistStatsQueryVariables>;
+export const RemoveFromWishlistDocument = new TypedDocumentString(`
+    mutation RemoveFromWishlist($id: Int!) {
+  removeFromWishlist(id: $id)
+}
+    `) as unknown as TypedDocumentString<RemoveFromWishlistMutation, RemoveFromWishlistMutationVariables>;
+export const RetryWishlistItemDocument = new TypedDocumentString(`
+    mutation RetryWishlistItem($id: Int!) {
+  retryWishlistItem(id: $id) {
+    id
+    status
+  }
+}
+    `) as unknown as TypedDocumentString<RetryWishlistItemMutation, RetryWishlistItemMutationVariables>;
 export const YoutubeSubscriptionsDocument = new TypedDocumentString(`
     query YoutubeSubscriptions {
   youtubeSubscriptions {
