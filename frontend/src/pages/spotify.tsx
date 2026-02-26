@@ -197,9 +197,15 @@ export function Spotify() {
       spotifyPlaylistId: number;
       localPlaylistName: string;
     }) => execute(SyncSpotifyPlaylistToLocalMutation, variables),
+    onMutate: () => {
+      setLastSyncResult(null);
+    },
     onSuccess: (data) => {
       setLastSyncResult(data.syncSpotifyPlaylistToLocal);
       queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    },
+    onError: (error) => {
+      setLastSyncResult(null);
     },
   });
 

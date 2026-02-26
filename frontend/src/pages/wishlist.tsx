@@ -169,7 +169,7 @@ export function Wishlist() {
     },
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["wishlistItems", page, pageSize, statusFilter],
     queryFn: async () => {
       const result = await execute(WishlistItemsQuery, {
@@ -287,6 +287,8 @@ export function Wishlist() {
               }
             }}
             disabled={removeItem.isPending}
+            aria-label="Remove from wishlist"
+            title="Remove from wishlist"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -311,6 +313,14 @@ export function Wishlist() {
     return (
       <div className="container mx-auto p-8">
         <div className="text-muted-foreground">Loading wishlist...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="text-destructive">Error loading wishlist: {error.message}</div>
       </div>
     );
   }

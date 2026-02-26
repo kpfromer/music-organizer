@@ -192,7 +192,10 @@ async fn match_existing_spotify_tracks_with_local(
 pub async fn match_existing_spotify_tracks_with_local_task(
     db: Arc<Database>,
     spotify_tracks: Vec<entities::spotify_track::Model>,
-) -> Result<entities::spotify_to_local_matcher_tasks::Model> {
+) -> Result<(
+    entities::spotify_to_local_matcher_tasks::Model,
+    tokio::task::JoinHandle<()>,
+)> {
     let unmatched_spotify_tracks_count = spotify_tracks
         .iter()
         .filter(|&spotify_track| !is_spotify_track_already_matched(spotify_track))
@@ -200,7 +203,7 @@ pub async fn match_existing_spotify_tracks_with_local_task(
 
     let task = create_spotify_to_local_matcher_task(&db, unmatched_spotify_tracks_count).await?;
     let task_clone = task.clone();
-    tokio::task::spawn(async move {
+    let task_handle = tokio::task::spawn(async move {
         if let Err(e) = mark_spotify_to_local_matcher_task_as_in_progress(&db, &task_clone).await {
             tracing::error!(error = ?e, "Failed to mark spotify to local matcher task as in progress");
         }
@@ -228,5 +231,5 @@ pub async fn match_existing_spotify_tracks_with_local_task(
             }
         }
     }.in_current_span());
-    Ok(task)
+    Ok((task, task_handle))
 }

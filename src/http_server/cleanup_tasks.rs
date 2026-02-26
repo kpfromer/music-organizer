@@ -35,7 +35,12 @@ async fn reset_wishlist_items(db: &Database) -> Result<()> {
             entities::wishlist_item::Column::Status,
             Expr::value(WishlistStatus::Failed),
         )
-        .filter(entities::wishlist_item::Column::Status.is_not_in(vec![WishlistStatus::Completed]))
+        .filter(entities::wishlist_item::Column::Status.is_in(vec![
+            WishlistStatus::Pending,
+            WishlistStatus::Searching,
+            WishlistStatus::Downloading,
+            WishlistStatus::Importing,
+        ]))
         .exec(&db.conn)
         .await?;
     tracing::info!("Reset {} wishlist items", items.rows_affected);

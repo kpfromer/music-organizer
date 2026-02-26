@@ -5,7 +5,7 @@ use std::sync::Arc;
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set,
+    QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 
 use crate::database::Database;
@@ -35,10 +35,12 @@ impl WishlistService {
         &self,
         spotify_track_id: &str,
     ) -> Result<entities::wishlist_item::Model> {
+        let txn = self.db.conn.begin().await?;
+
         // Verify the spotify track exists
         entities::spotify_track::Entity::find()
             .filter(entities::spotify_track::Column::SpotifyTrackId.eq(spotify_track_id))
-            .one(&self.db.conn)
+            .one(&txn)
             .await
             .wrap_err("Failed to fetch spotify track")?
             .ok_or_eyre("Spotify track not found")?;
@@ -46,7 +48,7 @@ impl WishlistService {
         // Check if already wishlisted
         let existing = entities::wishlist_item::Entity::find()
             .filter(entities::wishlist_item::Column::SpotifyTrackId.eq(spotify_track_id))
-            .one(&self.db.conn)
+            .one(&txn)
             .await
             .wrap_err("Failed to check existing wishlist item")?;
 
@@ -60,11 +62,14 @@ impl WishlistService {
                 active.error_reason = Set(None);
                 active.next_retry_at = Set(None);
                 let updated = active
-                    .update(&self.db.conn)
+                    .update(&txn)
                     .await
                     .wrap_err("Failed to reset wishlist item")?;
+
+                txn.commit().await?;
                 return Ok(updated);
             }
+            txn.rollback().await?;
             return Ok(existing);
         }
 
@@ -74,9 +79,11 @@ impl WishlistService {
         };
 
         let model = item
-            .insert(&self.db.conn)
+            .insert(&txn)
             .await
             .wrap_err("Failed to create wishlist item")?;
+
+        txn.commit().await?;
 
         Ok(model)
     }

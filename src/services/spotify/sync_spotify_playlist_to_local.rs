@@ -66,13 +66,11 @@ pub async fn sync_spotify_playlist_to_local(
         .collect();
 
     if !unmatched_tracks.is_empty() {
-        // Run matching synchronously (not as background task) since we want immediate results
-        let _task =
+        // match_existing_spotify_tracks_with_local_task returns the DB task record and
+        // spawns a JoinHandle. To await completion here, expose and join the handle.
+        let (_task, task_handle) =
             match_existing_spotify_tracks_with_local_task(db.clone(), unmatched_tracks).await?;
-
-        // Wait briefly for the background task to complete
-        // The task runs in a tokio::spawn, so we need to give it time
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        task_handle.await?;
     }
 
     // 5. Re-fetch spotify tracks to get updated local_track_id values

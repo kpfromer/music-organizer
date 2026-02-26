@@ -19,7 +19,7 @@ pub struct WishlistMutation;
 pub struct WishlistItem {
     pub id: i64,
     pub spotify_track_id: String,
-    pub status: String,
+    pub status: WishlistStatus,
     pub error_reason: Option<String>,
     pub attempts_count: i32,
     pub last_attempt_at: Option<DateTime<Utc>>,
@@ -47,29 +47,6 @@ pub struct WishlistStatsGql {
     pub importing: i64,
     pub completed: i64,
     pub failed: i64,
-}
-
-fn status_to_filter(status: &str) -> Option<WishlistStatus> {
-    match status {
-        "pending" => Some(WishlistStatus::Pending),
-        "searching" => Some(WishlistStatus::Searching),
-        "downloading" => Some(WishlistStatus::Downloading),
-        "importing" => Some(WishlistStatus::Importing),
-        "completed" => Some(WishlistStatus::Completed),
-        "failed" => Some(WishlistStatus::Failed),
-        _ => None,
-    }
-}
-
-fn status_to_string(status: &WishlistStatus) -> &'static str {
-    match status {
-        WishlistStatus::Pending => "pending",
-        WishlistStatus::Searching => "searching",
-        WishlistStatus::Downloading => "downloading",
-        WishlistStatus::Importing => "importing",
-        WishlistStatus::Completed => "completed",
-        WishlistStatus::Failed => "failed",
-    }
 }
 
 fn timestamp_to_datetime(ts: i64) -> GraphqlResult<DateTime<Utc>> {
@@ -102,7 +79,7 @@ fn to_wishlist_item_gql(
     Ok(WishlistItem {
         id: item.id,
         spotify_track_id: item.spotify_track_id,
-        status: status_to_string(&item.status).to_string(),
+        status: item.status,
         error_reason: item.error_reason,
         attempts_count: item.attempts_count,
         last_attempt_at: optional_timestamp_to_datetime(item.last_attempt_at)?,
@@ -122,18 +99,15 @@ impl WishlistQuery {
         ctx: &Context<'_>,
         page: Option<i32>,
         page_size: Option<i32>,
-        status: Option<String>,
+        status: Option<WishlistStatus>,
     ) -> GraphqlResult<WishlistItemsResponse> {
         let app_state = get_app_state(ctx)?;
         let service = WishlistService::new(app_state.db.clone());
 
         let page = page.unwrap_or(1).max(1) as usize;
         let page_size = page_size.unwrap_or(25).clamp(1, 100) as usize;
-        let status_filter = status.as_deref().and_then(status_to_filter);
 
-        let result = service
-            .list_wishlist_items(status_filter, page, page_size)
-            .await?;
+        let result = service.list_wishlist_items(status, page, page_size).await?;
 
         let items: Vec<WishlistItem> = result
             .items
@@ -176,11 +150,12 @@ impl WishlistMutation {
         let service = WishlistService::new(app_state.db.clone());
         let item = service.add_to_wishlist(&spotify_track_id).await?;
         let spotify_track = fetch_spotify_track(&app_state.db, &item.spotify_track_id).await?;
+        let wishlist_item = to_wishlist_item_gql(item, spotify_track)?;
 
         // Wake the wishlist background task
         app_state.wishlist_notify.notify_one();
 
-        to_wishlist_item_gql(item, spotify_track)
+        Ok(wishlist_item)
     }
 
     async fn remove_from_wishlist(&self, ctx: &Context<'_>, id: i64) -> GraphqlResult<bool> {

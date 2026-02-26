@@ -83,13 +83,21 @@ fn parse_soulseek_filename(filename: &str) -> ParsedSoulseekMetadata {
             album,
         }
     } else if num_parts == 3 {
-        // Could be: prefix / artist / filename  OR  prefix / album / filename
-        // Assume it's artist
-        let artist = parts[num_parts - 2].to_string();
-        ParsedSoulseekMetadata {
-            title: title_from_filename,
-            artist,
-            album: String::new(),
+        // Could be: prefix / artist / filename, prefix / album / filename,
+        // or prefix / Music / "Artist - Title". Prefer explicit artist-title parsing first.
+        if let Some((artist, title)) = parse_artist_title_from_filename(&title_from_filename) {
+            ParsedSoulseekMetadata {
+                title,
+                artist,
+                album: String::new(),
+            }
+        } else {
+            let artist = parts[num_parts - 2].to_string();
+            ParsedSoulseekMetadata {
+                title: title_from_filename,
+                artist,
+                album: String::new(),
+            }
         }
     } else {
         // Short path — try "Artist - Title" pattern in filename
@@ -159,7 +167,7 @@ fn score_soulseek_result(
     let duration_ms = result
         .attrs
         .get(&FileAttribute::Duration)
-        .map(|&secs| secs * 1000)
+        .map(|&secs| secs.checked_mul(1000).unwrap_or(0))
         .unwrap_or(0);
 
     let soulseek_track = MatcherTrack {
@@ -180,6 +188,7 @@ fn score_soulseek_result(
             .unwrap_or_default()
             .to_vec(),
         album: spotify_track.album.clone(),
+        // Assumes duration is in seconds and not negative
         duration_ms: spotify_track.duration.unwrap_or(0) as u32,
     };
 

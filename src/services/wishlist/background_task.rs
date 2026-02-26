@@ -98,8 +98,12 @@ async fn process_single_item(
         .filter(entities::spotify_track::Column::SpotifyTrackId.eq(&item.spotify_track_id))
         .one(&db.conn)
         .await
-        .wrap_err("Failed to fetch spotify track")?
-        .ok_or_eyre("Spotify track not found for wishlist item")?;
+        .wrap_err("Failed to fetch spotify track")?;
+
+    let Some(spotify_track) = spotify_track else {
+        mark_failed(db, &item, "Spotify track not found").await?;
+        return Ok(());
+    };
 
     // Skip if already matched to a local track
     if spotify_track.local_track_id.is_some() {
@@ -113,6 +117,8 @@ async fn process_single_item(
     // Search and download
     let download_result =
         download_best_match_for_spotify_track(soulseek_context, spotify_track.clone()).await;
+
+    set_status(db, &item, WishlistStatus::Downloading, None).await?;
 
     match download_result {
         Ok(Some((_temp_dir, temp_file))) => {
