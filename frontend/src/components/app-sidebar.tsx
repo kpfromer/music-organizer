@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Download,
+  Heart,
   Home,
   ListMusic,
   Music,
@@ -40,6 +41,11 @@ const items = [
     title: "Download",
     url: "/download",
     icon: Download,
+  },
+  {
+    title: "Wishlist",
+    url: "/wishlist",
+    icon: Heart,
   },
   {
     title: "Unimportable Files",

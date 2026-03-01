@@ -55,8 +55,10 @@ CREATE TABLE `playlists` (
   `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,
   `name` varchar NOT NULL,
   `description` varchar NULL,
+  `spotify_playlist_id` integer NULL,
   `created_at` timestamp_text NOT NULL,
-  `updated_at` timestamp_text NOT NULL
+  `updated_at` timestamp_text NOT NULL,
+  CONSTRAINT `fk_playlists_spotify_playlist` FOREIGN KEY (`spotify_playlist_id`) REFERENCES `spotify_playlist` (`id`) ON UPDATE CASCADE ON DELETE SET NULL
 );
 -- Create "playlist_tracks" table
 CREATE TABLE `playlist_tracks` (
@@ -232,6 +234,23 @@ CREATE TABLE `spotify_match_candidate` (
 CREATE INDEX `idx_spotify_match_candidate_spotify_track` ON `spotify_match_candidate` (`spotify_track_id`);
 CREATE INDEX `idx_spotify_match_candidate_status` ON `spotify_match_candidate` (`status`);
 CREATE UNIQUE INDEX `idx_spotify_match_candidate_unique` ON `spotify_match_candidate` (`spotify_track_id`, `local_track_id`);
+
+-- Create "wishlist_item" table
+CREATE TABLE `wishlist_item` (
+  `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+  `spotify_track_id` varchar NOT NULL,
+  `status` varchar NOT NULL DEFAULT 'pending',
+  `error_reason` varchar NULL,
+  `attempts_count` integer NOT NULL DEFAULT 0,
+  `last_attempt_at` integer NULL,
+  `next_retry_at` integer NULL,
+  `created_at` integer NOT NULL DEFAULT (strftime('%s', 'now')),
+  `updated_at` integer NOT NULL DEFAULT (strftime('%s', 'now')),
+  CONSTRAINT `fk_wishlist_item_spotify_track` FOREIGN KEY (`spotify_track_id`) REFERENCES `spotify_track` (`spotify_track_id`) ON UPDATE CASCADE ON DELETE CASCADE
+);
+CREATE INDEX `idx_wishlist_item_status` ON `wishlist_item` (`status`);
+CREATE INDEX `idx_wishlist_item_next_retry` ON `wishlist_item` (`next_retry_at`);
+CREATE UNIQUE INDEX `idx_wishlist_item_spotify_track` ON `wishlist_item` (`spotify_track_id`);
 
 -- Create "youtube_video" table
 CREATE TABLE `youtube_video` (

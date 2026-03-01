@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -58,6 +59,8 @@ const PlaylistsQuery = graphql(`
         id
         name
         description
+        spotifyPlaylistId
+        unmatchedSpotifyTrackCount
         createdAt
         updatedAt
         trackCount
@@ -85,9 +88,14 @@ const SyncPlaylistToPlexMutation = graphql(`
 `);
 
 // Transform the generated Playlist type to have createdAt/updatedAt as Date instead of DateTime scalar
-type Playlist = Omit<GraphQLPlaylist, "createdAt" | "updatedAt"> & {
+type Playlist = Omit<
+  GraphQLPlaylist,
+  "createdAt" | "updatedAt" | "spotifyPlaylistId" | "unmatchedSpotifyTrackCount"
+> & {
   createdAt: Date;
   updatedAt: Date;
+  spotifyPlaylistId?: number | null;
+  unmatchedSpotifyTrackCount?: number | null;
 };
 
 export function Playlists() {
@@ -234,6 +242,25 @@ export function Playlists() {
         const count = row.getValue("trackCount") as number;
         return (
           <div className="text-muted-foreground">{count.toLocaleString()}</div>
+        );
+      },
+    },
+    {
+      id: "unmatched",
+      header: "Spotify",
+      cell: ({ row }) => {
+        const playlist = row.original;
+        if (playlist.spotifyPlaylistId == null) return null;
+        const unmatched = playlist.unmatchedSpotifyTrackCount;
+        if (unmatched == null) return null;
+        return unmatched > 0 ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+            Unmatched: {unmatched}
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="bg-green-100 text-green-700">
+            All matched
+          </Badge>
         );
       },
     },

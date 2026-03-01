@@ -16,6 +16,7 @@ import { SpotifyMatchedTracks } from "./pages/spotify-matched-tracks";
 import { SpotifyUnmatchedTracks } from "./pages/spotify-unmatched-tracks";
 import { Tracks } from "./pages/tracks";
 import { UnimportableFiles } from "./pages/unimportable-files";
+import { Wishlist } from "./pages/wishlist";
 import { Youtube } from "./pages/youtube";
 import { YoutubeSubscriptions } from "./pages/youtube-subscriptions";
 
@@ -40,6 +41,7 @@ export function App() {
             <Route path="/playlist/:id" element={<Playlist />} />
             <Route path="/download" element={<Download />} />
             <Route path="/unimportable-files" element={<UnimportableFiles />} />
+            <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/plex-servers" element={<PlexServers />} />
             <Route path="/plex-tracks" element={<PlexTracks />} />
             <Route path="/spotify" element={<Spotify />} />

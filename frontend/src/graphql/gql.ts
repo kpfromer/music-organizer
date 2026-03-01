@@ -21,7 +21,7 @@ type Documents = {
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": typeof types.SearchSoulseekDocument,
     "\n\tquery PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {\n\t\tplaylistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {\n\t\t\ttracks {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t\ttrackNumber\n\t\t\t\tduration\n\t\t\t\tcreatedAt\n\t\t\t\talbum {\n\t\t\t\t\tid\n\t\t\t\t\ttitle\n\t\t\t\t\tyear\n\t\t\t\t\tartworkUrl\n\t\t\t\t}\n\t\t\t\tartists {\n\t\t\t\t\tid\n\t\t\t\t\tname\n\t\t\t\t}\n\t\t\t}\n\t\t\ttotalCount\n\t\t\tpage\n\t\t\tpageSize\n\t\t}\n\t}\n": typeof types.PlaylistTracksDocument,
     "\n\tquery Playlist($id: Int!) {\n\t\tplaylist(id: $id) {\n\t\t\tid\n\t\t\tname\n\t\t\tdescription\n\t\t\ttrackCount\n\t\t}\n\t}\n": typeof types.PlaylistDocument,
-    "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.PlaylistsDocument,
+    "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        spotifyPlaylistId\n        unmatchedSpotifyTrackCount\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.PlaylistsDocument,
     "\n  mutation SyncPlaylistToPlex($playlistId: Int!) {\n    syncPlaylistToPlex(playlistId: $playlistId) {\n      missingTracks {\n        trackId\n        filePath\n        title\n      }\n      tracksAdded\n      tracksRemoved\n      tracksSkipped\n    }\n  }\n": typeof types.SyncPlaylistToPlexDocument,
     "\n  mutation CompletePlexServerAuthentication($serverId: Int!, $pinId: Int!) {\n    completePlexServerAuthentication(serverId: $serverId, pinId: $pinId) {\n      id\n      name\n      serverUrl\n      hasAccessToken\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.CompletePlexServerAuthenticationDocument,
     "\n  query PlexServers {\n    plexServers {\n      id\n      name\n      serverUrl\n      hasAccessToken\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.PlexServersDocument,
@@ -40,15 +40,18 @@ type Documents = {
     "\n  mutation AcceptSpotifyMatchCandidate($candidateId: Int!) {\n    acceptSpotifyMatchCandidate(candidateId: $candidateId)\n  }\n": typeof types.AcceptSpotifyMatchCandidateDocument,
     "\n  mutation DismissSpotifyUnmatchedTrack($spotifyTrackId: String!) {\n    dismissSpotifyUnmatchedTrack(spotifyTrackId: $spotifyTrackId)\n  }\n": typeof types.DismissSpotifyUnmatchedTrackDocument,
     "\n  mutation ManuallyMatchSpotifyTrack($spotifyTrackId: String!, $localTrackId: Int!) {\n    manuallyMatchSpotifyTrack(spotifyTrackId: $spotifyTrackId, localTrackId: $localTrackId)\n  }\n": typeof types.ManuallyMatchSpotifyTrackDocument,
+    "\n  mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {\n    addToWishlist(spotifyTrackId: $spotifyTrackId) {\n      id\n      status\n    }\n  }\n": typeof types.AddToWishlistFromUnmatchedDocument,
     "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyAccountsDocument,
     "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyPlaylistsDocument,
-    "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n": typeof types.SpotifyPlaylistSyncStateDocument,
-    "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n": typeof types.SpotifyTrackDownloadFailuresDocument,
     "\n  mutation SyncSpotifyPlaylists($accountId: Int!) {\n    syncSpotifyAccountPlaylistsToDb(accountId: $accountId)\n  }\n": typeof types.SyncSpotifyPlaylistsDocument,
     "\n  mutation MatchTracks {\n    matchExistingSpotifyTracksWithLocalTracks\n  }\n": typeof types.MatchTracksDocument,
-    "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": typeof types.SyncPlaylistToLocalLibraryDocument,
+    "\n  mutation SyncSpotifyPlaylistToLocal(\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocal(\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    ) {\n      totalTracks\n      matchedTracks\n      unmatchedTracks\n      newMatchesFound\n    }\n  }\n": typeof types.SyncSpotifyPlaylistToLocalDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.UnimportableFilesDocument,
+    "\n  query WishlistItems($page: Int, $pageSize: Int, $status: String) {\n    wishlistItems(page: $page, pageSize: $pageSize, status: $status) {\n      items {\n        id\n        spotifyTrackId\n        status\n        errorReason\n        attemptsCount\n        lastAttemptAt\n        nextRetryAt\n        createdAt\n        updatedAt\n        trackTitle\n        trackArtists\n        trackAlbum\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": typeof types.WishlistItemsDocument,
+    "\n  query WishlistStats {\n    wishlistStats {\n      pending\n      searching\n      downloading\n      importing\n      completed\n      failed\n    }\n  }\n": typeof types.WishlistStatsDocument,
+    "\n  mutation RemoveFromWishlist($id: Int!) {\n    removeFromWishlist(id: $id)\n  }\n": typeof types.RemoveFromWishlistDocument,
+    "\n  mutation RetryWishlistItem($id: Int!) {\n    retryWishlistItem(id: $id) {\n      id\n      status\n    }\n  }\n": typeof types.RetryWishlistItemDocument,
     "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": typeof types.YoutubeSubscriptionsDocument,
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": typeof types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": typeof types.YoutubeRemoveSubscriptionDocument,
@@ -63,7 +66,7 @@ const documents: Documents = {
     "\n\tmutation SearchSoulseek($trackTitle: String!, $albumName: String, $artists: [String!], $duration: Int) {\n\t\tsearchSoulseek(\n\t\t\ttrackTitle: $trackTitle\n\t\t\talbumName: $albumName\n\t\t\tartists: $artists\n\t\t\tduration: $duration\n\t\t) {\n\t\t\tusername\n\t\t\ttoken\n\t\t\tfilename\n\t\t\tsize\n\t\t\tavgSpeed\n\t\t\tqueueLength\n\t\t\tslotsFree\n\t\t\tattributes {\n\t\t\t\tattribute\n\t\t\t\tvalue\n\t\t\t}\n\t\t}\n\t}\n": types.SearchSoulseekDocument,
     "\n\tquery PlaylistTracks($playlistId: Int!, $page: Int, $pageSize: Int) {\n\t\tplaylistTracks(playlistId: $playlistId, page: $page, pageSize: $pageSize) {\n\t\t\ttracks {\n\t\t\t\tid\n\t\t\t\ttitle\n\t\t\t\ttrackNumber\n\t\t\t\tduration\n\t\t\t\tcreatedAt\n\t\t\t\talbum {\n\t\t\t\t\tid\n\t\t\t\t\ttitle\n\t\t\t\t\tyear\n\t\t\t\t\tartworkUrl\n\t\t\t\t}\n\t\t\t\tartists {\n\t\t\t\t\tid\n\t\t\t\t\tname\n\t\t\t\t}\n\t\t\t}\n\t\t\ttotalCount\n\t\t\tpage\n\t\t\tpageSize\n\t\t}\n\t}\n": types.PlaylistTracksDocument,
     "\n\tquery Playlist($id: Int!) {\n\t\tplaylist(id: $id) {\n\t\t\tid\n\t\t\tname\n\t\t\tdescription\n\t\t\ttrackCount\n\t\t}\n\t}\n": types.PlaylistDocument,
-    "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.PlaylistsDocument,
+    "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        spotifyPlaylistId\n        unmatchedSpotifyTrackCount\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.PlaylistsDocument,
     "\n  mutation SyncPlaylistToPlex($playlistId: Int!) {\n    syncPlaylistToPlex(playlistId: $playlistId) {\n      missingTracks {\n        trackId\n        filePath\n        title\n      }\n      tracksAdded\n      tracksRemoved\n      tracksSkipped\n    }\n  }\n": types.SyncPlaylistToPlexDocument,
     "\n  mutation CompletePlexServerAuthentication($serverId: Int!, $pinId: Int!) {\n    completePlexServerAuthentication(serverId: $serverId, pinId: $pinId) {\n      id\n      name\n      serverUrl\n      hasAccessToken\n      createdAt\n      updatedAt\n    }\n  }\n": types.CompletePlexServerAuthenticationDocument,
     "\n  query PlexServers {\n    plexServers {\n      id\n      name\n      serverUrl\n      hasAccessToken\n      createdAt\n      updatedAt\n    }\n  }\n": types.PlexServersDocument,
@@ -82,15 +85,18 @@ const documents: Documents = {
     "\n  mutation AcceptSpotifyMatchCandidate($candidateId: Int!) {\n    acceptSpotifyMatchCandidate(candidateId: $candidateId)\n  }\n": types.AcceptSpotifyMatchCandidateDocument,
     "\n  mutation DismissSpotifyUnmatchedTrack($spotifyTrackId: String!) {\n    dismissSpotifyUnmatchedTrack(spotifyTrackId: $spotifyTrackId)\n  }\n": types.DismissSpotifyUnmatchedTrackDocument,
     "\n  mutation ManuallyMatchSpotifyTrack($spotifyTrackId: String!, $localTrackId: Int!) {\n    manuallyMatchSpotifyTrack(spotifyTrackId: $spotifyTrackId, localTrackId: $localTrackId)\n  }\n": types.ManuallyMatchSpotifyTrackDocument,
+    "\n  mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {\n    addToWishlist(spotifyTrackId: $spotifyTrackId) {\n      id\n      status\n    }\n  }\n": types.AddToWishlistFromUnmatchedDocument,
     "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyAccountsDocument,
     "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyPlaylistsDocument,
-    "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n": types.SpotifyPlaylistSyncStateDocument,
-    "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n": types.SpotifyTrackDownloadFailuresDocument,
     "\n  mutation SyncSpotifyPlaylists($accountId: Int!) {\n    syncSpotifyAccountPlaylistsToDb(accountId: $accountId)\n  }\n": types.SyncSpotifyPlaylistsDocument,
     "\n  mutation MatchTracks {\n    matchExistingSpotifyTracksWithLocalTracks\n  }\n": types.MatchTracksDocument,
-    "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n": types.SyncPlaylistToLocalLibraryDocument,
+    "\n  mutation SyncSpotifyPlaylistToLocal(\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocal(\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    ) {\n      totalTracks\n      matchedTracks\n      unmatchedTracks\n      newMatchesFound\n    }\n  }\n": types.SyncSpotifyPlaylistToLocalDocument,
     "\n  query Tracks(\n    $pagination: PaginationInput\n    $search: TextSearchInput\n    $sort: [TrackSortInput!]\n  ) {\n    tracks(pagination: $pagination, search: $search, sort: $sort) {\n      tracks {\n        id\n        title\n        trackNumber\n        duration\n        createdAt\n        album {\n          id\n          title\n          year\n          artworkUrl\n        }\n        artists {\n          id\n          name\n        }\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.TracksDocument,
     "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.UnimportableFilesDocument,
+    "\n  query WishlistItems($page: Int, $pageSize: Int, $status: String) {\n    wishlistItems(page: $page, pageSize: $pageSize, status: $status) {\n      items {\n        id\n        spotifyTrackId\n        status\n        errorReason\n        attemptsCount\n        lastAttemptAt\n        nextRetryAt\n        createdAt\n        updatedAt\n        trackTitle\n        trackArtists\n        trackAlbum\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n": types.WishlistItemsDocument,
+    "\n  query WishlistStats {\n    wishlistStats {\n      pending\n      searching\n      downloading\n      importing\n      completed\n      failed\n    }\n  }\n": types.WishlistStatsDocument,
+    "\n  mutation RemoveFromWishlist($id: Int!) {\n    removeFromWishlist(id: $id)\n  }\n": types.RemoveFromWishlistDocument,
+    "\n  mutation RetryWishlistItem($id: Int!) {\n    retryWishlistItem(id: $id) {\n      id\n      status\n    }\n  }\n": types.RetryWishlistItemDocument,
     "\n  query YoutubeSubscriptions {\n    youtubeSubscriptions {\n      id\n      name\n    }\n  }\n": types.YoutubeSubscriptionsDocument,
     "\n  mutation YoutubeAddSubscription($name: String!) {\n    addYoutubeSubscription(name: $name)\n  }\n": types.YoutubeAddSubscriptionDocument,
     "\n  mutation YoutubeRemoveSubscription($id: Int!) {\n    removeYoutubeSubscription(id: $id)\n  }\n": types.YoutubeRemoveSubscriptionDocument,
@@ -126,7 +132,7 @@ export function graphql(source: "\n\tquery Playlist($id: Int!) {\n\t\tplaylist(i
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').PlaylistsDocument;
+export function graphql(source: "\n  query Playlists(\n    $page: Int\n    $pageSize: Int\n    $search: String\n    $sortBy: String\n    $sortOrder: String\n  ) {\n    playlists(\n      page: $page\n      pageSize: $pageSize\n      search: $search\n      sortBy: $sortBy\n      sortOrder: $sortOrder\n    ) {\n      playlists {\n        id\n        name\n        description\n        spotifyPlaylistId\n        unmatchedSpotifyTrackCount\n        createdAt\n        updatedAt\n        trackCount\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').PlaylistsDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -202,19 +208,15 @@ export function graphql(source: "\n  mutation ManuallyMatchSpotifyTrack($spotify
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {\n    addToWishlist(spotifyTrackId: $spotifyTrackId) {\n      id\n      status\n    }\n  }\n"): typeof import('./graphql').AddToWishlistFromUnmatchedDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  query SpotifyAccounts {\n    spotifyAccounts {\n      id\n      userId\n      displayName\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyAccountsDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query SpotifyPlaylists($accountId: Int!) {\n    spotifyPlaylists(accountId: $accountId) {\n      id\n      spotifyId\n      name\n      description\n      trackCount\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyPlaylistsDocument;
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  query SpotifyPlaylistSyncState($spotifyPlaylistId: Int!) {\n    spotifyPlaylistSyncState(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      localPlaylistId\n      lastSyncAt\n      syncStatus\n      tracksDownloaded\n      tracksFailed\n      errorLog\n    }\n  }\n"): typeof import('./graphql').SpotifyPlaylistSyncStateDocument;
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  query SpotifyTrackDownloadFailures($spotifyPlaylistId: Int!) {\n    spotifyTrackDownloadFailures(spotifyPlaylistId: $spotifyPlaylistId) {\n      id\n      spotifyPlaylistId\n      spotifyTrackId\n      trackName\n      artistName\n      albumName\n      isrc\n      reason\n      attemptsCount\n      createdAt\n      updatedAt\n    }\n  }\n"): typeof import('./graphql').SpotifyTrackDownloadFailuresDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -226,7 +228,7 @@ export function graphql(source: "\n  mutation MatchTracks {\n    matchExistingSp
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation SyncPlaylistToLocalLibrary(\n    $spotifyAccountId: Int!\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocalLibrary(\n      spotifyAccountId: $spotifyAccountId\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    )\n  }\n"): typeof import('./graphql').SyncPlaylistToLocalLibraryDocument;
+export function graphql(source: "\n  mutation SyncSpotifyPlaylistToLocal(\n    $spotifyPlaylistId: Int!\n    $localPlaylistName: String!\n  ) {\n    syncSpotifyPlaylistToLocal(\n      spotifyPlaylistId: $spotifyPlaylistId\n      localPlaylistName: $localPlaylistName\n    ) {\n      totalTracks\n      matchedTracks\n      unmatchedTracks\n      newMatchesFound\n    }\n  }\n"): typeof import('./graphql').SyncSpotifyPlaylistToLocalDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -235,6 +237,22 @@ export function graphql(source: "\n  query Tracks(\n    $pagination: PaginationI
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query UnimportableFiles($page: Int, $pageSize: Int) {\n    unimportableFiles(page: $page, pageSize: $pageSize) {\n      files {\n        id\n        filePath\n        reason\n        createdAt\n        sha256\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').UnimportableFilesDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query WishlistItems($page: Int, $pageSize: Int, $status: String) {\n    wishlistItems(page: $page, pageSize: $pageSize, status: $status) {\n      items {\n        id\n        spotifyTrackId\n        status\n        errorReason\n        attemptsCount\n        lastAttemptAt\n        nextRetryAt\n        createdAt\n        updatedAt\n        trackTitle\n        trackArtists\n        trackAlbum\n      }\n      totalCount\n      page\n      pageSize\n    }\n  }\n"): typeof import('./graphql').WishlistItemsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query WishlistStats {\n    wishlistStats {\n      pending\n      searching\n      downloading\n      importing\n      completed\n      failed\n    }\n  }\n"): typeof import('./graphql').WishlistStatsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveFromWishlist($id: Int!) {\n    removeFromWishlist(id: $id)\n  }\n"): typeof import('./graphql').RemoveFromWishlistDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RetryWishlistItem($id: Int!) {\n    retryWishlistItem(id: $id) {\n      id\n      status\n    }\n  }\n"): typeof import('./graphql').RetryWishlistItemDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

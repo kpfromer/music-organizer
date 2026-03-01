@@ -5,6 +5,7 @@ use crate::http_server::graphql::spotify::context::get_spotify_adapter;
 use crate::http_server::graphql_error::GraphqlResult;
 use crate::services::spotify::client::start_spotify_auth_flow;
 use crate::services::spotify::matching_local_tracks::match_existing_spotify_tracks_with_local_task;
+use crate::services::spotify::sync_spotify_playlist_to_local;
 use crate::services::spotify::sync_spotify_playlist_to_local_library::sync_spotify_playlist_to_local_library_task;
 use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
@@ -18,6 +19,14 @@ pub struct SpotifyMutation;
 #[derive(async_graphql::SimpleObject)]
 pub struct SpotifyAuthResponse {
     pub redirect_url: String,
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct SyncSpotifyPlaylistToLocalResultGql {
+    pub total_tracks: i64,
+    pub matched_tracks: i64,
+    pub unmatched_tracks: i64,
+    pub new_matches_found: i64,
 }
 
 #[Object]
@@ -132,6 +141,32 @@ impl SpotifyMutation {
         .await?;
 
         Ok(true)
+    }
+
+    /// Sync a Spotify playlist to a local playlist by matching tracks.
+    /// Does NOT download — only matches against existing local tracks.
+    async fn sync_spotify_playlist_to_local(
+        &self,
+        ctx: &Context<'_>,
+        spotify_playlist_id: i64,
+        local_playlist_name: String,
+    ) -> GraphqlResult<SyncSpotifyPlaylistToLocalResultGql> {
+        let app_state = get_app_state(ctx)?;
+        let db = app_state.db.clone();
+
+        let result = sync_spotify_playlist_to_local::sync_spotify_playlist_to_local(
+            db,
+            spotify_playlist_id,
+            local_playlist_name,
+        )
+        .await?;
+
+        Ok(SyncSpotifyPlaylistToLocalResultGql {
+            total_tracks: result.total_tracks,
+            matched_tracks: result.matched_tracks,
+            unmatched_tracks: result.unmatched_tracks,
+            new_matches_found: result.new_matches_found,
+        })
     }
 
     async fn match_existing_spotify_tracks_with_local_tracks(

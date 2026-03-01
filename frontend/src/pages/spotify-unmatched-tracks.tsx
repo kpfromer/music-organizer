@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Heart,
   Music,
   Search,
   X,
@@ -132,6 +133,15 @@ const DismissTrackMutation = graphql(`
 const ManualMatchMutation = graphql(`
   mutation ManuallyMatchSpotifyTrack($spotifyTrackId: String!, $localTrackId: Int!) {
     manuallyMatchSpotifyTrack(spotifyTrackId: $spotifyTrackId, localTrackId: $localTrackId)
+  }
+`);
+
+const AddToWishlistMutation = graphql(`
+  mutation AddToWishlistFromUnmatched($spotifyTrackId: String!) {
+    addToWishlist(spotifyTrackId: $spotifyTrackId) {
+      id
+      status
+    }
   }
 `);
 
@@ -316,6 +326,7 @@ export function SpotifyUnmatchedTracks() {
     queryKey: ["spotifyPlaylistsForFilter", selectedAccountId],
     queryFn: () =>
       execute(SpotifyPlaylistsQuery, {
+        // biome-ignore lint/style/noNonNullAssertion: checked in `enabled`
         accountId: selectedAccountId!,
       }),
     enabled: selectedAccountId !== undefined,
@@ -355,6 +366,15 @@ export function SpotifyUnmatchedTracks() {
       execute(DismissTrackMutation, { spotifyTrackId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["spotifyUnmatchedTracks"] });
+    },
+  });
+
+  const addToWishlist = useMutation({
+    mutationFn: (spotifyTrackId: string) =>
+      execute(AddToWishlistMutation, { spotifyTrackId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wishlistItems"] });
+      queryClient.invalidateQueries({ queryKey: ["wishlistStats"] });
     },
   });
 
@@ -462,11 +482,7 @@ export function SpotifyUnmatchedTracks() {
                 }
                 onValueChange={(value) => {
                   setHasCandidates(
-                    value === "all"
-                      ? undefined
-                      : value === "with"
-                        ? true
-                        : false,
+                    value === "all" ? undefined : value === "with",
                   );
                   setPage(1);
                 }}
@@ -574,6 +590,17 @@ export function SpotifyUnmatchedTracks() {
                           >
                             <Search className="mr-1 h-3 w-3" />
                             Search
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              addToWishlist.mutate(track.spotifyTrackId)
+                            }
+                            disabled={addToWishlist.isPending}
+                          >
+                            <Heart className="mr-1 h-3 w-3" />
+                            Wishlist
                           </Button>
                           <Button
                             size="sm"

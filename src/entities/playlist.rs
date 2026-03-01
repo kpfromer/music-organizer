@@ -11,6 +11,7 @@ pub struct Model {
     pub id: i64,
     pub name: String,
     pub description: Option<String>,
+    pub spotify_playlist_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     #[sea_orm(has_many, via = "playlist_track")]
