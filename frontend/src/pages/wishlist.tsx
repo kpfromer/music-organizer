@@ -33,9 +33,10 @@ import {
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
 import { execute } from "@/lib/execute-graphql";
+import { WishlistStatus } from "@/graphql/graphql";
 
 const WishlistItemsQuery = graphql(`
-  query WishlistItems($page: Int, $pageSize: Int, $status: String) {
+  query WishlistItems($page: Int, $pageSize: Int, $status: WishlistStatus) {
     wishlistItems(page: $page, pageSize: $pageSize, status: $status) {
       items {
         id
@@ -89,7 +90,7 @@ const RetryWishlistItemMutation = graphql(`
 type WishlistItemRow = {
   id: number;
   spotifyTrackId: string;
-  status: string;
+  status: WishlistStatus;
   errorReason?: string | null;
   attemptsCount: number;
   lastAttemptAt: Date | null;
@@ -99,45 +100,66 @@ type WishlistItemRow = {
   trackAlbum: string;
 };
 
-function statusBadge(status: string) {
+function statusBadge(status: WishlistStatus) {
   switch (status) {
-    case "pending":
+    case WishlistStatus.Pending:
       return (
         <Badge variant="secondary" className="bg-gray-100 text-gray-700">
           Pending
         </Badge>
       );
-    case "searching":
+    case WishlistStatus.Searching:
       return (
         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           Searching
         </Badge>
       );
-    case "downloading":
+    case WishlistStatus.Downloading:
       return (
         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           Downloading
         </Badge>
       );
-    case "importing":
+    case WishlistStatus.Importing:
       return (
         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           Importing
         </Badge>
       );
-    case "completed":
+    case WishlistStatus.Completed:
       return (
         <Badge variant="secondary" className="bg-green-100 text-green-700">
           Completed
         </Badge>
       );
-    case "failed":
+    case WishlistStatus.Failed:
       return <Badge variant="destructive">Failed</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function statusFromString(status: string): WishlistStatus | undefined {
+  switch (status) {
+    case "all":
+      return undefined;
+    case "pending":
+      return WishlistStatus.Pending;
+    case "searching":
+      return WishlistStatus.Searching;
+  case "downloading":
+    return WishlistStatus.Downloading;
+  case "importing":
+    return WishlistStatus.Importing;
+  case "completed":
+    return WishlistStatus.Completed;
+  case "failed":
+    return WishlistStatus.Failed;
+    default:
+      throw new Error(`Unknown status: ${status}`);
   }
 }
 
@@ -145,7 +167,7 @@ export function Wishlist() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+  const [statusFilter, setStatusFilter] = useState<WishlistStatus | undefined>(
     undefined,
   );
 
@@ -267,7 +289,7 @@ export function Wishlist() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          {row.original.status === "failed" && (
+          {row.original.status === WishlistStatus.Failed && (
             <Button
               size="sm"
               variant="outline"
@@ -358,9 +380,9 @@ export function Wishlist() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Status:</span>
           <Select
-            value={statusFilter ?? "all"}
+            value={statusFilter ?? undefined}
             onValueChange={(value) => {
-              setStatusFilter(value === "all" ? undefined : value);
+              setStatusFilter(statusFromString(value));
               setPage(1);
             }}
           >
