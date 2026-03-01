@@ -204,7 +204,7 @@ export function Spotify() {
       setLastSyncResult(data.syncSpotifyPlaylistToLocal);
       queryClient.invalidateQueries({ queryKey: ["playlists"] });
     },
-    onError: (error) => {
+    onError: (_error) => {
       setLastSyncResult(null);
     },
   });

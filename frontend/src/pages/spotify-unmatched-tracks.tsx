@@ -326,6 +326,7 @@ export function SpotifyUnmatchedTracks() {
     queryKey: ["spotifyPlaylistsForFilter", selectedAccountId],
     queryFn: () =>
       execute(SpotifyPlaylistsQuery, {
+        // biome-ignore lint/style/noNonNullAssertion: checked in `enabled`
         accountId: selectedAccountId!,
       }),
     enabled: selectedAccountId !== undefined,
@@ -481,11 +482,7 @@ export function SpotifyUnmatchedTracks() {
                 }
                 onValueChange={(value) => {
                   setHasCandidates(
-                    value === "all"
-                      ? undefined
-                      : value === "with"
-                        ? true
-                        : false,
+                    value === "all" ? undefined : value === "with",
                   );
                   setPage(1);
                 }}

@@ -320,7 +320,9 @@ export function Wishlist() {
   if (error) {
     return (
       <div className="container mx-auto p-8">
-        <div className="text-destructive">Error loading wishlist: {error.message}</div>
+        <div className="text-destructive">
+          Error loading wishlist: {error.message}
+        </div>
       </div>
     );
   }
