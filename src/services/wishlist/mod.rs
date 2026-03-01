@@ -130,7 +130,7 @@ impl WishlistService {
         let mut query = entities::wishlist_item::Entity::find();
 
         if let Some(status) = &status_filter {
-            query = query.filter(entities::wishlist_item::Column::Status.eq(status.clone()));
+            query = query.filter(entities::wishlist_item::Column::Status.eq(*status));
         }
 
         let total_count = query

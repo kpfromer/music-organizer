@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
 use sea_orm::{ActiveModelBehavior, ActiveValue::Set};
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum, Enum)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum, Copy, Enum)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)")]
 pub enum WishlistStatus {
     #[sea_orm(string_value = "pending")]
