@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use async_graphql::{Context, Object, SimpleObject};
+use song_rs::{FileType, SongQuery, SongResult };
 
 use crate::http_server::graphql::context::get_app_state;
-use crate::http_server::graphql_error::GraphqlResult;
+use crate::http_server::graphql_error::{, GraphqlResult};
 use crate::services::soulseek_service::SoulseekService;
-use crate::soulseek::{FileAttribute, SingleFileResult, Track};
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct SoulSeekSearchResult {
@@ -35,44 +33,54 @@ pub enum SoulSeekFileAttribute {
     BitDepth,
 }
 
-impl From<FileAttribute> for SoulSeekFileAttribute {
-    fn from(attr: FileAttribute) -> Self {
-        match attr {
-            FileAttribute::Bitrate => SoulSeekFileAttribute::Bitrate,
-            FileAttribute::Duration => SoulSeekFileAttribute::Duration,
-            FileAttribute::VariableBitRate => SoulSeekFileAttribute::VariableBitRate,
-            FileAttribute::Encoder => SoulSeekFileAttribute::Encoder,
-            FileAttribute::SampleRate => SoulSeekFileAttribute::SampleRate,
-            FileAttribute::BitDepth => SoulSeekFileAttribute::BitDepth,
-        }
-    }
-}
-
 #[derive(Debug, Clone, SimpleObject)]
 pub struct DownloadStatus {
     pub success: bool,
     pub message: String,
 }
 
-impl From<SingleFileResult> for SoulSeekSearchResult {
-    fn from(result: SingleFileResult) -> Self {
-        let attributes = result
-            .attrs
-            .into_iter()
-            .map(|(attr, value)| SoulSeekFileAttributeValue {
-                attribute: attr.into(),
-                value,
-            })
-            .collect();
+impl From<SongResult> for SoulSeekSearchResult {
+    fn from(result: SongResult) -> Self {
+        let mut attributes = Vec::new();
+        if let Some(v) = result.bitrate {
+            attributes.push(SoulSeekFileAttributeValue {
+                attribute: SoulSeekFileAttribute::Bitrate,
+                value: v,
+            });
+        }
+        if let Some(v) = result.duration {
+            attributes.push(SoulSeekFileAttributeValue {
+                attribute: SoulSeekFileAttribute::Duration,
+                value: v,
+            });
+        }
+        if let Some(v) = result.vbr {
+            attributes.push(SoulSeekFileAttributeValue {
+                attribute: SoulSeekFileAttribute::VariableBitRate,
+                value: if v { 1 } else { 0 },
+            });
+        }
+        if let Some(v) = result.sample_rate {
+            attributes.push(SoulSeekFileAttributeValue {
+                attribute: SoulSeekFileAttribute::SampleRate,
+                value: v,
+            });
+        }
+        if let Some(v) = result.bit_depth {
+            attributes.push(SoulSeekFileAttributeValue {
+                attribute: SoulSeekFileAttribute::BitDepth,
+                value: v,
+            });
+        }
 
         SoulSeekSearchResult {
             username: result.username,
-            token: result.token,
-            filename: result.filename,
+            token: String::new(),
+            filename: result.filename.as_str().to_string(),
             size: result.size,
-            slots_free: result.slots_free,
-            avg_speed: result.avg_speed,
-            queue_length: result.queue_length,
+            slots_free: true,
+            avg_speed: 0.0,
+            queue_length: 0,
             attributes,
         }
     }
@@ -94,20 +102,24 @@ impl SoulseekMutation {
         let app_state = get_app_state(ctx)?;
         let service = SoulseekService::new(
             app_state.db.clone(),
-            app_state.soulseek_context.clone(),
+            app_state.song_downloader.clone(),
             app_state.download_directory.clone(),
             app_state.api_key.clone(),
             app_state.config.clone(),
         );
 
-        let track = Track {
+        let query = SongQuery {
             title: track_title,
-            album: album_name.unwrap_or_default(),
-            artists: artists.unwrap_or_default(),
-            length: duration.map(|d| d as u32),
+            artist: artists
+                .unwrap_or_default()
+                .into_iter()
+                .next()
+                .unwrap_or_default(),
+            album: album_name,
+            duration_secs: duration.unwrap_or(0) as u32,
         };
 
-        let results = service.search(&track).await?;
+        let results = service.search(&query).await?;
         Ok(results
             .into_iter()
             .map(SoulSeekSearchResult::from)
@@ -120,29 +132,32 @@ impl SoulseekMutation {
         username: String,
         filename: String,
         size: u64,
-        token: String,
+        _token: String,
     ) -> GraphqlResult<DownloadStatus> {
         let app_state = get_app_state(ctx)?;
         let service = SoulseekService::new(
             app_state.db.clone(),
-            app_state.soulseek_context.clone(),
+            app_state.song_downloader.clone(),
             app_state.download_directory.clone(),
             app_state.api_key.clone(),
             app_state.config.clone(),
         );
 
-        let file_result = SingleFileResult {
-            username,
-            token,
-            filename,
+        let ext = filename.rsplit('.').next_back().unwrap_or("");
+        let result = SongResult {
+            username: username.clone(),
+            filename: filename.clone().into(),
+            file_type: FileType::from_extension(ext),
             size,
-            slots_free: true,
-            avg_speed: 0.0,
-            queue_length: 0,
-            attrs: HashMap::new(),
+            bitrate: None,
+            duration: None,
+            sample_rate: None,
+            bit_depth: None,
+            vbr: None,
+            score: 0.0,
         };
 
-        let message = service.download_and_import(&file_result).await?;
+        let message = service.download_and_import(&result).await?;
         Ok(DownloadStatus {
             success: true,
             message,

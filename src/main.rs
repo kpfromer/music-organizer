@@ -31,8 +31,9 @@ use crate::{
     import_track::{import_folder, import_track, watch_directory},
     logging::init_tracing,
     services::spotify::client::SpotifyApiCredentials,
-    soulseek::{SearchConfig, SoulSeekClientContext},
 };
+use song_rs::Client as SongDownloader;
+use tokio::sync::Mutex;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -192,19 +193,8 @@ async fn main() -> Result<()> {
             output_directory,
         } => {
             tracing::debug!("Starting download command with username");
-            let soulseek_context = Arc::new(
-                SoulSeekClientContext::new(SearchConfig {
-                    username,
-                    password,
-                    concurrency: Some(2),
-                    searches_per_time: Some(34),
-                    renew_time_secs: Some(220),
-                    max_search_time_ms: Some(8000),
-                    remove_special_chars: Some(true),
-                })
-                .await?,
-            );
-            crate::soulseek_tui::run(soulseek_context, output_directory).await?;
+            let song_downloader = Arc::new(Mutex::new(SongDownloader::new(username, password)));
+            crate::soulseek_tui::run(song_downloader, output_directory).await?;
             tracing::info!("Download command completed successfully");
         }
         Commands::Watch { directory, api_key } => {

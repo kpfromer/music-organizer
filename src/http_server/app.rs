@@ -10,6 +10,8 @@ use axum::{
     routing::{get, post},
 };
 use color_eyre::eyre::{Context, eyre};
+use song_rs::Client as SongDownloader;
+use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tower_http::{cors::CorsLayer, services::ServeDir};
@@ -27,7 +29,6 @@ use crate::{
         state::AppState,
     },
     services::{background::run_background_tasks, spotify::client::SpotifyApiCredentials},
-    soulseek::{SearchConfig, SoulSeekClientContext},
 };
 
 async fn shutdown_signal() {
@@ -72,34 +73,23 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         base_url,
         spotify_credentials,
     } = config;
-    tracing::info!("Initializing SoulSeek client context");
-    let soulseek_context = SoulSeekClientContext::new(SearchConfig {
-        username: soulseek_username.to_string(),
-        password: soulseek_password.to_string(),
-        concurrency: Some(2),
-        searches_per_time: Some(34),
-        renew_time_secs: Some(220),
-        max_search_time_ms: Some(8000),
-        remove_special_chars: Some(true),
-    })
-    .await
-    .wrap_err("Failed to initialize SoulSeek client context")?;
 
     let db = Arc::new(database);
-    let soulseek_context = Arc::new(soulseek_context);
+
+    let song_downloader = SongDownloader::new(soulseek_username, soulseek_password);
 
     // Spawn wishlist background task
     let wishlist_notify =
         crate::services::wishlist::background_task::spawn_wishlist_background_task(
             db.clone(),
-            soulseek_context.clone(),
+            &song_downloader,
             acoustid_api_key.clone(),
             config.clone(),
         );
 
     let app_state = Arc::new(AppState {
         db,
-        soulseek_context,
+        song_downloader,
         download_directory,
         api_key: acoustid_api_key.clone(),
         config: config.clone(),

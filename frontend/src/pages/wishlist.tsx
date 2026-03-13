@@ -150,14 +150,14 @@ function statusFromString(status: string): WishlistStatus | undefined {
       return WishlistStatus.Pending;
     case "searching":
       return WishlistStatus.Searching;
-  case "downloading":
-    return WishlistStatus.Downloading;
-  case "importing":
-    return WishlistStatus.Importing;
-  case "completed":
-    return WishlistStatus.Completed;
-  case "failed":
-    return WishlistStatus.Failed;
+    case "downloading":
+      return WishlistStatus.Downloading;
+    case "importing":
+      return WishlistStatus.Importing;
+    case "completed":
+      return WishlistStatus.Completed;
+    case "failed":
+      return WishlistStatus.Failed;
     default:
       throw new Error(`Unknown status: ${status}`);
   }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::spotify_queries::SpotifyAccount;
 use crate::entities;
 use crate::http_server::graphql::context::get_app_state;
@@ -125,13 +127,13 @@ impl SpotifyMutation {
     ) -> GraphqlResult<bool> {
         let app_state = get_app_state(ctx)?;
         let db = app_state.db.clone();
-        let soulseek_context = app_state.soulseek_context.clone();
+        let song_downloader = &app_state.song_downloader;
         let api_key = &app_state.api_key;
         let config = &app_state.config;
 
         sync_spotify_playlist_to_local_library_task(
             db,
-            soulseek_context,
+            song_downloader,
             api_key,
             config,
             spotify_account_id,

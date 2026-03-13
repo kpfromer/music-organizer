@@ -11,7 +11,8 @@ use tracing;
 
 use std::sync::Arc;
 
-use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
+use song_rs::{Client as SongDownloader, SongQuery, SongResult};
+use tokio::sync::Mutex;
 
 const TIMEOUT: Duration = Duration::from_millis(250);
 
@@ -59,7 +60,7 @@ pub enum SearchEvent {
     /// Search started.
     Started,
     /// Search completed.
-    Completed(Vec<SingleFileResult>),
+    Completed(Vec<SongResult>),
     /// Search failed.
     Failed(String),
 }
@@ -85,14 +86,14 @@ pub enum DownloadEvent {
 
 #[derive(Clone, Debug)]
 pub struct SearchRequest {
-    /// Track to search for.
-    pub track: Track,
+    /// Query to search for.
+    pub query: SongQuery,
 }
 
 #[derive(Clone, Debug)]
 pub struct RequestDownload {
     /// Result to download.
-    pub result: SingleFileResult,
+    pub result: SongResult,
     /// Download path.
     pub download_path: PathBuf,
 }
@@ -118,7 +119,7 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
-    pub fn new(soulseek_context: Arc<SoulSeekClientContext>) -> Self {
+    pub fn new(song_downloader: Arc<Mutex<SongDownloader>>) -> Self {
         let (sender, receiver) = mpsc::channel();
 
         let cross_term_actor = CrosstermEventThread::new(sender.clone());
@@ -126,7 +127,7 @@ impl EventHandler {
 
         let (background_sender, background_receiver) = mpsc::channel();
         let download_actor =
-            BackgroundThread::new(background_receiver, sender.clone(), soulseek_context);
+            BackgroundThread::new(background_receiver, sender.clone(), song_downloader);
         thread::spawn(|| {
             let rt = tokio::runtime::Runtime::new().unwrap();
             if let Err(e) = rt.block_on(download_actor.run()) {
@@ -208,8 +209,8 @@ struct BackgroundThread {
     background_request_receiver: mpsc::Receiver<BackgroundRequest>,
     /// Event sender channel.
     sender: mpsc::Sender<Event>,
-    /// Soulseek context.
-    soulseek_context: Arc<SoulSeekClientContext>,
+    /// Song downloader client.
+    song_downloader: Arc<Mutex<SongDownloader>>,
 }
 
 impl BackgroundThread {
@@ -217,12 +218,12 @@ impl BackgroundThread {
     fn new(
         background_request_receiver: mpsc::Receiver<BackgroundRequest>,
         sender: mpsc::Sender<Event>,
-        soulseek_context: Arc<SoulSeekClientContext>,
+        song_downloader: Arc<Mutex<SongDownloader>>,
     ) -> Self {
         Self {
             background_request_receiver,
             sender,
-            soulseek_context,
+            song_downloader,
         }
     }
 
@@ -249,7 +250,18 @@ impl BackgroundThread {
                 SearchEvent::Started,
             )));
 
-        match self.soulseek_context.search_for_track(&request.track).await {
+        let results = {
+            let mut guard = self.song_downloader.lock().await;
+            guard
+                .search(
+                    &request.query,
+                    Duration::from_secs(120),
+                    &song_rs::WantedFileTypes::all(),
+                )
+                .await
+        };
+
+        match results {
             Ok(results) => {
                 let _ = self
                     .sender
@@ -269,57 +281,59 @@ impl BackgroundThread {
 
     async fn download_file(
         &mut self,
-        result: &SingleFileResult,
+        result: &SongResult,
         download_folder: &Path,
     ) -> color_eyre::Result<()> {
-        let mut receiver = self
-            .soulseek_context
-            .download_file(result, download_folder)
-            .await?;
+        let download_dir = download_folder
+            .as_os_str()
+            .to_str()
+            .ok_or_else(|| color_eyre::eyre::eyre!("Download path is not valid UTF-8"))?
+            .to_string();
+
+        let (_download, mut receiver) = {
+            let mut guard = self.song_downloader.lock().await;
+            guard.download(result, &download_dir).await
+        }?;
+
+        let filename_str = result.filename.filename().to_string();
 
         while let Some(status) = receiver.recv().await {
             match status {
-                soulseek_rs::DownloadStatus::Queued => {
+                song_rs::DownloadStatus::Queued => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Started,
                         )))?;
                 }
-                soulseek_rs::DownloadStatus::InProgress {
+                song_rs::DownloadStatus::InProgress {
                     bytes_downloaded,
                     total_bytes,
-                    speed_bytes_per_sec: _,
+                    ..
                 } => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Progress {
-                                filename: result.filename.clone(),
+                                filename: filename_str.clone(),
                                 bytes_downloaded,
                                 total_bytes,
                             },
                         )))?;
                 }
-                soulseek_rs::DownloadStatus::Completed => {
+                song_rs::DownloadStatus::Completed => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Completed,
                         )))?;
                     break;
                 }
-                soulseek_rs::DownloadStatus::Failed => {
-                    self.soulseek_context
-                        .report_session_error("Download failed")
-                        .await;
+                song_rs::DownloadStatus::Failed => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download failed".to_string()),
                         )))?;
                     break;
                 }
-                soulseek_rs::DownloadStatus::TimedOut => {
-                    self.soulseek_context
-                        .report_session_error("Download timed out")
-                        .await;
+                song_rs::DownloadStatus::TimedOut => {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download timed out".to_string()),

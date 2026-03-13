@@ -1,13 +1,17 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+
 use crate::config::Config;
 use crate::database::Database;
 use crate::entities;
-use crate::soulseek::SoulSeekClientContext;
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
 use color_eyre::eyre::WrapErr;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{EntityTrait, Set};
+use song_rs::Client as SongDownloader;
 use tracing;
 
 use super::add_tracks_to_playlist::add_tracks_to_local_playlist;
@@ -27,7 +31,7 @@ use super::process_track::process_spotify_track;
 /// progress can be monitored even if the sync is interrupted.
 pub async fn sync_spotify_playlist_to_local_library(
     db: &Database,
-    soulseek_context: &SoulSeekClientContext,
+    song_downloader: &SongDownloader,
     api_key: String,
     config: Config,
     sync_state: entities::spotify_playlist_sync_state::Model,
@@ -66,15 +70,17 @@ pub async fn sync_spotify_playlist_to_local_library(
     let mut tracks_failed = 0;
 
     for spotify_track in spotify_playlist_with_tracks.spotify_tracks {
-        let result = process_spotify_track(
-            db,
-            soulseek_context,
-            &api_key,
-            &config,
-            spotify_playlist.id,
-            spotify_track,
-        )
-        .await?;
+        let result = {
+            process_spotify_track(
+                db,
+                song_downloader,
+                &api_key,
+                &config,
+                spotify_playlist.id,
+                spotify_track,
+            )
+            .await
+        }?;
 
         if result.success {
             if let Some(local_track_id) = result.local_track_id {

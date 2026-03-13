@@ -5,15 +5,17 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::StreamExt;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
 
-use crate::{http_server::state::AppState, soulseek::SingleFileResult};
+use crate::http_server::state::AppState;
+use song_rs::FileType;
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct DownloadFileInput {
     username: String,
+    #[allow(dead_code)] // Kept for API compatibility with frontend
     token: String,
     filename: String,
     size: u64,
@@ -39,36 +41,49 @@ pub async fn download_file(
     State(app_state): State<Arc<AppState>>,
     extract::Json(input): extract::Json<DownloadFileInput>,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    let result = SingleFileResult {
+    let ext = input.filename.rsplit('.').next_back().unwrap_or("");
+    let result = song_rs::SongResult {
         username: input.username.clone(),
-        token: input.token.clone(),
-        filename: input.filename.clone(),
+        filename: input.filename.clone().into(),
+        file_type: FileType::from_extension(ext),
         size: input.size,
-        slots_free: true,
-        avg_speed: 0.0,
-        queue_length: 0,
-        attrs: HashMap::new(),
+        bitrate: None,
+        duration: None,
+        sample_rate: None,
+        bit_depth: None,
+        vbr: None,
+        score: 0.0,
     };
 
-    let mut download_receiver = app_state
-        .soulseek_context
-        .download_file(&result, &app_state.download_directory)
-        .await
-        .map_err(|e| {
-            (
+    let download_dir = match app_state.download_directory.as_os_str().to_str() {
+        Some(s) => s.to_string(),
+        None => {
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to initiate download: {e}"),
+                "Download directory is not valid UTF-8",
             )
-                .into_response()
-        })?;
+                .into_response());
+        }
+    };
+
+    let (_, mut download_receiver) = {
+        app_state
+            .song_downloader
+            .download(&result, download_dir)
+            .await
+    }
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to initiate download: {e}"),
+        )
+            .into_response()
+    })?;
 
     let (tx, rx) = channel::<DownloadEvent>(64);
 
     // Send initial "Started" event immediately to establish the HTTP stream
-    // This prevents the connection from being aborted if the task exits before sending data
     let _ = tx.send(DownloadEvent::Started).await;
-
-    let ctx = app_state.soulseek_context.clone();
 
     // Spawn async task to consume the download status receiver
     tokio::spawn(async move {
@@ -76,28 +91,26 @@ pub async fn download_file(
 
         while let Some(status) = download_receiver.recv().await {
             let event = match status {
-                soulseek_rs::DownloadStatus::Queued => {
-                    // Skip sending Started since we already sent it initially
+                song_rs::DownloadStatus::Queued => {
                     continue;
                 }
 
-                soulseek_rs::DownloadStatus::InProgress {
+                song_rs::DownloadStatus::InProgress {
                     bytes_downloaded,
                     total_bytes,
-                    speed_bytes_per_sec: _,
+                    ..
                 } => DownloadEvent::Progress {
                     bytes_downloaded,
                     total_bytes,
                 },
 
-                soulseek_rs::DownloadStatus::Completed => {
+                song_rs::DownloadStatus::Completed => {
                     let _ = tx.send(DownloadEvent::Completed).await;
                     has_finished = true;
                     break;
                 }
 
-                soulseek_rs::DownloadStatus::Failed => {
-                    ctx.report_session_error("Download failed").await;
+                song_rs::DownloadStatus::Failed => {
                     let _ = tx
                         .send(DownloadEvent::Failed {
                             message: "Failed to download file".to_string(),
@@ -107,8 +120,7 @@ pub async fn download_file(
                     break;
                 }
 
-                soulseek_rs::DownloadStatus::TimedOut => {
-                    ctx.report_session_error("Download timed out").await;
+                song_rs::DownloadStatus::TimedOut => {
                     let _ = tx
                         .send(DownloadEvent::Failed {
                             message: "Download timed out".to_string(),
@@ -120,7 +132,6 @@ pub async fn download_file(
             };
 
             if tx.send(event).await.is_err() {
-                // Client went away, stop producing
                 break;
             }
         }
@@ -132,7 +143,6 @@ pub async fn download_file(
                 })
                 .await;
         }
-        // When this function exits, tx is dropped, and the response stream ends cleanly.
     });
 
     let json_stream = ReceiverStream::new(rx).map(|item| {
@@ -153,8 +163,6 @@ pub async fn download_file(
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-    // Explicitly set Transfer-Encoding: chunked for streaming responses
-    // Note: Axum should handle this automatically, but being explicit helps with some clients
     response.headers_mut().insert(
         header::TRANSFER_ENCODING,
         HeaderValue::from_static("chunked"),

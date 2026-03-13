@@ -1,16 +1,17 @@
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing;
 
 use crate::config::Config;
 use crate::database::Database;
 use crate::entities;
-use crate::soulseek::SoulSeekClientContext;
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
 use color_eyre::eyre::WrapErr;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{EntityTrait, Set};
+use song_rs::Client as SongDownloader;
 
 use super::create_sync_state::create_sync_state;
 use super::sync_task::sync_spotify_playlist_to_local_library;
@@ -28,7 +29,7 @@ use super::sync_task::sync_spotify_playlist_to_local_library;
 ///
 /// # Arguments
 /// * `db` - Database connection
-/// * `soulseek_context` - SoulSeek client context for downloading tracks
+/// * `song_downloader` - Song downloader client for searching and downloading tracks
 /// * `api_key` - API key for track import
 /// * `config` - Application configuration
 /// * `spotify_account_id` - ID of the Spotify account that owns the playlist
@@ -36,7 +37,7 @@ use super::sync_task::sync_spotify_playlist_to_local_library;
 /// * `local_playlist_name` - Name of the local playlist (created if it doesn't exist)
 pub async fn sync_spotify_playlist_to_local_library_task(
     db: Arc<Database>,
-    soulseek_context: Arc<SoulSeekClientContext>,
+    song_downloader: &SongDownloader,
     api_key: &str,
     config: &Config,
     spotify_account_id: i64,
@@ -84,6 +85,7 @@ pub async fn sync_spotify_playlist_to_local_library_task(
     let sync_state_clone = sync_state.clone();
     let local_playlist_clone = local_playlist.clone();
     let spotify_playlist_clone = spotify_playlist.clone();
+    let song_downloader_clone = song_downloader.clone();
 
     tokio::spawn(async move {
         tracing::info!(
@@ -93,7 +95,7 @@ pub async fn sync_spotify_playlist_to_local_library_task(
 
         match sync_spotify_playlist_to_local_library(
             &db,
-            &soulseek_context,
+            &song_downloader_clone,
             api_key_clone,
             config_clone,
             sync_state_clone.clone(),

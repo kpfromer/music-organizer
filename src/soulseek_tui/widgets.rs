@@ -1,4 +1,3 @@
-use crate::soulseek::{FileAttribute, SingleFileResult};
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, ListItem, Paragraph},
@@ -30,6 +29,7 @@ pub fn format_duration(seconds: u32) -> String {
 }
 
 /// Format speed in bytes per second
+#[allow(dead_code)]
 pub fn format_speed(bytes_per_sec: f64) -> String {
     format_size(bytes_per_sec as u64) + "/s"
 }
@@ -67,7 +67,7 @@ pub fn render_input_field(
 }
 
 /// Render a result item
-pub fn render_result_item(result: &SingleFileResult, is_selected: bool) -> ListItem<'_> {
+pub fn render_result_item(result: &song_rs::SongResult, is_selected: bool) -> ListItem<'_> {
     let mut lines = vec![];
 
     // Main line: filename
@@ -82,22 +82,19 @@ pub fn render_result_item(result: &SingleFileResult, is_selected: bool) -> ListI
 
     lines.push(Line::from(vec![
         Span::styled(prefix, style),
-        Span::styled(result.filename.clone(), style),
+        Span::styled(result.filename.as_str().to_string(), style),
     ]));
 
     // Metadata line
     let mut metadata = vec![];
 
-    // Size
     metadata.push(format!("Size: {}", format_size(result.size)));
 
-    // Duration if available
-    if let Some(duration) = result.attrs.get(&FileAttribute::Duration) {
-        metadata.push(format!("Duration: {}", format_duration(*duration)));
+    if let Some(duration) = result.duration {
+        metadata.push(format!("Duration: {}", format_duration(duration)));
     }
 
-    // Bitrate if available
-    if let Some(bitrate) = result.attrs.get(&FileAttribute::Bitrate) {
+    if let Some(bitrate) = result.bitrate {
         metadata.push(format!("Bitrate: {} kbps", bitrate));
     }
 
@@ -105,14 +102,7 @@ pub fn render_result_item(result: &SingleFileResult, is_selected: bool) -> ListI
         lines.push(Line::from(format!("     {}", metadata.join(" | "))));
     }
 
-    // User info line
-    let user_info = format!(
-        "     User: {} | Speed: {} | Free: {} | Queue: {}",
-        result.username,
-        format_speed(result.avg_speed),
-        if result.slots_free { "✓" } else { "✗" },
-        result.queue_length
-    );
+    let user_info = format!("     User: {}", result.username);
     lines.push(Line::from(user_info));
 
     ListItem::new(lines)

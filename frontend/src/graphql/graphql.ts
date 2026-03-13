@@ -108,6 +108,7 @@ export type Mutation = {
    */
   syncSpotifyPlaylistToLocal: SyncSpotifyPlaylistToLocalResultGql;
   syncSpotifyPlaylistToLocalLibrary: Scalars['Boolean']['output'];
+  testSongRs: Scalars['String']['output'];
 };
 
 
