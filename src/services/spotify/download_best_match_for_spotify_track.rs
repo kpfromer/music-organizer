@@ -37,7 +37,7 @@ pub async fn download_best_match_for_spotify_track(
     let (best, _download, mut status_rx) = match song_downloader
         .download_best(
             &query,
-            Duration::from_secs(120),
+            Duration::from_secs(10),
             &temp_dir_path_str,
             &WantedFileTypes::all(),
         )

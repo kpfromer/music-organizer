@@ -122,17 +122,17 @@ async fn process_single_item(
         return Ok(());
     };
 
+    let Some(artist) = spotify_track.artists.0.first().cloned() else {
+        mark_failed(db, &item, "No artist found").await?;
+        return Ok(());
+    };
+
     set_status(db, &item, WishlistStatus::Downloading, None).await?;
     let (_temp_dir, file_path) = match download_track(
         song_downloader,
         &SongQuery {
             title: spotify_track.title.clone(),
-            artist: spotify_track
-                .artists
-                .0
-                .first()
-                .ok_or_eyre("No artist found")?
-                .clone(),
+            artist,
             album: Some(spotify_track.album.clone()),
             duration_secs: duration_ms as u32 / 1000,
         },

@@ -41,7 +41,10 @@ pub async fn download_file(
     State(app_state): State<Arc<AppState>>,
     extract::Json(input): extract::Json<DownloadFileInput>,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    let ext = input.filename.rsplit('.').next_back().unwrap_or("");
+    let ext = std::path::Path::new(&input.filename)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
     let result = song_rs::SongResult {
         username: input.username.clone(),
         filename: input.filename.clone().into(),
