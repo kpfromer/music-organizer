@@ -32,8 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { graphql } from "@/graphql";
-import { execute } from "@/lib/execute-graphql";
 import { WishlistStatus } from "@/graphql/graphql";
+import { execute } from "@/lib/execute-graphql";
 
 const WishlistItemsQuery = graphql(`
   query WishlistItems($page: Int, $pageSize: Int, $status: WishlistStatus) {
@@ -255,11 +255,12 @@ export function Wishlist() {
       cell: ({ row }) => (
         <div className="space-y-1">
           {statusBadge(row.original.status)}
-          {row.original.status === "failed" && row.original.errorReason && (
-            <div className="text-xs text-destructive">
-              {row.original.errorReason}
-            </div>
-          )}
+          {row.original.status === WishlistStatus.Failed &&
+            row.original.errorReason && (
+              <div className="text-xs text-destructive">
+                {row.original.errorReason}
+              </div>
+            )}
         </div>
       ),
     },
