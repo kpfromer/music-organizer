@@ -436,7 +436,7 @@ export type QueryUnimportableFilesArgs = {
 export type QueryWishlistItemsArgs = {
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
-  status?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<WishlistStatus>;
 };
 
 
@@ -698,7 +698,7 @@ export type WishlistItem = {
   lastAttemptAt?: Maybe<Scalars['DateTime']['output']>;
   nextRetryAt?: Maybe<Scalars['DateTime']['output']>;
   spotifyTrackId: Scalars['String']['output'];
-  status: Scalars['String']['output'];
+  status: WishlistStatus;
   trackAlbum: Scalars['String']['output'];
   trackArtists: Array<Scalars['String']['output']>;
   trackTitle: Scalars['String']['output'];
@@ -722,6 +722,15 @@ export type WishlistStatsGql = {
   pending: Scalars['Int']['output'];
   searching: Scalars['Int']['output'];
 };
+
+export enum WishlistStatus {
+  Completed = 'COMPLETED',
+  Downloading = 'DOWNLOADING',
+  Failed = 'FAILED',
+  Importing = 'IMPORTING',
+  Pending = 'PENDING',
+  Searching = 'SEARCHING'
+}
 
 export type YoutubeSubscription = {
   __typename?: 'YoutubeSubscription';
@@ -931,7 +940,7 @@ export type AddToWishlistFromUnmatchedMutationVariables = Exact<{
 }>;
 
 
-export type AddToWishlistFromUnmatchedMutation = { __typename?: 'Mutation', addToWishlist: { __typename?: 'WishlistItem', id: number, status: string } };
+export type AddToWishlistFromUnmatchedMutation = { __typename?: 'Mutation', addToWishlist: { __typename?: 'WishlistItem', id: number, status: WishlistStatus } };
 
 export type SpotifyAccountsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -985,11 +994,11 @@ export type UnimportableFilesQuery = { __typename?: 'Query', unimportableFiles: 
 export type WishlistItemsQueryVariables = Exact<{
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
-  status?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<WishlistStatus>;
 }>;
 
 
-export type WishlistItemsQuery = { __typename?: 'Query', wishlistItems: { __typename?: 'WishlistItemsResponse', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WishlistItem', id: number, spotifyTrackId: string, status: string, errorReason?: string | null, attemptsCount: number, lastAttemptAt?: any | null, nextRetryAt?: any | null, createdAt: any, updatedAt: any, trackTitle: string, trackArtists: Array<string>, trackAlbum: string }> } };
+export type WishlistItemsQuery = { __typename?: 'Query', wishlistItems: { __typename?: 'WishlistItemsResponse', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WishlistItem', id: number, spotifyTrackId: string, status: WishlistStatus, errorReason?: string | null, attemptsCount: number, lastAttemptAt?: any | null, nextRetryAt?: any | null, createdAt: any, updatedAt: any, trackTitle: string, trackArtists: Array<string>, trackAlbum: string }> } };
 
 export type WishlistStatsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1008,7 +1017,7 @@ export type RetryWishlistItemMutationVariables = Exact<{
 }>;
 
 
-export type RetryWishlistItemMutation = { __typename?: 'Mutation', retryWishlistItem: { __typename?: 'WishlistItem', id: number, status: string } };
+export type RetryWishlistItemMutation = { __typename?: 'Mutation', retryWishlistItem: { __typename?: 'WishlistItem', id: number, status: WishlistStatus } };
 
 export type YoutubeSubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1544,7 +1553,7 @@ export const UnimportableFilesDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<UnimportableFilesQuery, UnimportableFilesQueryVariables>;
 export const WishlistItemsDocument = new TypedDocumentString(`
-    query WishlistItems($page: Int, $pageSize: Int, $status: String) {
+    query WishlistItems($page: Int, $pageSize: Int, $status: WishlistStatus) {
   wishlistItems(page: $page, pageSize: $pageSize, status: $status) {
     items {
       id

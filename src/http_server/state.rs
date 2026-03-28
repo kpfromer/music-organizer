@@ -4,13 +4,13 @@ use tokio::sync::{Mutex, Notify};
 use crate::config::Config;
 use crate::database::Database;
 use crate::services::spotify::client::SpotifyApiCredentials;
-use crate::soulseek::SoulSeekClientContext;
+use song_rs::Client as SongDownloader;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct AppState {
     pub db: Arc<Database>,
-    pub soulseek_context: Arc<SoulSeekClientContext>,
+    pub song_downloader: SongDownloader,
     pub download_directory: PathBuf,
     pub api_key: String,
     pub config: Config,

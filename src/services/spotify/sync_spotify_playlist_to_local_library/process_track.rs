@@ -2,9 +2,9 @@ use crate::database::Database;
 use crate::entities;
 use crate::import_track::import_track;
 use crate::services::spotify::download_best_match_for_spotify_track::download_best_match_for_spotify_track;
-use crate::soulseek::SoulSeekClientContext;
 use color_eyre::eyre::Result;
 use sea_orm::{EntityTrait, Set};
+use song_rs::Client as SongDownloader;
 use tracing;
 
 /// Result of processing a single Spotify track.
@@ -27,7 +27,7 @@ pub struct ProcessTrackResult {
 /// This is typically obtained from `Entity::load().with(...)`.
 pub async fn process_spotify_track(
     db: &Database,
-    soulseek_context: &SoulSeekClientContext,
+    song_downloader: &SongDownloader,
     api_key: &str,
     config: &crate::config::Config,
     spotify_playlist_id: i64,
@@ -52,7 +52,7 @@ pub async fn process_spotify_track(
     );
 
     let output =
-        download_best_match_for_spotify_track(soulseek_context, spotify_track.clone().into()).await;
+        download_best_match_for_spotify_track(song_downloader, spotify_track.clone().into()).await;
 
     match output {
         Ok(Some((_temp_dir, temp_file))) => {

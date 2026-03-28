@@ -7,12 +7,13 @@ pub mod widgets;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::soulseek::SoulSeekClientContext;
 use color_eyre::Result;
+use song_rs::Client as SongDownloader;
+use tokio::sync::Mutex;
 
 /// Main entry point for the TUI
 pub async fn run(
-    soulseek_context: Arc<SoulSeekClientContext>,
+    song_downloader: Arc<Mutex<SongDownloader>>,
     download_output_directory: PathBuf,
 ) -> Result<()> {
     use crossterm::{
@@ -31,7 +32,7 @@ pub async fn run(
     let mut terminal = Terminal::new(backend)?;
 
     // Create and run app
-    let mut app = app::App::new(soulseek_context, download_output_directory);
+    let mut app = app::App::new(song_downloader, download_output_directory);
     let result = app.run(&mut terminal).await;
 
     // Restore terminal

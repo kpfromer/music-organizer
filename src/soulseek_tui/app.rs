@@ -1,14 +1,15 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing;
 
-use crate::soulseek::{SingleFileResult, SoulSeekClientContext, Track};
 use crate::soulseek_tui::event::{
     AppEvent, BackgroundEvent, BackgroundRequest, DownloadEvent, Event, EventHandler,
     RequestDownload, SearchEvent, SearchRequest,
 };
 use crate::soulseek_tui::input::handle_key_event;
 use color_eyre::Result;
-use std::path::PathBuf;
+use song_rs::{Client as SongDownloader, SongQuery};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
@@ -52,7 +53,7 @@ pub enum DownloadStatus {
 pub struct App {
     pub mode: AppMode,
     pub form: SearchForm,
-    pub results: Vec<SingleFileResult>,
+    pub results: Vec<song_rs::SongResult>,
     pub selected_result: usize,
     pub results_scroll: usize,
     pub download_progress: Option<DownloadProgress>,
@@ -67,7 +68,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        soulseek_context: Arc<SoulSeekClientContext>,
+        song_downloader: Arc<Mutex<SongDownloader>>,
         download_output_directory: PathBuf,
     ) -> Self {
         Self {
@@ -87,7 +88,7 @@ impl App {
             error_message: None,
             status_message: Some("Ready".to_string()),
             running: true,
-            events: EventHandler::new(soulseek_context),
+            events: EventHandler::new(song_downloader),
         }
     }
 
@@ -120,11 +121,11 @@ impl App {
                 AppEvent::StartSearch => {
                     self.events
                         .send_background_request(BackgroundRequest::Search(SearchRequest {
-                            track: Track {
+                            query: SongQuery {
                                 title: self.form.title.clone(),
-                                artists: vec![self.form.artist.clone()],
-                                album: self.form.album.clone(),
-                                length: self.form.length.parse::<u32>().ok(),
+                                artist: self.form.artist.clone(),
+                                album: Some(self.form.album.clone()),
+                                duration_secs: self.form.length.parse::<u32>().unwrap_or(0),
                             },
                         }));
                 }

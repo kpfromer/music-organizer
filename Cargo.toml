@@ -1,68 +1,81 @@
 [package]
-license = "MIT"
 name = "music-manager"
 version = "0.1.0"
 edition = "2024"
-
+license = "MIT"
 
 [dependencies]
-color-eyre = "0.6.5"
+async-graphql = { version = "7.0.17", features = ["chrono"] }
+async-graphql-axum = "7.0.17"
+async-trait = "0.1"
 audiotags = "0.5.0"
+axum = { version = "0.8.7", features = ["macros", "tracing"] }
+axum-extra = { version = "0.12.5", features = ["typed-header"] }
+axum-range = "1.0.0"
+backon = "1.6.0"
+chrono = "0.4.42"
 clap = { version = "4.5.53", features = ["derive", "env"] }
+color-eyre = "0.6.5"
+crossterm = "0.29"
 dirs = "6.0.0"
+futures-util = "0.3.31"
 governor = "0.6"
+infer = "0.19.0"
 musicbrainz_rs = "0.12.0"
+opentelemetry = "0.31.0"
+opentelemetry_sdk = "0.31.0"
+ratatui = "0.30.0-beta"
 reqwest = { version = "0.12.24", features = ["json"] }
+sea-orm = { version = "2.0.0-rc.27", features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-sqlite"
+] }
 serde = "1.0.228"
 serde_json = "1.0.145"
 serde-xml-rs = "0.8.2"
 sha2 = "0.10"
-tokio = {version = "1.48.0", features = ["full"] }
+thiserror = "2.0.18"
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-stream = "0.1.18"
 toml = "0.9.8"
-walkdir = "2.5.0"
-which = "8.0.0"
-soulseek-rs-lib = "0.3.0"
-unaccent = "0.1"
-regex = { version = "1.10", features = ["unicode-perl"] }
-futures = "0.3"
-async-trait = "0.1"
-ratatui = "0.30.0-beta"
-crossterm = "0.29"
-backon = "1.6.0"
-sea-orm = { version = "2.0.0-rc.27", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-axum = { version = "0.8.7", features = ["macros", "tracing"] }
-chrono = "0.4.42"
-async-graphql = { version = "7.0.17", features = ["chrono"] }
-async-graphql-axum = "7.0.17"
-tower-http = {version = "0.6.8", features = ["cors", "fs", "trace"] }
 tower = "0.5.2"
-thiserror = "2.0.17"
-axum-range = "1.0.0"
-axum-extra = { version = "0.12.5", features = ["typed-header"] }
-infer = "0.19.0"
+tower-http = { version = "0.6.8", features = ["cors", "fs", "trace"] }
 url = "2.5.7"
 urlencoding = "2.1.3"
-futures-util = "0.3.31"
-tokio-stream = "0.1.18"
-opentelemetry = "0.31.0"
-opentelemetry_sdk = "0.31.0"
+walkdir = "2.5.0"
+which = "8.0.0"
 
+html_parser = "0.7.0"
+opentelemetry-otlp = { version = "0.31.0", features = [
+  "grpc-tonic",
+  "metrics",
+  "trace"
+] }
+opentelemetry-semantic-conventions = "0.31.0"
+rayon = "1.11.0"
 spotify-rs = { git = "https://github.com/kpfromer/spotify-rs", branch = "fix-for-unknown-tracks" }
 # spotify-rs = "0.4.1"
 tempfile = "3.24.0"
-opentelemetry-otlp = { version = "0.31.0", features = ["trace", "grpc-tonic", "metrics"] }
-opentelemetry-semantic-conventions = "0.31.0"
 tracing = "0.1.44"
 tracing-opentelemetry = "0.32.0"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "ansi"] }
-rayon = "1.11.0"
+tracing-subscriber = { version = "0.3.22", features = [
+  "ansi",
+  "env-filter",
+  "fmt",
+  "std"
+] }
 unicode-normalization = "0.1.25"
-html_parser = "0.7.0"
+
+song-rs = { package = "song-rs", git = "https://github.com/kpfromer/soulseek-rs", rev = "036d14d124a89af2343d2a95807d6357b886b840", features = [
+  "tracing"
+] }
 
 [dev-dependencies]
 mockall = "0.13"
 
 [profile.dev]
 opt-level = 1
+
 [profile.dev.package."*"]
 opt-level = 3

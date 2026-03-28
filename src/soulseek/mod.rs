@@ -1,9 +1,2 @@
-// TODO: Remove this once we have a proper API
-#![allow(dead_code)]
-
-pub mod client;
-pub mod types;
-
-// Re-export public API
-pub use client::SoulSeekClientContext;
-pub use types::*;
+// Soulseek functionality has been migrated to song-rs.
+// This module is kept as a placeholder for now.
