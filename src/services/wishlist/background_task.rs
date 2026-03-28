@@ -10,8 +10,6 @@ use sea_orm::{
 use song_rs::WantedFileTypes;
 use tempfile::TempDir;
 use tokio::sync::Notify;
-
-use tokio::sync::Mutex;
 use tracing::instrument;
 
 use crate::config::Config;
@@ -132,7 +130,7 @@ async fn process_single_item(
             artist: spotify_track
                 .artists
                 .0
-                .get(0)
+                .first()
                 .ok_or_eyre("No artist found")?
                 .clone(),
             album: Some(spotify_track.album.clone()),

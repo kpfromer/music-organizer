@@ -2,8 +2,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::Mutex;
-
 use crate::config::Config;
 use crate::database::Database;
 use crate::import_track;

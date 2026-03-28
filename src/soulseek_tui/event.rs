@@ -251,7 +251,7 @@ impl BackgroundThread {
             )));
 
         let results = {
-            let mut guard = self.song_downloader.lock().await;
+            let guard = self.song_downloader.lock().await;
             guard
                 .search(
                     &request.query,
@@ -291,7 +291,7 @@ impl BackgroundThread {
             .to_string();
 
         let (_download, mut receiver) = {
-            let mut guard = self.song_downloader.lock().await;
+            let guard = self.song_downloader.lock().await;
             guard.download(result, &download_dir).await
         }?;
 

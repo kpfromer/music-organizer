@@ -11,7 +11,6 @@ use axum::{
 };
 use color_eyre::eyre::{Context, eyre};
 use song_rs::Client as SongDownloader;
-use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tower_http::{cors::CorsLayer, services::ServeDir};

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::spotify_queries::SpotifyAccount;
 use crate::entities;
 use crate::http_server::graphql::context::get_app_state;

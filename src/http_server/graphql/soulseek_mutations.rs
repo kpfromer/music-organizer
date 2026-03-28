@@ -1,8 +1,8 @@
 use async_graphql::{Context, Object, SimpleObject};
-use song_rs::{FileType, SongQuery, SongResult };
+use song_rs::{FileType, SongQuery, SongResult};
 
 use crate::http_server::graphql::context::get_app_state;
-use crate::http_server::graphql_error::{, GraphqlResult};
+use crate::http_server::graphql_error::GraphqlResult;
 use crate::services::soulseek_service::SoulseekService;
 
 #[derive(Debug, Clone, SimpleObject)]

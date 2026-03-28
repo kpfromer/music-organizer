@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use tokio::sync::Mutex;
-
 use crate::config::Config;
 use crate::database::Database;
 use crate::entities;
