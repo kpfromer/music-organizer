@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronUp,
   Heart,
+  HeartOff,
   Music,
   Search,
   X,
@@ -47,8 +48,8 @@ const SpotifyPlaylistsQuery = graphql(`
 `);
 
 const SpotifyUnmatchedTracksQuery = graphql(`
-  query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int) {
-    spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search, hasCandidates: $hasCandidates, sortByScore: $sortByScore, playlistId: $playlistId) {
+  query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int, $hideWishlisted: Boolean) {
+    spotifyUnmatchedTracks(page: $page, pageSize: $pageSize, search: $search, hasCandidates: $hasCandidates, sortByScore: $sortByScore, playlistId: $playlistId, hideWishlisted: $hideWishlisted) {
       unmatchedTracks {
         spotifyTrackId
         spotifyTitle
@@ -56,6 +57,7 @@ const SpotifyUnmatchedTracksQuery = graphql(`
         spotifyAlbum
         spotifyIsrc
         spotifyDuration
+        wishlistStatus
         candidates {
           id
           localTrack {
@@ -297,6 +299,7 @@ export function SpotifyUnmatchedTracks() {
     undefined,
   );
   const [sortByScore, setSortByScore] = useState(false);
+  const [hideWishlisted, setHideWishlisted] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<
     number | undefined
   >(undefined);
@@ -341,6 +344,7 @@ export function SpotifyUnmatchedTracks() {
       hasCandidates,
       sortByScore,
       selectedPlaylistId,
+      hideWishlisted,
     ],
     queryFn: () =>
       execute(SpotifyUnmatchedTracksQuery, {
@@ -350,6 +354,7 @@ export function SpotifyUnmatchedTracks() {
         hasCandidates,
         sortByScore: sortByScore || undefined,
         playlistId: selectedPlaylistId,
+        hideWishlisted: hideWishlisted || undefined,
       }),
   });
 
@@ -375,6 +380,7 @@ export function SpotifyUnmatchedTracks() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wishlistItems"] });
       queryClient.invalidateQueries({ queryKey: ["wishlistStats"] });
+      queryClient.invalidateQueries({ queryKey: ["spotifyUnmatchedTracks"] });
     },
   });
 
@@ -515,6 +521,17 @@ export function SpotifyUnmatchedTracks() {
                 </SelectContent>
               </Select>
             </div>
+            <Button
+              variant={hideWishlisted ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setHideWishlisted((v) => !v);
+                setPage(1);
+              }}
+            >
+              <HeartOff className="mr-1.5 h-3.5 w-3.5" />
+              Hide Wishlisted
+            </Button>
           </div>
 
           {/* Content */}
@@ -536,10 +553,11 @@ export function SpotifyUnmatchedTracks() {
               <div className="space-y-2">
                 {unmatchedTracks.map((track) => {
                   const isExpanded = expandedTrackId === track.spotifyTrackId;
+                  const isWishlisted = track.wishlistStatus != null;
                   return (
                     <div
                       key={track.spotifyTrackId}
-                      className="rounded-lg border"
+                      className={`rounded-lg border${isWishlisted ? " border-pink-500/40 bg-pink-500/5" : ""}`}
                     >
                       {/* Track header */}
                       <div className="flex items-center justify-between p-4">
@@ -573,6 +591,15 @@ export function SpotifyUnmatchedTracks() {
                               {formatDuration(track.spotifyDuration)}
                             </span>
                           )}
+                          {isWishlisted && (
+                            <Badge
+                              variant="outline"
+                              className="border-pink-500/60 text-pink-600 gap-1"
+                            >
+                              <Heart className="h-3 w-3 fill-current" />
+                              {track.wishlistStatus}
+                            </Badge>
+                          )}
                           <Badge variant="outline">
                             {track.candidates.length} candidate
                             {track.candidates.length !== 1 ? "s" : ""}
@@ -591,17 +618,19 @@ export function SpotifyUnmatchedTracks() {
                             <Search className="mr-1 h-3 w-3" />
                             Search
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              addToWishlist.mutate(track.spotifyTrackId)
-                            }
-                            disabled={addToWishlist.isPending}
-                          >
-                            <Heart className="mr-1 h-3 w-3" />
-                            Wishlist
-                          </Button>
+                          {!isWishlisted && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                addToWishlist.mutate(track.spotifyTrackId)
+                              }
+                              disabled={addToWishlist.isPending}
+                            >
+                              <Heart className="mr-1 h-3 w-3" />
+                              Wishlist
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"

@@ -9,6 +9,7 @@ import { formatDistanceToNow, parseISO } from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   RefreshCw,
   Trash2,
@@ -34,6 +35,7 @@ import {
 import { graphql } from "@/graphql";
 import { WishlistStatus } from "@/graphql/graphql";
 import { execute } from "@/lib/execute-graphql";
+import { getUrl } from "@/lib/get-url";
 
 const WishlistItemsQuery = graphql(`
   query WishlistItems($page: Int, $pageSize: Int, $status: WishlistStatus) {
@@ -51,6 +53,7 @@ const WishlistItemsQuery = graphql(`
         trackTitle
         trackArtists
         trackAlbum
+        trackDurationSeconds
       }
       totalCount
       page
@@ -98,6 +101,7 @@ type WishlistItemRow = {
   trackTitle: string;
   trackArtists: string[];
   trackAlbum: string;
+  trackDurationSeconds?: number | null;
 };
 
 function statusBadge(status: WishlistStatus) {
@@ -353,7 +357,15 @@ export function Wishlist() {
   return (
     <div className="container mx-auto p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4">Wishlist</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Wishlist</h1>
+          <Button variant="outline" size="sm" asChild>
+            <a href={getUrl("/wishlist/export.csv")} download="wishlist.csv">
+              <Download className="mr-2 h-4 w-4" />
+              Download CSV
+            </a>
+          </Button>
+        </div>
 
         {stats && (
           <div className="flex flex-wrap gap-3">

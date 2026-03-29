@@ -23,6 +23,7 @@ pub struct MatchCandidateWithTrack {
 pub struct UnmatchedTrackWithCandidates {
     pub spotify_track: entities::spotify_track::Model,
     pub candidates: Vec<MatchCandidateWithTrack>,
+    pub wishlist_status: Option<entities::wishlist_item::WishlistStatus>,
 }
 
 pub struct SpotifyMatchingService {
@@ -149,12 +150,14 @@ impl SpotifyMatchingService {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_unmatched_tracks(
         &self,
         search: Option<&str>,
         has_candidates: Option<bool>,
         sort_by_score: bool,
         playlist_id: Option<i64>,
+        hide_wishlisted: bool,
         page: usize,
         page_size: usize,
     ) -> Result<PaginatedResult<UnmatchedTrackWithCandidates>> {
@@ -186,6 +189,16 @@ impl SpotifyMatchingService {
                             .rev(),
                     )
                     .filter(entities::spotify_track_playlist::Column::SpotifyPlaylistId.eq(pid));
+            }
+
+            if hide_wishlisted {
+                // Left join wishlist_item and exclude tracks that have one
+                query = query
+                    .join(
+                        JoinType::LeftJoin,
+                        entities::wishlist_item::Relation::SpotifyTrack.def().rev(),
+                    )
+                    .filter(entities::wishlist_item::Column::Id.is_null());
             }
 
             if has_candidates == Some(true) || sort_by_score {
@@ -246,6 +259,24 @@ impl SpotifyMatchingService {
             .await
             .wrap_err("Failed to fetch unmatched spotify tracks")?;
 
+        // Bulk-fetch wishlist statuses for all returned tracks
+        let track_ids: Vec<String> = spotify_tracks
+            .iter()
+            .map(|t| t.spotify_track_id.clone())
+            .collect();
+        let wishlist_items = entities::wishlist_item::Entity::find()
+            .filter(entities::wishlist_item::Column::SpotifyTrackId.is_in(track_ids))
+            .all(&self.db.conn)
+            .await
+            .wrap_err("Failed to fetch wishlist items")?;
+        let wishlist_map: std::collections::HashMap<
+            String,
+            entities::wishlist_item::WishlistStatus,
+        > = wishlist_items
+            .into_iter()
+            .map(|w| (w.spotify_track_id, w.status))
+            .collect();
+
         let mut items = Vec::new();
         for spotify_track in spotify_tracks {
             let candidate_models = entities::spotify_match_candidate::Entity::find()
@@ -273,9 +304,11 @@ impl SpotifyMatchingService {
                 });
             }
 
+            let wishlist_status = wishlist_map.get(&spotify_track.spotify_track_id).copied();
             items.push(UnmatchedTrackWithCandidates {
                 spotify_track,
                 candidates,
+                wishlist_status,
             });
         }
 
@@ -578,7 +611,7 @@ mod tests {
 
         let service = SpotifyMatchingService::new(db);
         let result = service
-            .list_unmatched_tracks(None, None, false, None, 1, 25)
+            .list_unmatched_tracks(None, None, false, None, false, 1, 25)
             .await
             .unwrap();
 
@@ -635,14 +668,14 @@ mod tests {
 
         // Without filter: both tracks
         let result = service
-            .list_unmatched_tracks(None, None, false, None, 1, 25)
+            .list_unmatched_tracks(None, None, false, None, false, 1, 25)
             .await
             .unwrap();
         assert_eq!(result.total_count, 2);
 
         // With playlist filter: only sp1
         let result = service
-            .list_unmatched_tracks(None, None, false, Some(playlist.id), 1, 25)
+            .list_unmatched_tracks(None, None, false, Some(playlist.id), false, 1, 25)
             .await
             .unwrap();
         assert_eq!(result.total_count, 1);

@@ -29,6 +29,7 @@ pub struct WishlistItem {
     pub track_title: String,
     pub track_artists: Vec<String>,
     pub track_album: String,
+    pub track_duration_seconds: Option<i32>,
 }
 
 #[derive(async_graphql::SimpleObject)]
@@ -89,6 +90,7 @@ fn to_wishlist_item_gql(
         track_title: spotify_track.title,
         track_artists: spotify_track.artists.0,
         track_album: spotify_track.album,
+        track_duration_seconds: spotify_track.duration.map(|d| d / 1000),
     })
 }
 
