@@ -40,6 +40,7 @@ pub async fn download_best_match_for_spotify_track(
             Duration::from_secs(10),
             &temp_dir_path_str,
             &WantedFileTypes::all(),
+            Some(Duration::from_secs(30)),
         )
         .await
     {
@@ -76,6 +77,10 @@ pub async fn download_best_match_for_spotify_track(
             song_rs::DownloadStatus::TimedOut => {
                 tracing::error!("Download timed out");
                 return Err(color_eyre::eyre::eyre!("Download timed out"));
+            }
+            song_rs::DownloadStatus::Cancelled => {
+                tracing::error!("Download was cancelled");
+                return Err(color_eyre::eyre::eyre!("Download was cancelled"));
             }
         }
     }

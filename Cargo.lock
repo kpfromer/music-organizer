@@ -4388,7 +4388,7 @@ dependencies = [
 [[package]]
 name = "song-rs"
 version = "0.1.0"
-source = "git+https://github.com/kpfromer/soulseek-rs?rev=036d14d124a89af2343d2a95807d6357b886b840#036d14d124a89af2343d2a95807d6357b886b840"
+source = "git+https://github.com/kpfromer/soulseek-rs?rev=cce130da700e27adf8b229d145b4e7902c28c492#cce130da700e27adf8b229d145b4e7902c28c492"
 dependencies = [
  "soulseek-rs-lib",
  "thiserror 2.0.18",
@@ -4400,7 +4400,7 @@ dependencies = [
 [[package]]
 name = "soulseek-rs-lib"
 version = "0.1.0"
-source = "git+https://github.com/kpfromer/soulseek-rs?rev=036d14d124a89af2343d2a95807d6357b886b840#036d14d124a89af2343d2a95807d6357b886b840"
+source = "git+https://github.com/kpfromer/soulseek-rs?rev=cce130da700e27adf8b229d145b4e7902c28c492#cce130da700e27adf8b229d145b4e7902c28c492"
 dependencies = [
  "bytes",
  "socket2 0.5.10",

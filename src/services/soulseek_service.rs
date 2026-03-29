@@ -50,11 +50,15 @@ impl SoulseekService {
             .ok_or_else(|| color_eyre::eyre::eyre!("Download directory is not valid UTF-8"))?
             .to_string();
 
-        let (_download, mut receiver) =
-            { self.song_downloader.download(result, &download_dir).await }.map_err(|e| {
-                tracing::error!("SoulSeek download error: {}", e);
-                color_eyre::eyre::eyre!("SoulSeek download failed: {}", e)
-            })?;
+        let (_download, mut receiver) = {
+            self.song_downloader
+                .download(result, &download_dir, Some(Duration::from_secs(30)))
+                .await
+        }
+        .map_err(|e| {
+            tracing::error!("SoulSeek download error: {}", e);
+            color_eyre::eyre::eyre!("SoulSeek download failed: {}", e)
+        })?;
 
         let filename = result.filename.filename().to_string();
 
@@ -86,6 +90,13 @@ impl SoulseekService {
                 song_rs::DownloadStatus::TimedOut => {
                     tracing::error!("Download timed out: {}", filename);
                     return Err(color_eyre::eyre::eyre!("Download timed out: {}", filename));
+                }
+                song_rs::DownloadStatus::Cancelled => {
+                    tracing::error!("Download was cancelled: {}", filename);
+                    return Err(color_eyre::eyre::eyre!(
+                        "Download was cancelled: {}",
+                        filename
+                    ));
                 }
             }
         }

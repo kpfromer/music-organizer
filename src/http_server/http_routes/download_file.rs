@@ -6,6 +6,7 @@ use axum::{
 };
 use futures_util::StreamExt;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -72,7 +73,7 @@ pub async fn download_file(
     let (_, mut download_receiver) = {
         app_state
             .song_downloader
-            .download(&result, download_dir)
+            .download(&result, download_dir, Some(Duration::from_secs(30)))
             .await
     }
     .map_err(|e| {
@@ -127,6 +128,16 @@ pub async fn download_file(
                     let _ = tx
                         .send(DownloadEvent::Failed {
                             message: "Download timed out".to_string(),
+                        })
+                        .await;
+                    has_finished = true;
+                    break;
+                }
+
+                song_rs::DownloadStatus::Cancelled => {
+                    let _ = tx
+                        .send(DownloadEvent::Failed {
+                            message: "Download was cancelled".to_string(),
                         })
                         .await;
                     has_finished = true;
