@@ -412,6 +412,7 @@ export type QuerySpotifyTrackDownloadFailuresArgs = {
 
 export type QuerySpotifyUnmatchedTracksArgs = {
   hasCandidates?: InputMaybe<Scalars['Boolean']['input']>;
+  hideWishlisted?: InputMaybe<Scalars['Boolean']['input']>;
   page?: InputMaybe<Scalars['Int']['input']>;
   pageSize?: InputMaybe<Scalars['Int']['input']>;
   playlistId?: InputMaybe<Scalars['Int']['input']>;
@@ -586,6 +587,7 @@ export type SpotifyUnmatchedTrack = {
   spotifyIsrc?: Maybe<Scalars['String']['output']>;
   spotifyTitle: Scalars['String']['output'];
   spotifyTrackId: Scalars['String']['output'];
+  wishlistStatus?: Maybe<WishlistStatus>;
 };
 
 export type SpotifyUnmatchedTracksResponse = {
@@ -899,10 +901,11 @@ export type SpotifyUnmatchedTracksQueryVariables = Exact<{
   hasCandidates?: InputMaybe<Scalars['Boolean']['input']>;
   sortByScore?: InputMaybe<Scalars['Boolean']['input']>;
   playlistId?: InputMaybe<Scalars['Int']['input']>;
+  hideWishlisted?: InputMaybe<Scalars['Boolean']['input']>;
 }>;
 
 
-export type SpotifyUnmatchedTracksQuery = { __typename?: 'Query', spotifyUnmatchedTracks: { __typename?: 'SpotifyUnmatchedTracksResponse', totalCount: number, page: number, pageSize: number, unmatchedTracks: Array<{ __typename?: 'SpotifyUnmatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, candidates: Array<{ __typename?: 'SpotifyMatchCandidate', id: number, score: number, confidence: string, titleSimilarity: number, artistSimilarity: number, albumSimilarity: number, durationMatch: string, versionMatch: string, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> }> } };
+export type SpotifyUnmatchedTracksQuery = { __typename?: 'Query', spotifyUnmatchedTracks: { __typename?: 'SpotifyUnmatchedTracksResponse', totalCount: number, page: number, pageSize: number, unmatchedTracks: Array<{ __typename?: 'SpotifyUnmatchedTrack', spotifyTrackId: string, spotifyTitle: string, spotifyArtists: Array<string>, spotifyAlbum: string, spotifyIsrc?: string | null, spotifyDuration?: number | null, wishlistStatus?: WishlistStatus | null, candidates: Array<{ __typename?: 'SpotifyMatchCandidate', id: number, score: number, confidence: string, titleSimilarity: number, artistSimilarity: number, albumSimilarity: number, durationMatch: string, versionMatch: string, localTrack: { __typename?: 'Track', id: number, title: string, trackNumber?: number | null, duration?: number | null, createdAt: any, album: { __typename?: 'Album', id: number, title: string, year?: number | null, artworkUrl?: string | null }, artists: Array<{ __typename?: 'Artist', id: number, name: string }> } }> }> } };
 
 export type SearchLocalTracksForMatchingQueryVariables = Exact<{
   search: Scalars['String']['input'];
@@ -1361,7 +1364,7 @@ export const SpotifyPlaylistsForFilterDocument = new TypedDocumentString(`
 }
     `) as unknown as TypedDocumentString<SpotifyPlaylistsForFilterQuery, SpotifyPlaylistsForFilterQueryVariables>;
 export const SpotifyUnmatchedTracksDocument = new TypedDocumentString(`
-    query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int) {
+    query SpotifyUnmatchedTracks($page: Int, $pageSize: Int, $search: String, $hasCandidates: Boolean, $sortByScore: Boolean, $playlistId: Int, $hideWishlisted: Boolean) {
   spotifyUnmatchedTracks(
     page: $page
     pageSize: $pageSize
@@ -1369,6 +1372,7 @@ export const SpotifyUnmatchedTracksDocument = new TypedDocumentString(`
     hasCandidates: $hasCandidates
     sortByScore: $sortByScore
     playlistId: $playlistId
+    hideWishlisted: $hideWishlisted
   ) {
     unmatchedTracks {
       spotifyTrackId
@@ -1377,6 +1381,7 @@ export const SpotifyUnmatchedTracksDocument = new TypedDocumentString(`
       spotifyAlbum
       spotifyIsrc
       spotifyDuration
+      wishlistStatus
       candidates {
         id
         localTrack {

@@ -102,6 +102,7 @@ pub struct SpotifyUnmatchedTrack {
     pub spotify_isrc: Option<String>,
     pub spotify_duration: Option<i32>,
     pub candidates: Vec<SpotifyMatchCandidate>,
+    pub wishlist_status: Option<crate::entities::wishlist_item::WishlistStatus>,
 }
 
 #[derive(async_graphql::SimpleObject)]
@@ -282,6 +283,7 @@ impl SpotifyQuery {
         has_candidates: Option<bool>,
         sort_by_score: Option<bool>,
         playlist_id: Option<i64>,
+        hide_wishlisted: Option<bool>,
     ) -> GraphqlResult<SpotifyUnmatchedTracksResponse> {
         let app_state = get_app_state(ctx)?;
         let service = SpotifyMatchingService::new(app_state.db.clone());
@@ -295,6 +297,7 @@ impl SpotifyQuery {
                 has_candidates,
                 sort_by_score.unwrap_or(false),
                 playlist_id,
+                hide_wishlisted.unwrap_or(false),
                 page,
                 page_size,
             )
@@ -326,6 +329,7 @@ impl SpotifyQuery {
                 spotify_isrc: item.spotify_track.isrc,
                 spotify_duration: item.spotify_track.duration.map(|d| d / 1000),
                 candidates,
+                wishlist_status: item.wishlist_status,
             });
         }
 
