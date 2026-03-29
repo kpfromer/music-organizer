@@ -292,7 +292,9 @@ impl BackgroundThread {
 
         let (_download, mut receiver) = {
             let guard = self.song_downloader.lock().await;
-            guard.download(result, &download_dir).await
+            guard
+                .download(result, &download_dir, Some(Duration::from_secs(30)))
+                .await
         }?;
 
         let filename_str = result.filename.filename().to_string();
@@ -337,6 +339,13 @@ impl BackgroundThread {
                     self.sender
                         .send(Event::Background(BackgroundEvent::DownloadEvent(
                             DownloadEvent::Failed("Download timed out".to_string()),
+                        )))?;
+                    break;
+                }
+                song_rs::DownloadStatus::Cancelled => {
+                    self.sender
+                        .send(Event::Background(BackgroundEvent::DownloadEvent(
+                            DownloadEvent::Failed("Download was cancelled".to_string()),
                         )))?;
                     break;
                 }

@@ -222,7 +222,11 @@ async fn download_track(
         tracing::debug!(?download_directory, "Download directory");
 
         let (download, mut download_receiver) = song_downloader
-            .download(&to_be_downloaded, download_directory)
+            .download(
+                &to_be_downloaded,
+                download_directory,
+                Some(Duration::from_secs(30)),
+            )
             .await?;
 
         // Compute path before the async block so temp_dir stays in scope
@@ -259,6 +263,13 @@ async fn download_track(
                         tracing::error!(
                             ?song_query,
                             "Download timed out by song_rs. Trying next song match from soulseek."
+                        );
+                        break;
+                    }
+                    song_rs::DownloadStatus::Cancelled => {
+                        tracing::error!(
+                            ?song_query,
+                            "Download was cancelled. Trying next song match from soulseek."
                         );
                         break;
                     }

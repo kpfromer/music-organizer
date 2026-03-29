@@ -67,7 +67,7 @@ tracing-subscriber = { version = "0.3.22", features = [
 ] }
 unicode-normalization = "0.1.25"
 
-song-rs = { package = "song-rs", git = "https://github.com/kpfromer/soulseek-rs", rev = "036d14d124a89af2343d2a95807d6357b886b840", features = [
+song-rs = { package = "song-rs", git = "https://github.com/kpfromer/soulseek-rs", rev = "cce130da700e27adf8b229d145b4e7902c28c492", features = [
   "tracing"
 ] }
 
