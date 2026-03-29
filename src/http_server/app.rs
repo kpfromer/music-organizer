@@ -23,7 +23,7 @@ use crate::{
         graphql,
         http_routes::{
             album_art_image::get_track_album_art_image, audio_file::audio_file,
-            download_file::download_file,
+            download_file::download_file, wishlist_export::wishlist_export_csv,
         },
         state::AppState,
     },
@@ -174,6 +174,7 @@ pub async fn start(config: HttpServerConfig) -> color_eyre::Result<()> {
         )
         .route("/audio-file/{track_id}", get(audio_file))
         .route("/download-file", post(download_file))
+        .route("/wishlist/export.csv", get(wishlist_export_csv))
         .layer(ServiceBuilder::new().layer(cors_layer))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state.clone());

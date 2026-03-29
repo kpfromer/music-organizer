@@ -150,6 +150,7 @@ impl SpotifyMatchingService {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_unmatched_tracks(
         &self,
         search: Option<&str>,

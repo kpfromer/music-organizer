@@ -703,6 +703,7 @@ export type WishlistItem = {
   status: WishlistStatus;
   trackAlbum: Scalars['String']['output'];
   trackArtists: Array<Scalars['String']['output']>;
+  trackDurationSeconds?: Maybe<Scalars['Int']['output']>;
   trackTitle: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
 };
@@ -1001,7 +1002,7 @@ export type WishlistItemsQueryVariables = Exact<{
 }>;
 
 
-export type WishlistItemsQuery = { __typename?: 'Query', wishlistItems: { __typename?: 'WishlistItemsResponse', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WishlistItem', id: number, spotifyTrackId: string, status: WishlistStatus, errorReason?: string | null, attemptsCount: number, lastAttemptAt?: any | null, nextRetryAt?: any | null, createdAt: any, updatedAt: any, trackTitle: string, trackArtists: Array<string>, trackAlbum: string }> } };
+export type WishlistItemsQuery = { __typename?: 'Query', wishlistItems: { __typename?: 'WishlistItemsResponse', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WishlistItem', id: number, spotifyTrackId: string, status: WishlistStatus, errorReason?: string | null, attemptsCount: number, lastAttemptAt?: any | null, nextRetryAt?: any | null, createdAt: any, updatedAt: any, trackTitle: string, trackArtists: Array<string>, trackAlbum: string, trackDurationSeconds?: number | null }> } };
 
 export type WishlistStatsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1573,6 +1574,7 @@ export const WishlistItemsDocument = new TypedDocumentString(`
       trackTitle
       trackArtists
       trackAlbum
+      trackDurationSeconds
     }
     totalCount
     page
