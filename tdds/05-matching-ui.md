@@ -13,7 +13,7 @@ A single page at `/matching`, which is essentially a queue of unmatched files. S
 
 For each unmatched `file`, we have:
 - `original_filename`, `relative_path`
-- `sha256`, `format`, `size_bytes`
+- `format`, `size_bytes`
 - `file_audio_info.duration_ms`, `bit_rate_kbps`, `codec`
 - Existing tags read from the file (re-read on demand; not cached in DB to avoid drift)
 

@@ -37,7 +37,7 @@ The drop zone could write straight into the import queue, but routing through th
 ```
 file path
    │
-   ├─ stage 1: pre-flight     (extension check, sha256, dedupe via unimportable_file/file)
+   ├─ stage 1: pre-flight     (extension check, peek MUSIC_MANAGER_FILE_ID tag, re-link if known)
    │
    ├─ stage 2: read tags      (lofty)
    │
@@ -110,7 +110,7 @@ Either signal sets `file.is_corrupt = 1` with a `corruption_reason` describing w
 - If track is unmatched (Branch C):
   `_unmatched/{original_filename}`
 - Sanitization: strip `/ \ : * ? " < > |`, collapse whitespace, truncate each path segment to 200 chars, normalize Unicode (NFC).
-- Duplicate handling: if the target path exists, append ` (2)`, ` (3)` until free. (This is rare since sha256 dedup already happened, but two different rips of the same track legitimately collide on path.)
+- Duplicate handling: if the target path exists, append ` (2)`, ` (3)` until free. (Two different rips of the same track legitimately collide on path under the default template.)
 
 Move strategy:
 1. Try `std::fs::rename` (atomic, same-filesystem).
@@ -190,7 +190,7 @@ UI polls a "recent imports" GraphQL query (last N rows + any in non-terminal sta
 
 ## Re-import / re-process
 
-UI action "re-process this file": re-runs stages 3–7 on an existing `file` row without re-moving or re-hashing. Useful when:
+UI action "re-process this file": re-runs stages 3–7 on an existing `file` row without re-moving the file. Useful when:
 - AcoustID/MB previously failed but might succeed now.
 - The user has just edited tags via the matching UI.
 

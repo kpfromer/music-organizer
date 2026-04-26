@@ -2,37 +2,48 @@
 
 > How schema evolves, how files are laid out on disk, what to back up, what env vars do what.
 
-## Atlas migrations
+## Migrations
+
+**Atlas is a developer-time tool only. The Atlas binary is never present in the production Docker image and is never invoked at runtime.** At runtime, the rust binary applies plain `.sql` migration files itself — same approach as v1.
 
 ### Files
 
-- `atlas.hcl` — Atlas project config; declares dev DB URL, prod DB URL, migration dir.
-- `schema/schema.sql` — declarative schema (or `schema.hcl` if we go HCL; v2 leans SQL because SQLite features are well-supported there).
-- `migrations/` — generated versioned migration files (do not hand-edit after generation).
+- `atlas.hcl` — Atlas project config (dev only).
+- `schema/schema.sql` — declarative target schema. The source of truth.
+- `migrations/` — generated versioned `.sql` files (`<timestamp>_<name>.sql`). Embedded into the binary via `include_dir!` or `rust-embed`. Do not hand-edit after generation.
+- `migrations/atlas.sum` — Atlas's checksum file; committed; used by Atlas linting only.
 
-### Workflow
-
-Authoring a change:
+### Authoring workflow (dev only)
 
 1. Edit `schema/schema.sql` to express the desired shape.
-2. `atlas migrate diff <name> --env dev` — Atlas computes a diff against the current migrations directory and writes a new versioned `.sql` file.
-3. Inspect the generated SQL. Hand-edit only if the auto-generated migration is destructive in a way Atlas can't infer (e.g. column rename Atlas saw as drop+add).
-4. `atlas migrate lint --env dev` — checks for destructive changes, missing rollbacks (we don't run rollbacks but lint flags them).
-5. Commit `schema/schema.sql` + the new migration file together.
+2. `atlas migrate diff <name> --env dev` — Atlas computes a diff against the current migrations directory and writes a new versioned `.sql` file under `migrations/`.
+3. Inspect the generated SQL. Hand-edit if needed (e.g. column rename that Atlas saw as drop+add).
+4. `atlas migrate lint --env dev` — flags destructive changes.
+5. Commit `schema/schema.sql` + the new `.sql` file + the updated `atlas.sum` together.
 
-Applying:
+### CI check
 
-- At server startup, `mm-server` runs `atlas migrate apply --env prod --url sqlite://$MM_DB_PATH` as a child process (or via the Atlas Go library if it has stable Rust bindings — confirm; otherwise child process is fine).
-- If apply fails: server refuses to start, logs the migration that failed, exits 1.
+CI runs `atlas migrate diff --dry-run` (or equivalent). If the dev schema would generate a non-empty diff against the committed migrations, CI fails with "uncommitted schema changes — run `atlas migrate diff` and commit the result." This catches PRs that edit `schema.sql` without generating the migration file.
 
-### Why Atlas vs SeaORM migrations
+### Runtime application
 
-SeaORM migrations (used in v1) are imperative Rust files that call SeaORM's schema builder. Atlas:
-- Declarative — the diff is the source of truth, harder to forget a column.
-- Better lint surface for destructive changes (single user, but still a guardrail).
-- Tooling-agnostic — schema file is plain SQL, can be reviewed without rust knowledge.
+At server startup, `mm-server` calls a small migration applier crate (`mm-migrate`):
 
-Trade-off: extra binary in the Docker image (~30MB). Worth it.
+1. Open the SQLite DB.
+2. Ensure a `_schema_migrations` tracking table exists (`version TEXT PRIMARY KEY, applied_at INTEGER NOT NULL`).
+3. For each `.sql` file in the embedded `migrations/` (sorted by filename), if its version isn't in `_schema_migrations`, execute it inside a transaction and record it.
+4. If any apply fails: log the migration version + error, exit 1.
+
+Implementation: hand-roll it (~50 lines) or use a small crate like `rusqlite_migration` if it accepts `&[(version, sql)]` slices. **Do not use `sqlx::migrate!`** — we're on SeaORM, and pulling sqlx in just for migrations is overkill.
+
+### Why Atlas (dev-only) vs SeaORM imperative migrations
+
+SeaORM migrations are imperative Rust files calling SeaORM's schema builder. Atlas at dev-time gives us:
+- Declarative — `schema.sql` is the source of truth, easy to read, easy to diff.
+- Better lint for destructive changes.
+- Plain `.sql` output — production runtime sees only sql, no Atlas dependency.
+
+Net cost: Atlas in dev environment + CI image only. Production image stays small.
 
 ### Initial migration
 
@@ -53,7 +64,6 @@ $MM_MUSIC_ROOT/
   _inbox/                       # = MM_WATCH_FOLDER (default)
     <files dropped here>
   .uploading/                   # in-progress drop-zone uploads
-  .duplicates/                  # files that hashed to an already-imported sha256
   .failed/                      # files where the move-or-DB step failed
   .cover_art/
     album-{id}-front.jpg

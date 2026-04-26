@@ -23,23 +23,35 @@ Position is dense (no gaps). Reordering is "delete all, reinsert in new order" i
 
 UI route: `/playlists/import`.
 
-### Supported input formats
+### Supported input format: CSV only
 
-1. **Spotify CSV export** (e.g. from Exportify, TuneMyMusic, etc.) — columns vary; we accept any CSV with at least `Track Name` and `Artist Name(s)` columns. Optional: `Album Name`, `ISRC`, `Duration (ms)`, `Spotify Track Id` (ignored — no spotify integration).
-2. **M3U / M3U8** — for files already on disk; lines that resolve to known `file.relative_path` are matched directly, others trigger fuzzy track search.
-3. **JSON** (our own export format, useful for backup/restore later) — strict shape, includes track MBIDs.
-4. **Plain text** — `Title - Artist` per line; lowest fidelity, least robust matching.
+v2 supports exactly one mass-import format: **CSV**. M3U, JSON, and plain-text are punted — they're all lossy in different ways and CSV covers the actual use case (Spotify exports via Exportify / TuneMyMusic / similar).
 
-`mm-playlist::parse_import(bytes, format)` returns a `Vec<ImportRow>`:
+**Required columns** (header names case-insensitive, common synonyms accepted):
+
+| Column | Synonyms | Required | Why |
+|---|---|---|---|
+| Title | Track Name, Song Name | yes | |
+| Artist | Artist Name(s), Artists | yes | |
+| Album | Album Name, Album | **yes** | Strong disambiguation signal — required per user spec. |
+| Duration | Duration (ms), Length, Track Duration | **yes** | The single best signal for matching identity (per discussion). Accepts `ms`, `s`, or `M:SS` and normalizes to ms. |
+
+**Optional columns**: `ISRC`, `Year`, `Track Number`. Anything else is ignored.
+
+If a row is missing any required column, the import fails the whole file with a precise error pointing at the offending row. We do not silently skip — partial imports of playlists are worse than refusing.
+
+`mm-playlist::parse_csv(bytes)` returns `Result<Vec<ImportRow>, ParseError>`:
 
 ```rust
 struct ImportRow {
   title: String,
   artist: String,
-  album: Option<String>,
-  duration_ms: Option<i64>,
+  album: String,        // required
+  duration_ms: i64,     // required
   isrc: Option<String>,
-  source_line: usize,  // for error reporting
+  year: Option<i32>,
+  track_number: Option<i32>,
+  source_line: usize,   // for error reporting
 }
 ```
 

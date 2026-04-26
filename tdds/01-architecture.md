@@ -53,6 +53,12 @@ soulseek-rs/
 | `mm-playback` | Compute `Content-Range` responses, decide transcode-or-passthrough per request, manage transcoder processes. | `mm-entities` (to resolve track→file), `symphonia`/`ffmpeg`. |
 | `mm-server` | The binary. Axum routes, GraphQL schema, watch-folder task spawn, wishlist task spawn, frontend bundle serving. | All `mm-*` crates. |
 
+### Error handling convention
+
+**All crates use `thiserror` for error types.** `anyhow` and `color_eyre` are not used anywhere in the workspace — their dynamic-error / context-stack model is an anti-pattern for libraries and a leak of detail at API boundaries. Each crate defines its own typed error enum (e.g. `mm_import::ImportError`, `mm_wishlist::WishlistError`) and conversions via `#[from]`. The binary (`mm-server`) is the only crate that may collapse errors at the very edge — and it does so by mapping typed errors onto `async_graphql::Error` with `extensions.code` (TDD 09), not by stringifying.
+
+This matches the convention already used in `soulseek-rs/` (see `src/error.rs`).
+
 ### Rules the layout enforces
 
 - **`mm-server` never contains business logic.** A resolver should look like: `Ok(import_service.import_file(input).await?.into())`. If a resolver grows past ~10 lines, the logic moves into a service crate.
@@ -110,7 +116,7 @@ Single Dockerfile, multi-stage:
 
 1. `node:20` stage — `pnpm install && pnpm build` → static bundle.
 2. `rust:1.84` stage — copies the bundle into the rust source tree, `cargo build --release`.
-3. `gcr.io/distroless/cc` final stage — copies the binary, the bundle (or relies on embed), and the `fpcalc` binary (Chromaprint).
+3. `gcr.io/distroless/cc` final stage — copies the binary, the bundle (or relies on embed), and the `fpcalc` binary (Chromaprint), plus `ffmpeg` for transcoding. **No Atlas binary** — migrations are applied by the rust binary against embedded `.sql` files (see TDD 11).
 
 User runs:
 

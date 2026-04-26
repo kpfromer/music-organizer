@@ -104,6 +104,25 @@ In v2, FIFO by `created_at`. Punted: priority field on wishlist items, urgent-mo
 
 Stored per-item (`preferred_formats`, `min_bitrate_kbps`) so different playlists imported with different prefs play nicely. UI presents global defaults at wishlist-creation time but each item can be overridden in its detail view.
 
+## File provenance tracking
+
+Every `file` row records where it came from. New column on `file` (TDD 02 amendment):
+
+| Col | Type | Notes |
+|---|---|---|
+| `provenance` | TEXT NOT NULL CHECK (`provenance IN ('WATCH_FOLDER','UPLOAD','SOULSEEK')`) | How this file got into the system. |
+
+- `WATCH_FOLDER` — file was placed in `MM_WATCH_FOLDER` directly (e.g. cp / mv from outside).
+- `UPLOAD` — came in via `POST /api/upload` (drop zone).
+- `SOULSEEK` — wishlist worker downloaded it.
+
+The watch-folder watcher tags files with `WATCH_FOLDER` by default. The upload handler renames into the watch folder with a sidecar marker file (`<name>.upload-marker`) that the watcher reads to assign `UPLOAD`. The wishlist worker calls `ImportService::import_path_with_provenance(path, SOULSEEK)` directly, bypassing the watcher.
+
+Why surface provenance:
+- UI filtering on the unmatched-files page ("show me only soulseek-acquired files").
+- Different cleanup policies later (e.g. "delete corrupt SOULSEEK files automatically and re-acquire" — punted).
+- Debugging — knowing where a file came from when something goes wrong.
+
 ## Manual actions (UI)
 
 - **Retry now** (any state) — sets `status = PENDING`, `next_retry_at = NULL`, pokes the worker via `Notify`.
@@ -114,10 +133,11 @@ Active item (SEARCHING/DOWNLOADING/etc.) cannot be cancelled mid-flight in v2 �
 
 ## Soulseek client lifecycle inside the binary
 
-- `song-rs::Client` is created once and stored in app state behind `Arc<Mutex<Option<Client>>>`.
-- First wishlist work triggers `connect()`. Stays connected.
-- Server shutdown disconnects.
-- Connection failures: `song-rs::Client::connect()` already has reconnect / relogin (per soulseek-rs `MEMORY.md` "Reconnect / Relogin"). Wishlist worker just retries on its own backoff.
+- `song-rs::Client` is `Send + Sync + Clone` (verified: it wraps `soulseek_rs::Client`, whose state is `Arc<Mutex<ClientInner>>`).
+- Stored in app state as plain `Arc<song_rs::Client>` — no `Mutex`, no `Option`. Created eagerly at startup.
+- `Client::new` does *not* connect; lazy connect happens inside `Client::search()` on first use. So no special "connection state" needs to live in our app state.
+- Server shutdown: drop the `Arc` (the underlying actor system shuts down via its `CancellationToken`).
+- Connection failures: `song_rs::Client` (via soulseek-rs) already handles reconnect / relogin (per soulseek-rs `MEMORY.md` "Reconnect / Relogin"). Wishlist worker just retries on its own backoff.
 
 ## Progress UI
 

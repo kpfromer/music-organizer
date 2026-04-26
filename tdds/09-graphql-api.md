@@ -210,7 +210,7 @@ type Mutation {
   rescanFolder: Boolean!  # nudges the watch-folder task to rescan now
   reprocessFile(fileId: ID!): ImportProgress!
   markFileNotCorrupt(fileId: ID!): File!  # manual override
-  retryUnimportableFile(sha256: String!): Boolean!
+  retryUnimportableFile(id: ID!): Boolean!
 
   # Matching
   matchFileToLocalTrack(fileId: ID!, trackId: ID!): File!

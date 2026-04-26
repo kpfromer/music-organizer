@@ -55,7 +55,7 @@
        └──────────────┘
 
        ┌──────────────────┐
-       │ unimportable_file│  (failed imports — sha256, reason, last_attempt_at)
+       │ unimportable_file│  (failed imports — original_filename, reason, failed_path)
        └──────────────────┘
 ```
 
@@ -160,9 +160,10 @@ The on-disk reality. **A `track` may have many `file`s** (different rips, differ
 | `is_corrupt` | INTEGER NOT NULL DEFAULT 0 | Set by audio-check at import. |
 | `corruption_reason` | TEXT | Human-readable; e.g. "decode error count 12 > threshold 10". |
 | `imported_at` | INTEGER NOT NULL | |
+| `provenance` | TEXT NOT NULL CHECK (`provenance IN ('WATCH_FOLDER','UPLOAD','SOULSEEK')`) | How this file got into the system — see TDD 08 §File provenance. |
 | `created_at`, `updated_at` | INTEGER NOT NULL | |
 
-Indexes: `UNIQUE(relative_path)`, `INDEX(track_id)`, `INDEX(is_corrupt)`.
+Indexes: `UNIQUE(relative_path)`, `INDEX(track_id)`, `INDEX(is_corrupt)`, `INDEX(provenance)`.
 
 > **No content hash.** v1 used `sha256` as the file's identity, which broke whenever we wrote tags to a file (tag write changes file bytes → hash changes). v2 uses `file.id` written into the file as a `MUSIC_MANAGER_FILE_ID` custom tag. The `id` is the canonical identity; the tag survives tag rewrites because tag writes don't change the tag we wrote. See TDD 03 §Stage 1 for re-link-on-reimport behavior.
 

@@ -69,7 +69,7 @@ V2 lives in a fresh repo (or fresh top-level dir of this one), pulling reusable 
 ## Glossary
 
 - **Track** — a structured, MusicBrainz-aware music entity. Has artists, an album, an MBID (when source = `MUSIC_BRAINZ`).
-- **File** — a single file on disk. Has a path, sha256, format, duration, corruption flag. Always exists; may or may not be linked to a Track.
+- **File** — a single file on disk. Has a path, format, duration, corruption flag. Always exists; may or may not be linked to a Track. Identity is `file.id`, written into the file as a `MUSIC_MANAGER_FILE_ID` custom tag.
 - **Source enum** (`USER_CREATED` | `MUSIC_BRAINZ`) — applies to Track, Album, Artist. Indicates whether the entity was hand-created vs. created from MB data.
 - **Match** — the act of linking a File to a Track. Auto-matched (via fingerprint/MB) or manually matched (via the matching UI).
 - **Wishlist item** — a desired track we don't have yet; the wishlist worker will try to acquire it via soulseek.
@@ -89,4 +89,6 @@ V2 lives in a fresh repo (or fresh top-level dir of this one), pulling reusable 
 - `08-wishlist.md` — soulseek-backed background acquisition, prioritization, retry/backoff.
 - `09-graphql-api.md` — schema sketch, REST exceptions, error shape, polling cadences.
 - `10-frontend.md` — routes, layout, state model, conventions.
-- `11-migrations-ops.md` — Atlas workflow, file layout on disk, backup, env vars.
+- `11-migrations-ops.md` — Atlas (dev-time only) workflow, runtime migration applier, file layout on disk, backup, env vars.
+- `12-metadata-editing.md` — edit rules: MB-backed = read-only, USER_CREATED = freely editable, demote escape hatch.
+- `13-frontend-conventions.md` — directory layout, where each component/hook/type lives, query keys, naming, codegen.

@@ -43,7 +43,7 @@ mb_cache_artist
   fetched_at          INTEGER NOT NULL
 
 acoustid_cache
-  fingerprint_sha256  TEXT PRIMARY KEY  -- sha256 of fingerprint string (fingerprint itself can be huge)
+  fingerprint         TEXT PRIMARY KEY  -- the chromaprint fingerprint string itself
   duration_secs       INTEGER NOT NULL
   payload_json        TEXT NOT NULL
   fetched_at          INTEGER NOT NULL

@@ -82,7 +82,7 @@ Wire `navigator.mediaSession.metadata` (title/artist/artwork) and action handler
 
 ### Shuffle semantics
 
-- "Spotify-style smart shuffle" is punted. v2 = Fisher-Yates over the queue, recomputed when shuffle toggles on.
+- **Pure Fisher-Yates over the queue, recomputed each time shuffle toggles on.** No "smart" / weighted / artist-spreading shuffle, ever. Random means random.
 - The currently-playing track stays at index 0 of the new shuffle order.
 
 ### Repeat
