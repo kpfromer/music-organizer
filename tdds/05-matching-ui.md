@@ -40,21 +40,36 @@ enum Candidate {
 
 ### Scoring
 
-Each `MatchReason` carries a weight; final `score` is a weighted sum normalized to [0, 1].
+Adapted from `song-rs/src/ranker.rs::compare_tracks` (`/Users/kpfromer/programming/rust/soulseek-rs/song-rs/src/ranker.rs:73`) — that code is tuned for soulseek search (filename is the dominant signal, peer-reported duration is noisy, format quality matters). Local-DB context flips this:
+- We have the file's decoded duration — precise.
+- DB tracks have MB-canonical durations — also precise.
+- File tags can be misspelled; titles/artists are *less* reliable than duration.
+- Format quality is irrelevant — we're matching identity, not picking a download.
 
-| Reason | Weight |
-|---|---|
-| `AcoustIdHighConfidence` (>0.9) | 1.0 |
-| `AcoustIdModerate` (0.7–0.9) | 0.7 |
-| `TitleExact` | 0.5 |
-| `TitleFuzzy(s)` | 0.5 * s |
-| `ArtistExact` | 0.3 |
-| `ArtistFuzzy(s)` | 0.3 * s |
-| `DurationWithin3s` | 0.2 |
-| `IsrcMatch` | 0.9 |
-| `MbRecordingIdInTags` | 1.0 (auto-import would've caught it; here means tags were added post-import) |
+So we reweight, while reusing the existing normalization + similarity + duration-falloff machinery.
 
-Candidates are sorted descending by score and returned. UI shows top 10 with reasons as tags.
+**Shared crate**: extract `normalize_str` (NFC + lowercase + strip `(…)`/`[…]` + collapse whitespace) and `similarity` (1 − Levenshtein/max_len) from `song-rs/src/ranker.rs` into a new workspace crate `mm-text-match`. Both `mm-matching` (this doc) and `song-rs` depend on it. Single source of truth for normalization rules.
+
+**Local-DB weights** (sum to 1.0):
+
+| Component | Weight | Curve |
+|---|---|---|
+| Duration | 0.50 | 1.0 within ±2s, linear falloff to 0.0 at ±30s (same shape as ranker.rs, shifted thresholds — files are more precise than soulseek metadata). |
+| Title | 0.30 | `similarity(normalize_str(file_title), normalize_str(track_title))`. |
+| Artist | 0.20 | Max similarity across the track's artists; 0.5 if the file's artist tag is missing. |
+
+**Override rules** (set score to 1.0 regardless of weighted sum):
+- File's tags contain a `MusicBrainz Recording Id` matching the candidate track's `musicbrainz_recording_id`. (This means tags were added post-import — we'd have auto-matched on Branch A otherwise.)
+- File's `ISRC` tag exactly matches a candidate track's `isrc` or any row in `track_isrc`.
+- AcoustID lookup (rerun on demand) returns this candidate's MB recording with confidence > 0.85.
+
+**Thresholds**:
+- Surface threshold: **0.65**. Below this, candidate is dropped before display.
+- Auto-accept threshold (for the bulk action "auto-accept top candidate where score ≥ X"): default **0.92**, user-adjustable in the bulk dialog.
+
+Candidates are sorted descending by score and returned. UI shows top 10 with reasons as small badges.
+
+**Worth noting**: when applied to MB-recording candidates from the AcoustID re-run path, score is dominated by the override rule (instant 1.0). The duration/title/artist scoring matters most for *local-DB* candidates and the *MB free-text search* path where there's no fingerprint match.
 
 ### Caching
 
@@ -107,11 +122,66 @@ This is a non-trivial flow; v2 implements it but with a confirmation modal showi
 ## Hotkeys
 
 (Per "tanstack hotkeys" — tentatively, see TDD 00 fallback note.)
-- `j` / `k` — next / previous candidate.
-- `Enter` — accept focused candidate.
+
+In list view (`/matching`):
+- `j` / `k` — next / previous file.
+- `Enter` — open focused file's detail.
+- `1` / `2` / `3` — quick-accept top candidate / 2nd candidate / 3rd candidate (delayed-commit, see below).
+
+In detail view (`/matching/$fileId`):
+- `j` / `k` — next / previous candidate within the file.
+- `Enter` — accept focused candidate (delayed-commit).
 - `n` — focus "Create new" form.
 - `s` — focus search box.
 - `r` — rescan candidates.
+
+Global within both views:
+- `z` — undo most-recent queued match.
+- `Z` (shift+z) — undo *all* queued matches.
+
+## Delayed-commit + multi-undo queue
+
+The matching UI is keyboard-driven and fast — which means it's also *easy to mis-tap* and slam a wrong match through. To make rapid tagging safe, accept actions are **optimistic in the UI but delayed in the network**:
+
+### Behavior
+
+1. User presses `Enter` (or `1`/`2`/`3`) to accept a candidate.
+2. UI immediately:
+   - Greys out the file in the list (it's "matched as far as you're concerned").
+   - Advances focus to the next file.
+   - Adds an entry to the **match queue** (client-side state, see `features/matching/match-queue.ts` per TDD 13).
+3. A toast stack in the bottom-right shows queued matches with countdown:
+   ```
+   ✓ Pearl Jam – Black            [undo Z]   2.4s
+   ✓ Pearl Jam – Yellow Ledbetter [undo Z]   1.8s
+   ```
+4. After `commit_delay_ms` (default 3000), the actual GraphQL mutation flushes. Toast disappears.
+5. `z` pops the most recent queued entry: undoes the optimistic UI state, the file un-greys and refocuses, no mutation ever fires.
+6. `Z` flushes the entire queue back to un-matched state.
+
+### Settings (localStorage, exposed in `/settings`)
+
+- `matchCommitDelayMs`: 3000 (range 0–10000). Set 0 to disable the buffer entirely.
+- `matchQueueMaxDepth`: 5. Older queued entries auto-flush when a 6th is added.
+
+### Edge cases
+
+- **Page navigation while queue non-empty**: flush all immediately. Confirmation modal first if `commitDelayMs > 0` so the user knows they're committing.
+- **Server returns an error after flush**: surface a recovery toast — "Couldn't match X to Y (server error). [retry] [edit]". The optimistic UI for that file rolls back.
+- **Two candidates accepted in rapid succession against the same file**: the second wins. Queue entries are keyed by `fileId`; pushing a new entry for the same file replaces the previous one (which was about to commit but hadn't).
+
+### Carve-out: complex actions skip the queue
+
+These commit immediately with no delay:
+- "Create new" USER_CREATED form submission (it's a multi-field form, the user is already engaged; no risk of mis-tap).
+- "Promote USER_CREATED to MB" (already has a confirmation modal showing the diff).
+- Bulk "auto-accept top candidate" action (user already chose the threshold in the dialog).
+
+Quick-keybind acceptance of an already-displayed candidate is the only flow that uses the delayed-commit queue. That's where the speed/risk tradeoff actually lives.
+
+### Why client-side and not server-side undo
+
+Server-side undo would require an audit log table + cleanup logic + UI to surface old log entries. For a 3-second hesitation window, that's overkill. Once a match flushes, it's committed; further changes go through the regular re-match flow (which is itself just another match, queueable, undoable).
 
 ## Future work
 
