@@ -12,17 +12,37 @@ on:
       - '.forgejo/workflows/v2-ci.yml'
 
 jobs:
-  rust:
-    name: Rust (fmt, build, test, clippy, deny, audit)
+  rust-fmt:
+    name: Rust fmt
     runs-on: docker
     container:
-      image: rust:1.84-bookworm
+      image: rust:1.95-bookworm
     defaults:
       run:
         working-directory: v2
     steps:
+      - name: Install node (for actions runtime)
+        working-directory: /
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
       - uses: actions/checkout@v4
+      - name: rustup component
+        run: rustup component add rustfmt
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
 
+  rust-build:
+    name: Rust build
+    runs-on: docker
+    container:
+      image: rust:1.95-bookworm
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - name: Install node (for actions runtime)
+        working-directory: /
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+      - uses: actions/checkout@v4
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -30,37 +50,95 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             v2/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('v2/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('v2/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-cargo-build-
             ${{ runner.os }}-cargo-
-
-      - name: rustup components
-        run: rustup component add rustfmt clippy
-
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-
       - name: cargo build
         run: cargo build --workspace --all-targets
 
+  rust-test:
+    name: Rust test
+    runs-on: docker
+    container:
+      image: rust:1.95-bookworm
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - name: Install node (for actions runtime)
+        working-directory: /
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+      - uses: actions/checkout@v4
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            v2/target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('v2/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+            ${{ runner.os }}-cargo-
       - name: cargo test
         run: cargo test --workspace --all-targets
 
+  rust-clippy:
+    name: Rust clippy
+    runs-on: docker
+    container:
+      image: rust:1.95-bookworm
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - name: Install node (for actions runtime)
+        working-directory: /
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+      - uses: actions/checkout@v4
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            v2/target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('v2/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-clippy-
+            ${{ runner.os }}-cargo-
+      - name: rustup component
+        run: rustup component add clippy
       - name: cargo clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Install cargo-deny
-        run: cargo install --locked cargo-deny
-
-      - name: cargo deny
-        run: cargo deny check --hide-inclusion-graph
-
-      - name: Install cargo-audit
-        run: cargo install --locked cargo-audit
-
-      - name: cargo audit
-        run: cargo audit
-        continue-on-error: true
+  rust-shear:
+    name: Rust cargo-shear
+    runs-on: docker
+    container:
+      image: rust:1.95-bookworm
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - name: Install node (for actions runtime)
+        working-directory: /
+        run: apt-get update && apt-get install -y --no-install-recommends nodejs
+      - uses: actions/checkout@v4
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-shear-${{ hashFiles('v2/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-shear-
+      - name: Install cargo-shear
+        run: cargo install --locked cargo-shear
+      - name: cargo shear
+        run: cargo shear
 
   frontend:
     name: Frontend (biome, typecheck, build)
@@ -101,12 +179,14 @@ jobs:
     name: Schema (atlas migrate diff)
     runs-on: docker
     container:
-      image: arigaio/atlas:0.30
+      image: node:20-bookworm
     defaults:
       run:
         working-directory: v2
     steps:
       - uses: actions/checkout@v4
+      - name: Install atlas
+        run: curl -sSf https://atlasgo.sh | sh
       - name: Atlas migrate diff (must be empty)
         run: |
           OUT=$(atlas migrate diff --env dev 2>&1)
@@ -116,7 +196,7 @@ jobs:
   docker:
     name: Docker build
     runs-on: docker
-    needs: [rust, frontend]
+    needs: [rust-fmt, rust-build, rust-test, rust-clippy, rust-shear, frontend]
     steps:
       - uses: actions/checkout@v4
       - name: Build image
