@@ -49,6 +49,7 @@ These are features we want eventually but aren't in v2 scope. Spec sections may 
 | Migrations | **Atlas** (declarative HCL/SQL schema) | Replaces v1's hand-written SeaORM migrations. |
 | Frontend | React 18 + TypeScript | Strictly client-side. |
 | Build (frontend) | **pnpm** + Vite | (v1 used Bun; switching to pnpm per spec.) |
+| Lint + format (frontend) | **Biome** | Single Rust-written tool replacing ESLint + Prettier. |
 | Routing | TanStack Router | Search params over local state where practical. |
 | Data fetching | TanStack Query + a typed GraphQL client (graphql-codegen → typed hooks) | |
 | Tables | TanStack Table | |

@@ -47,6 +47,9 @@ By end of phase:
 
 ## PR breakdown
 
+**1.0 — CI baseline + lint configs** (scaffolding-shaped, size unbounded)
+Set up the full CI matrix from [`conventions.md`](./conventions.md) §8 against an empty repo *before* code lands. `rustfmt.toml`, `clippy.toml`, `deny.toml`, root `tsconfig.json` baseline, `frontend/biome.json`, `lefthook.yml`. CI runs the full check set against trivially-passing targets so the matrix is wired before code starts arriving.
+
 **1.1 — Workspace skeleton** (~250)
 Cargo workspace `Cargo.toml`, all crate folders with empty `lib.rs`, root `README`, basic `.gitignore`.
 

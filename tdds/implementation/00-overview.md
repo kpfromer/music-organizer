@@ -4,6 +4,10 @@
 >
 > **This is a plan, not a contract.** Reality always rearranges things. Update phase docs as you go; don't pretend the original plan was right.
 
+## Before any phase begins
+
+**Read [`conventions.md`](./conventions.md) first.** It's the contract every PR follows: rust + TypeScript style, error handling, architectural rules, DB conventions, the full CI check matrix, branch protection, and how to propose changes to itself. Phase 1's first PR is *not* PR 1.1 — it's setting up the CI checks defined there.
+
 ## Phases
 
 1. **[Foundation](./01-foundation.md)** — workspace, DB schema, migrations, server skeleton, healthz.
