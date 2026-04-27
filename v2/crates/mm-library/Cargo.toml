@@ -1,0 +1,17 @@
+[package]
+name = "mm-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Read-only browse/search services: artists, albums, tracks, files, pagination"
+
+[lints]
+workspace = true
+
+[dependencies]
+mm-entities = { path = "../mm-entities" }
+sea-orm.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+async-trait.workspace = true

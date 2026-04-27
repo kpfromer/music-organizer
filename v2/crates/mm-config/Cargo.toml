@@ -1,0 +1,14 @@
+[package]
+name = "mm-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Env-var configuration for music-manager. The only crate that reads std::env."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true

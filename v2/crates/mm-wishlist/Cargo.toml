@@ -1,0 +1,19 @@
+[package]
+name = "mm-wishlist"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Wishlist worker — soulseek-backed acquisition with retry/backoff (per TDD 08)"
+
+[lints]
+workspace = true
+
+[dependencies]
+mm-entities = { path = "../mm-entities" }
+mm-import = { path = "../mm-import" }
+sea-orm.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
