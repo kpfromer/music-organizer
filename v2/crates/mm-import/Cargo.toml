@@ -1,0 +1,20 @@
+[package]
+name = "mm-import"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Import pipeline: tag read → fingerprint → MB lookup → audio-check → move → DB upsert"
+
+[lints]
+workspace = true
+
+[dependencies]
+mm-entities = { path = "../mm-entities" }
+mm-storage = { path = "../mm-storage" }
+mm-config = { path = "../mm-config" }
+sea-orm.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+async-trait.workspace = true

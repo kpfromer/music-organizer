@@ -1,0 +1,40 @@
+[package]
+name = "mm-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "music-manager binary: axum + async-graphql + watchers + workers"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "mm-server"
+path = "src/main.rs"
+
+[dependencies]
+mm-config = { path = "../mm-config" }
+mm-entities = { path = "../mm-entities" }
+mm-migrate = { path = "../mm-migrate" }
+mm-library = { path = "../mm-library" }
+mm-import = { path = "../mm-import" }
+mm-storage = { path = "../mm-storage" }
+mm-playlist = { path = "../mm-playlist" }
+mm-wishlist = { path = "../mm-wishlist" }
+mm-matching = { path = "../mm-matching" }
+mm-playback = { path = "../mm-playback" }
+
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+async-graphql.workspace = true
+async-graphql-axum.workspace = true
+sea-orm.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true

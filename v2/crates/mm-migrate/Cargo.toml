@@ -1,0 +1,21 @@
+[package]
+name = "mm-migrate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Embeds versioned .sql migrations and applies them at runtime"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+include_dir.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

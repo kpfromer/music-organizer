@@ -1,6 +1,18 @@
 [workspace]
 resolver = "3"
-members = []
+members = [
+    "crates/mm-config",
+    "crates/mm-entities",
+    "crates/mm-migrate",
+    "crates/mm-storage",
+    "crates/mm-import",
+    "crates/mm-library",
+    "crates/mm-playlist",
+    "crates/mm-wishlist",
+    "crates/mm-matching",
+    "crates/mm-playback",
+    "crates/mm-server",
+]
 
 [workspace.package]
 version = "0.1.0"

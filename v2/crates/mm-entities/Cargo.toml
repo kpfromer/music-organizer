@@ -1,0 +1,15 @@
+[package]
+name = "mm-entities"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "SeaORM entity definitions for the music-manager schema"
+
+[lints]
+workspace = true
+
+[dependencies]
+sea-orm.workspace = true
+serde.workspace = true
+chrono.workspace = true
