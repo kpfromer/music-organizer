@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/mm-config",
+    "crates/mm-types",
     "crates/mm-entities",
     "crates/mm-migrate",
     "crates/mm-storage",
@@ -74,5 +75,9 @@ parking_lot = "0.12"
 governor = "0.6"
 notify = "8"
 async-channel = "2"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
+camino = { version = "1", features = ["serde1"] }
+
+# Internal crates
+mm-types = { path = "crates/mm-types" }
